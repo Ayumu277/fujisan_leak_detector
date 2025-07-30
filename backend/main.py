@@ -5,12 +5,15 @@ import os
 import json
 import uuid
 import base64
+import re
 from datetime import datetime
 from typing import Dict, List, Optional
 from io import BytesIO
 from dotenv import load_dotenv
 from PIL import Image
 import serpapi
+import httpx
+from bs4 import BeautifulSoup
 
 # 環境変数を読み込み
 load_dotenv()
@@ -89,6 +92,47 @@ def save_records():
 # アプリ起動時に記録を読み込み
 load_records()
 
+# 公式ドメインリスト（ハードコード）
+OFFICIAL_DOMAINS = [
+    # 日本の出版社・書店
+    'amazon.com', 'amazon.co.jp', 'rakuten.co.jp', 'bookwalker.jp',
+    'kadokawa.co.jp', 'shogakukan.co.jp', 'kodansha.co.jp',
+    'shueisha.co.jp', 'akitashoten.co.jp', 'hakusensha.co.jp',
+    'square-enix.co.jp', 'enterbrain.co.jp', 'futabasha.co.jp',
+    'houbunsha.co.jp', 'mag-garden.co.jp', 'shinchosha.co.jp',
+
+    # 海外の出版社・書店
+    'viz.com', 'crunchyroll.com', 'funimation.com',
+    'comixology.com', 'marvel.com', 'dc.com',
+    'darkhorse.com', 'imagecomics.com', 'idwpublishing.com',
+
+    # 電子書籍プラットフォーム
+    'kindle.amazon.com', 'kobo.rakuten.co.jp', 'ebookjapan.yahoo.co.jp',
+    'cmoa.jp', 'booklive.jp', 'honto.jp', 'tsutaya.tsite.jp',
+
+    # 公式サイト例
+    'publisher.co.jp', 'official-site.com'
+]
+
+# 悪用判定キーワードリスト
+SUSPICIOUS_KEYWORDS = [
+    # 日本語キーワード
+    '無料ダウンロード', '違法', 'コピー', '海賊版', 'パイレーツ',
+    '無断転載', '著作権侵害', 'crack', 'torrent', 'アップロード',
+    'リーク', 'ネタバレ', '先行公開', '非公式', 'ファンサイト',
+
+    # 英語キーワード
+    'free download', 'illegal', 'piracy', 'pirate', 'copyright infringement',
+    'unauthorized', 'leaked', 'ripped', 'cracked', 'bootleg',
+    'fansite', 'fan translation', 'scanlation', 'raw manga'
+]
+
+# 危険キーワードリスト
+DANGER_KEYWORDS = [
+    'torrent', 'magnet', 'ダウンロード違法', '海賊版配布',
+    'copyright violation', 'stolen content', 'illegal distribution'
+]
+
 def validate_image_file(file: UploadFile) -> bool:
     """アップロードされたファイルが有効な画像かどうかを検証"""
     allowed_types = ["image/jpeg", "image/png", "image/jpg", "image/gif", "image/webp"]
@@ -99,27 +143,147 @@ def encode_image_to_base64(image_path: str) -> str:
     with open(image_path, "rb") as image_file:
         return base64.b64encode(image_file.read()).decode('utf-8')
 
+async def check_domain_and_analyze(url: str, domain: str) -> Dict[str, str]:
+    """ドメインを分析し、必要に応じてHTMLを取得して内容を分析する"""
+
+    # 公式ドメインチェック
+    is_official = any(official_domain in domain.lower() for official_domain in OFFICIAL_DOMAINS)
+
+    if is_official:
+        return {
+            "status": "safe",
+            "reason": "公式ドメインです",
+            "content_analysis": None
+        }
+
+    # 非公式の場合、HTMLを取得して分析
+    try:
+        async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
+            # User-Agentを設定してアクセス
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+
+            response = await client.get(url, headers=headers)
+            response.raise_for_status()
+
+            # HTMLをパース
+            soup = BeautifulSoup(response.text, 'html.parser')
+
+            # JavaScriptやCSSを除去
+            for script in soup(["script", "style"]):
+                script.decompose()
+
+            # テキスト内容を抽出
+            text_content = soup.get_text()
+
+            # 改行や空白を整理
+            lines = (line.strip() for line in text_content.splitlines())
+            chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
+            text = ' '.join(chunk for chunk in chunks if chunk)
+
+            # テキスト内容を制限（最初の2000文字）
+            text = text[:2000]
+
+            # X(Twitter)の特別処理
+            if 'twitter.com' in domain or 'x.com' in domain:
+                return await analyze_twitter_content(text, url)
+
+            # 悪用判定
+            return analyze_content_for_violations(text, domain)
+
+    except httpx.TimeoutException:
+        return {
+            "status": "unknown",
+            "reason": "サイトへのアクセスがタイムアウトしました",
+            "content_analysis": None
+        }
+    except httpx.HTTPStatusError as e:
+        return {
+            "status": "unknown",
+            "reason": f"HTTP エラー: {e.response.status_code}",
+            "content_analysis": None
+        }
+    except Exception as e:
+        return {
+            "status": "unknown",
+            "reason": f"分析中にエラーが発生しました: {str(e)}",
+            "content_analysis": None
+        }
+
+async def analyze_twitter_content(text: str, url: str) -> Dict[str, str]:
+    """Twitter/X投稿の内容を分析する"""
+    text_lower = text.lower()
+
+    # Twitter特有の悪用パターンをチェック
+    twitter_suspicious_patterns = [
+        'ダウンロードはこちら', 'download here', 'link in bio',
+        'dm for link', 'リンクは dm で', '詳細は dm',
+        'free manga', 'フリー漫画', '無料で読める'
+    ]
+
+    if any(pattern in text_lower for pattern in twitter_suspicious_patterns):
+        return {
+            "status": "suspicious",
+            "reason": "Twitter投稿に疑わしい内容が含まれています",
+            "content_analysis": f"投稿内容（一部）: {text[:200]}..."
+        }
+
+    # 通常の悪用判定
+    return analyze_content_for_violations(text, 'twitter.com')
+
+def analyze_content_for_violations(text: str, domain: str) -> Dict[str, str]:
+    """テキスト内容から著作権侵害や悪用を判定する"""
+    text_lower = text.lower()
+
+    # 危険キーワードチェック（最優先）
+    found_danger_keywords = [keyword for keyword in DANGER_KEYWORDS if keyword.lower() in text_lower]
+    if found_danger_keywords:
+        return {
+            "status": "danger",
+            "reason": f"危険なキーワードが検出されました: {', '.join(found_danger_keywords)}",
+            "content_analysis": f"分析対象テキスト（一部）: {text[:300]}..."
+        }
+
+    # 疑わしいキーワードチェック
+    found_suspicious_keywords = [keyword for keyword in SUSPICIOUS_KEYWORDS if keyword.lower() in text_lower]
+    if found_suspicious_keywords:
+        return {
+            "status": "suspicious",
+            "reason": f"疑わしいキーワードが検出されました: {', '.join(found_suspicious_keywords)}",
+            "content_analysis": f"分析対象テキスト（一部）: {text[:300]}..."
+        }
+
+    # ドメインベースの判定
+    if any(suspicious in domain for suspicious in ['free', 'download', 'torrent', 'pirate']):
+        return {
+            "status": "suspicious",
+            "reason": "ドメイン名に疑わしい要素が含まれています",
+            "content_analysis": None
+        }
+
+    # 安全と判定
+    return {
+        "status": "medium",
+        "reason": "特に問題は検出されませんでした",
+        "content_analysis": None
+    }
+
 def analyze_domain(url: str) -> tuple[str, bool, str]:
-    """URLからドメインを抽出し、公式サイトか判定し、脅威レベルを評価"""
+    """URLからドメインを抽出し、基本的な脅威レベルを評価（後方互換性のため残す）"""
     from urllib.parse import urlparse
 
     domain = urlparse(url).netloc.lower()
+    is_official = any(official_domain in domain for official_domain in OFFICIAL_DOMAINS)
 
-    # 公式サイトかどうかの判定（簡易版）
-    official_domains = [
-        'amazon.com', 'amazon.co.jp', 'rakuten.co.jp', 'bookwalker.jp',
-        'kadokawa.co.jp', 'shogakukan.co.jp', 'kodansha.co.jp',
-        'shueisha.co.jp', 'akitashoten.co.jp', 'viz.com'
-    ]
-
-    is_official = any(official in domain for official in official_domains)
-
-    # 脅威レベルの評価（簡易版）
+    # 基本的な脅威レベル評価
     if is_official:
         threat_level = "safe"
-    elif any(suspicious in domain for suspicious in ['free', 'download', 'torrent', 'manga']):
-        threat_level = "high"
-    elif domain.endswith('.com') or domain.endswith('.jp'):
+    elif any(dangerous in domain for dangerous in ['torrent', 'pirate', 'illegal']):
+        threat_level = "danger"
+    elif any(suspicious in domain for suspicious in ['free', 'download', 'manga', 'raw']):
+        threat_level = "suspicious"
+    elif domain.endswith('.com') or domain.endswith('.jp') or domain.endswith('.org'):
         threat_level = "medium"
     else:
         threat_level = "unknown"
@@ -150,7 +314,7 @@ async def search_similar_images(image_path: str) -> List[Dict]:
         # 検索結果を解析
         processed_results = []
 
-        # 類似画像の結果を処理
+                # 類似画像の結果を処理
         if "image_results" in results:
             for item in results["image_results"][:10]:  # 上位10件
                 url = item.get("link", "")
@@ -158,7 +322,18 @@ async def search_similar_images(image_path: str) -> List[Dict]:
                 source = item.get("source", "")
 
                 if url and title:
-                    domain, is_official, threat_level = analyze_domain(url)
+                    domain, is_official, basic_threat_level = analyze_domain(url)
+
+                    # 詳細分析を実行
+                    try:
+                        detailed_analysis = await check_domain_and_analyze(url, domain)
+                    except Exception as e:
+                        print(f"詳細分析エラー ({url}): {e}")
+                        detailed_analysis = {
+                            "status": "unknown",
+                            "reason": f"分析エラー: {str(e)}",
+                            "content_analysis": None
+                        }
 
                     processed_results.append({
                         "url": url,
@@ -166,8 +341,10 @@ async def search_similar_images(image_path: str) -> List[Dict]:
                         "title": title,
                         "source": source,
                         "is_official": is_official,
-                        "threat_level": threat_level,
-                        "thumbnail": item.get("thumbnail", "")
+                        "threat_level": basic_threat_level,
+                        "detailed_analysis": detailed_analysis,
+                        "thumbnail": item.get("thumbnail", ""),
+                        "analysis_timestamp": datetime.now().isoformat()
                     })
 
         # テキスト検索結果も処理
@@ -178,7 +355,18 @@ async def search_similar_images(image_path: str) -> List[Dict]:
                 source = item.get("source", "")
 
                 if url and title:
-                    domain, is_official, threat_level = analyze_domain(url)
+                    domain, is_official, basic_threat_level = analyze_domain(url)
+
+                    # 詳細分析を実行
+                    try:
+                        detailed_analysis = await check_domain_and_analyze(url, domain)
+                    except Exception as e:
+                        print(f"詳細分析エラー ({url}): {e}")
+                        detailed_analysis = {
+                            "status": "unknown",
+                            "reason": f"分析エラー: {str(e)}",
+                            "content_analysis": None
+                        }
 
                     processed_results.append({
                         "url": url,
@@ -186,8 +374,10 @@ async def search_similar_images(image_path: str) -> List[Dict]:
                         "title": title,
                         "source": source,
                         "is_official": is_official,
-                        "threat_level": threat_level,
-                        "thumbnail": item.get("thumbnail", "")
+                        "threat_level": basic_threat_level,
+                        "detailed_analysis": detailed_analysis,
+                        "thumbnail": item.get("thumbnail", ""),
+                        "analysis_timestamp": datetime.now().isoformat()
                     })
 
         return processed_results
@@ -426,26 +616,55 @@ async def get_search_results(image_id: str):
 
     results = search_results[image_id]
 
-    # 結果を脅威レベル別に分類
-    safe_results = [r for r in results if r["is_official"] or r["threat_level"] == "safe"]
-    medium_results = [r for r in results if r["threat_level"] == "medium"]
-    high_risk_results = [r for r in results if r["threat_level"] == "high"]
+        # 結果を詳細分析ステータス別に分類
+    safe_results = []
+    suspicious_results = []
+    danger_results = []
+    medium_results = []
+    unknown_results = []
+
+    for r in results:
+        detailed_status = r.get("detailed_analysis", {}).get("status", "unknown")
+
+        if r["is_official"] or detailed_status == "safe":
+            safe_results.append(r)
+        elif detailed_status == "danger":
+            danger_results.append(r)
+        elif detailed_status == "suspicious":
+            suspicious_results.append(r)
+        elif detailed_status == "medium":
+            medium_results.append(r)
+        else:
+            unknown_results.append(r)
+
+    # 脅威レベルの統計
+    threat_analysis = {
+        "safe_sources": len(safe_results),
+        "suspicious_sources": len(suspicious_results),
+        "danger_sources": len(danger_results),
+        "medium_risk": len(medium_results),
+        "unknown_sources": len(unknown_results),
+        "official_sources": len([r for r in results if r["is_official"]]),
+        "analyzed_sources": len([r for r in results if r.get("detailed_analysis", {}).get("content_analysis")])
+    }
 
     return {
         "success": True,
         "image_id": image_id,
         "total_results": len(results),
-        "analysis": {
-            "safe_sources": len(safe_results),
-            "medium_risk": len(medium_results),
-            "high_risk": len(high_risk_results),
-            "official_sources": len([r for r in results if r["is_official"]])
-        },
+        "analysis": threat_analysis,
         "results": {
             "all": results,
             "safe": safe_results,
+            "suspicious": suspicious_results,
+            "danger": danger_results,
             "medium_risk": medium_results,
-            "high_risk": high_risk_results
+            "unknown": unknown_results
+        },
+        "detailed_analysis_summary": {
+            "has_danger_sources": len(danger_results) > 0,
+            "has_suspicious_sources": len(suspicious_results) > 0,
+            "risk_level": "high" if danger_results else "medium" if suspicious_results else "low"
         }
     }
 
