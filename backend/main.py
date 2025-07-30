@@ -15,10 +15,28 @@ load_dotenv()
 
 app = FastAPI(title="Book Leak Detector", version="1.0.0")
 
-# 環境変数からAPI_KEYを取得
-API_KEY = os.getenv("API_KEY") or os.getenv("SERPAPI_KEY")
-if not API_KEY:
-    print("警告: API_KEYが設定されていません。.envファイルでAPI_KEYまたはSERPAPI_KEYを設定してください。")
+# 環境変数から各種API_KEYを取得
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+GOOGLE_CSE_ID = os.getenv("GOOGLE_CSE_ID")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+
+# API_KEYの設定状況をチェック
+missing_keys = []
+if not GOOGLE_API_KEY:
+    missing_keys.append("GOOGLE_API_KEY")
+if not GOOGLE_CSE_ID:
+    missing_keys.append("GOOGLE_CSE_ID")
+if not GEMINI_API_KEY:
+    missing_keys.append("GEMINI_API_KEY")
+
+if missing_keys:
+    print(f"警告: 以下の環境変数が設定されていません: {', '.join(missing_keys)}")
+    print("完全な機能を使用するには、.envファイルで以下を設定してください:")
+    print("- GOOGLE_API_KEY: Google API用")
+    print("- GOOGLE_CSE_ID: Google Custom Search Engine ID用")
+    print("- GEMINI_API_KEY: Gemini AI用")
+else:
+    print("✓ すべてのAPI_KEYが正常に設定されています")
 
 # CORS設定
 app.add_middleware(
@@ -73,21 +91,25 @@ def validate_image_file(file: UploadFile) -> bool:
 async def root():
     return {
         "message": "Book Leak Detector API",
-        "api_key_configured": API_KEY is not None,
+        "api_keys": {
+            "google_api_key_configured": GOOGLE_API_KEY is not None,
+            "google_cse_id_configured": GOOGLE_CSE_ID is not None,
+            "gemini_api_key_configured": GEMINI_API_KEY is not None
+        },
         "upload_count": len(upload_records)
     }
 
 @app.post("/upload")
 async def upload_image(file: UploadFile = File(...)):
     """画像をアップロードして保存する"""
-    
+
     # ファイル検証
     if not validate_image_file(file):
         raise HTTPException(
             status_code=400,
             detail="無効なファイル形式です。JPEG、PNG、GIF、WebP形式の画像をアップロードしてください。"
         )
-    
+
     # ファイルサイズ制限（10MB）
     content = await file.read()
     if len(content) > 10 * 1024 * 1024:
@@ -95,7 +117,7 @@ async def upload_image(file: UploadFile = File(...)):
             status_code=400,
             detail="ファイルサイズが大きすぎます。10MB以下の画像をアップロードしてください。"
         )
-    
+
     try:
         # 画像の有効性を確認（バイトデータから）
         image = Image.open(BytesIO(content))
@@ -105,13 +127,13 @@ async def upload_image(file: UploadFile = File(...)):
             status_code=400,
             detail="破損した画像ファイルです。有効な画像をアップロードしてください。"
         )
-    
+
     # 一意のファイル名を生成
     file_id = str(uuid.uuid4())
     file_extension = os.path.splitext(file.filename)[1].lower()
     safe_filename = f"{file_id}{file_extension}"
     file_path = os.path.join(UPLOAD_DIR, safe_filename)
-    
+
     # ファイルを保存
     try:
         with open(file_path, "wb") as f:
@@ -121,7 +143,7 @@ async def upload_image(file: UploadFile = File(...)):
             status_code=500,
             detail=f"ファイルの保存に失敗しました: {str(e)}"
         )
-    
+
     # 記録を保存
     upload_record = {
         "id": file_id,
@@ -133,10 +155,10 @@ async def upload_image(file: UploadFile = File(...)):
         "upload_time": datetime.now().isoformat(),
         "status": "uploaded"
     }
-    
+
     upload_records[file_id] = upload_record
     save_records()
-    
+
     return {
         "success": True,
         "file_id": file_id,
@@ -156,7 +178,7 @@ async def get_upload_history():
         key=lambda x: x["upload_time"],
         reverse=True
     )
-    
+
     return {
         "success": True,
         "count": len(sorted_records),
@@ -171,14 +193,14 @@ async def get_upload_details(file_id: str):
             status_code=404,
             detail="指定されたファイルが見つかりません。"
         )
-    
+
     record = upload_records[file_id]
-    
+
     # ファイルが実際に存在するかチェック
     if not os.path.exists(record["file_path"]):
         record["status"] = "file_missing"
         save_records()
-    
+
     return {
         "success": True,
         "file": record
@@ -192,20 +214,20 @@ async def delete_upload(file_id: str):
             status_code=404,
             detail="指定されたファイルが見つかりません。"
         )
-    
+
     record = upload_records[file_id]
-    
+
     # ファイルを削除
     try:
         if os.path.exists(record["file_path"]):
             os.remove(record["file_path"])
     except Exception as e:
         print(f"ファイル削除エラー: {e}")
-    
+
     # 記録から削除
     del upload_records[file_id]
     save_records()
-    
+
     return {
         "success": True,
         "message": f"ファイル {record['original_filename']} を削除しました。"
@@ -216,10 +238,16 @@ async def health_check():
     """ヘルスチェックエンドポイント"""
     return {
         "status": "healthy",
-        "api_key_configured": API_KEY is not None,
-        "upload_directory_exists": os.path.exists(UPLOAD_DIR),
-        "records_file_exists": os.path.exists(RECORDS_FILE),
-        "total_uploads": len(upload_records)
+        "api_keys": {
+            "google_api_key_configured": GOOGLE_API_KEY is not None,
+            "google_cse_id_configured": GOOGLE_CSE_ID is not None,
+            "gemini_api_key_configured": GEMINI_API_KEY is not None
+        },
+        "system": {
+            "upload_directory_exists": os.path.exists(UPLOAD_DIR),
+            "records_file_exists": os.path.exists(RECORDS_FILE),
+            "total_uploads": len(upload_records)
+        }
     }
 
 if __name__ == "__main__":
