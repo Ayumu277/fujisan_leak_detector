@@ -8,3 +8,4 @@ python-dotenv==1.0.0
 serpapi==0.1.5
 google-cloud-vision==3.4.4
 requests==2.31.0
+google-generativeai

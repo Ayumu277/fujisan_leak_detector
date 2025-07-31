@@ -4,19 +4,20 @@ from fastapi.staticfiles import StaticFiles
 import os
 import json
 import uuid
-import base64
+# base64 は不要（Vision API WEB_DETECTIONを使用）
 import re
 import logging
-import requests
+# requests は不要（httpxを使用）
 from datetime import datetime
 from typing import Dict, List, Optional
 from io import BytesIO
 from dotenv import load_dotenv
 from PIL import Image
-import serpapi
+# serpapi は不要（Vision API WEB_DETECTIONを使用）
 import httpx
 from bs4 import BeautifulSoup
 from google.cloud import vision
+import google.generativeai as genai
 
 # ログ設定
 logging.basicConfig(level=logging.INFO)
@@ -48,33 +49,31 @@ load_dotenv()
 
 app = FastAPI(title="Book Leak Detector", version="1.0.0")
 
-# 環境変数から各種API_KEYを取得
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-GOOGLE_CSE_ID = os.getenv("GOOGLE_CSE_ID")
+# 環境変数から必要なAPI_KEYを取得
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-SERPAPI_KEY = os.getenv("SERPAPI_KEY")
 GOOGLE_APPLICATION_CREDENTIALS = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+
+# Gemini APIの設定
+if GEMINI_API_KEY:
+    genai.configure(api_key=GEMINI_API_KEY)
+    logger.info("✅ Gemini API設定完了")
+else:
+    logger.warning("⚠️ GEMINI_API_KEY が設定されていません")
 
 # API_KEYの設定状況をチェック
 missing_keys = []
-if not GOOGLE_API_KEY:
-    missing_keys.append("GOOGLE_API_KEY")
-if not GOOGLE_CSE_ID:
-    missing_keys.append("GOOGLE_CSE_ID")
 if not GEMINI_API_KEY:
     missing_keys.append("GEMINI_API_KEY")
-if not SERPAPI_KEY:
-    missing_keys.append("SERPAPI_KEY")
+if not GOOGLE_APPLICATION_CREDENTIALS:
+    missing_keys.append("GOOGLE_APPLICATION_CREDENTIALS")
 
 if missing_keys:
     print(f"警告: 以下の環境変数が設定されていません: {', '.join(missing_keys)}")
     print("完全な機能を使用するには、.envファイルで以下を設定してください:")
-    print("- GOOGLE_API_KEY: Google API用")
-    print("- GOOGLE_CSE_ID: Google Custom Search Engine ID用")
     print("- GEMINI_API_KEY: Gemini AI用")
-    print("- SERPAPI_KEY: SerpAPI画像検索用")
+    print("- GOOGLE_APPLICATION_CREDENTIALS: Google Vision API用サービスアカウントキー")
 else:
-    print("✓ すべてのAPI_KEYが正常に設定されています")
+    print("✓ 必要なAPI_KEYが正常に設定されています")
 
 # CORS設定
 app.add_middleware(
@@ -124,692 +123,207 @@ def save_records():
 # アプリ起動時に記録を読み込み
 load_records()
 
-# 公式ドメインリスト（ハードコード）
-OFFICIAL_DOMAINS = [
-    # 日本の出版社・書店
-    'amazon.com', 'amazon.co.jp', 'rakuten.co.jp', 'bookwalker.jp',
-    'kadokawa.co.jp', 'shogakukan.co.jp', 'kodansha.co.jp',
-    'shueisha.co.jp', 'akitashoten.co.jp', 'hakusensha.co.jp',
-    'square-enix.co.jp', 'enterbrain.co.jp', 'futabasha.co.jp',
-    'houbunsha.co.jp', 'mag-garden.co.jp', 'shinchosha.co.jp',
+# 公式ドメインリストは削除（Gemini AIで動的判定）
 
-    # 海外の出版社・書店
-    'viz.com', 'crunchyroll.com', 'funimation.com',
-    'comixology.com', 'marvel.com', 'dc.com',
-    'darkhorse.com', 'imagecomics.com', 'idwpublishing.com',
+# Vision APIクライアントをグローバルで初期化
+vision_client = vision.ImageAnnotatorClient()
 
-    # 電子書籍プラットフォーム
-    'kindle.amazon.com', 'kobo.rakuten.co.jp', 'ebookjapan.yahoo.co.jp',
-    'cmoa.jp', 'booklive.jp', 'honto.jp', 'tsutaya.tsite.jp',
-
-    # 公式サイト例
-    'publisher.co.jp', 'official-site.com'
-]
-
-# 悪用判定キーワードリスト
-SUSPICIOUS_KEYWORDS = [
-    # 日本語キーワード
-    '無料ダウンロード', '違法', 'コピー', '海賊版', 'パイレーツ',
-    '無断転載', '著作権侵害', 'crack', 'torrent', 'アップロード',
-    'リーク', 'ネタバレ', '先行公開', '非公式', 'ファンサイト',
-
-    # 英語キーワード
-    'free download', 'illegal', 'piracy', 'pirate', 'copyright infringement',
-    'unauthorized', 'leaked', 'ripped', 'cracked', 'bootleg',
-    'fansite', 'fan translation', 'scanlation', 'raw manga'
-]
-
-# 危険キーワードリスト
-DANGER_KEYWORDS = [
-    'torrent', 'magnet', 'ダウンロード違法', '海賊版配布',
-    'copyright violation', 'stolen content', 'illegal distribution'
-]
+# Geminiモデルをグローバルで初期化
+if GEMINI_API_KEY:
+    gemini_model = genai.GenerativeModel('gemini-1.5-flash')
+    logger.info("✅ Gemini モデル初期化完了")
+else:
+    gemini_model = None
+    logger.warning("⚠️ Gemini モデルを初期化できませんでした")
 
 def validate_image_file(file: UploadFile) -> bool:
     """アップロードされたファイルが有効な画像かどうかを検証"""
     allowed_types = ["image/jpeg", "image/png", "image/jpg", "image/gif", "image/webp"]
     return file.content_type in allowed_types
 
-def encode_image_to_base64(image_path: str) -> str:
-    """画像ファイルをBase64エンコードする"""
-    with open(image_path, "rb") as image_file:
-        return base64.b64encode(image_file.read()).decode('utf-8')
+# Base64エンコード関数は削除（不要）
 
-async def analyze_image_with_vision(image_path: str) -> Dict:
-    """Google Vision APIを使って画像を分析する"""
-    logger.info(f"🔍 Google Vision API画像分析開始: {image_path}")
+def search_web_for_image(image_content: bytes) -> list[str]:
+    """
+    画像コンテンツを受け取り、Google Cloud Vision APIのWEB_DETECTIONを使って
+    類似・同一画像が使用されているURLのリストを返す。
+    """
+    logger.info("🔍 Google Vision API WEB_DETECTION検索開始")
 
     try:
-        # Vision APIクライアントを初期化
-        client = vision.ImageAnnotatorClient()
+        image = vision.Image(content=image_content)
+        response = vision_client.web_detection(image=image)
+        web_detection = response.web_detection
 
-        # 画像を読み込み
-        with open(image_path, 'rb') as image_file:
-            content = image_file.read()
-        image = vision.Image(content=content)
+        # URLを選別し、ページのURLを優先する
+        page_urls = [page.url for page in web_detection.pages_with_matching_images if page.url] if web_detection.pages_with_matching_images else []
 
-        # テキスト検出
-        text_response = client.text_detection(image=image)
-        texts = text_response.text_annotations
+        # 画像URLは参考程度に収集
+        image_urls = []
+        if web_detection.full_matching_images:
+            image_urls.extend(img.url for img in web_detection.full_matching_images if img.url)
+        if web_detection.partial_matching_images:
+            image_urls.extend(img.url for img in web_detection.partial_matching_images if img.url)
 
-        # オブジェクト検出
-        objects_response = client.object_localization(image=image)
-        objects = objects_response.localized_object_annotations
+        # 重複を除去し、ページURLを優先したリストを作成
+        seen = set()
+        unique_urls = []
 
-        # ラベル検出
-        labels_response = client.label_detection(image=image)
-        labels = labels_response.label_annotations
+        # page_urls を先に追加
+        for url in page_urls:
+            if url not in seen:
+                unique_urls.append(url)
+                seen.add(url)
 
-        # 検出されたテキストを結合
-        detected_text = ""
-        if texts:
-            detected_text = texts[0].description
+        # image_urls を追加（既にseenにあるものはスキップ）
+        for url in image_urls:
+            if url not in seen:
+                unique_urls.append(url)
+                seen.add(url)
 
-        # オブジェクト名を収集
-        detected_objects = [obj.name for obj in objects]
+        url_list = unique_urls
+        logger.info(f"🌐 発見されたユニークURL: {len(url_list)}件")
+        for i, url in enumerate(url_list[:5]):  # 最初の5件をログに表示
+            logger.info(f"  {i+1}: {url}")
 
-        # ラベル名を収集
-        detected_labels = [label.description for label in labels]
-
-        logger.info(f"📝 検出テキスト: {detected_text[:100] if detected_text else 'なし'}")
-        logger.info(f"🎯 検出オブジェクト: {detected_objects}")
-        logger.info(f"🏷️ 検出ラベル: {detected_labels}")
-
-        # 書籍・漫画関連の判定
-        is_book_related = False
-        suspicious_keywords = []
-
-        # 検出されたテキスト・オブジェクト・ラベルを全て確認
-        all_detected_content = (detected_text + " " + " ".join(detected_objects) + " " + " ".join(detected_labels)).lower()
-
-        # 書籍・漫画関連キーワード
-        book_keywords = ["book", "manga", "comic", "novel", "text", "page", "chapter", "読む", "本", "漫画", "小説"]
-        is_book_related = any(keyword in all_detected_content for keyword in book_keywords)
-
-        # 違法・疑わしいキーワード
-        illegal_keywords = ["無料", "free", "download", "違法", "コピー", "raw", "torrent", "piracy"]
-        for keyword in illegal_keywords:
-            if keyword in all_detected_content:
-                suspicious_keywords.append(keyword)
-
-        logger.info(f"📚 書籍関連: {is_book_related}")
-        logger.info(f"⚠️ 疑わしいキーワード: {suspicious_keywords}")
-
-        return {
-            "detected_text": detected_text,
-            "detected_objects": detected_objects,
-            "detected_labels": detected_labels,
-            "is_book_related": is_book_related,
-            "suspicious_keywords": suspicious_keywords,
-            "analysis_success": True,
-            "debug_info": {
-                "all_detected_content": all_detected_content,
-                "book_keywords_found": [k for k in book_keywords if k in all_detected_content],
-                "illegal_keywords_found": [k for k in illegal_keywords if k in all_detected_content]
-            }
-        }
+        return url_list
 
     except Exception as e:
-        logger.error(f"❌ Vision API分析エラー: {str(e)}")
-        return {
-            "detected_text": "",
-            "detected_objects": [],
-            "detected_labels": [],
-            "is_book_related": False,
-            "suspicious_keywords": [],
-            "analysis_success": False,
-            "error": str(e)
-        }
+        logger.error(f"❌ WEB_DETECTION エラー: {str(e)}")
+        return []
 
-async def check_domain_and_analyze(url: str, domain: str) -> Dict[str, str]:
-    """ドメインを分析し、必要に応じてHTMLを取得して内容を分析する"""
+def scrape_page_content(url: str) -> str | None:
+    """
+    URLのページからタイトルと本文の一部を抽出する。
+    画像URLやHTML以外のコンテンツはスキップする。
+    """
+    # 1. 拡張子とドメインで簡易フィルタリング
+    image_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp']
+    if any(url.lower().endswith(ext) for ext in image_extensions):
+        logger.info(f"⏭️  画像拡張子のためスキップ: {url}")
+        return None
 
-    logger.info(f"🔍 ドメイン分析開始: {domain}")
+    image_host_domains = ['pbs.twimg.com', 'm.media-amazon.com', 'img-cdn.theqoo.net']
+    if any(domain in url for domain in image_host_domains):
+        logger.info(f"⏭️  画像ホスティングドメインのためスキップ: {url}")
+        return None
 
-    # 公式ドメインチェック
-    is_official = any(official_domain in domain.lower() for official_domain in OFFICIAL_DOMAINS)
-
-    if is_official:
-        logger.info(f"✅ 公式ドメインを検出: {domain}")
-        return {
-            "status": "safe",
-            "reason": "公式ドメインです",
-            "content_analysis": None
-        }
-
-    logger.info(f"🌐 HTML取得開始: {url}")
-
-    # 非公式の場合、HTMLを取得して分析
+    logger.info(f"🌐 スクレイピング開始: {url}")
     try:
-        async with httpx.AsyncClient(timeout=10.0, follow_redirects=True) as client:
-            # User-Agentを設定してアクセス
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-            }
+        with httpx.Client(timeout=10.0, follow_redirects=True) as client:
+            # 2. Content-Typeを事前確認
+            try:
+                head_response = client.head(url, headers={'User-Agent': 'Mozilla/5.0'})
+                content_type = head_response.headers.get('content-type', '').lower()
+                if 'text/html' not in content_type:
+                    logger.info(f"⏭️  HTMLでないためスキップ (Content-Type: {content_type}): {url}")
+                    return None
+            except httpx.RequestError as e:
+                logger.warning(f"⚠️ HEADリクエスト失敗 (GETで続行): {e}")
 
-            logger.info(f"📡 HTTP リクエスト送信: {url}")
-            response = await client.get(url, headers=headers)
+            # 3. GETリクエストでコンテンツ取得
+            response = client.get(url, headers={'User-Agent': 'Mozilla/5.0'})
             response.raise_for_status()
 
-            logger.info(f"✅ HTTP レスポンス受信: {response.status_code}, {len(response.text)} chars")
+        # 4. BeautifulSoupで解析
+        soup = BeautifulSoup(response.text, 'html.parser')
+        title = soup.title.string if soup.title else ""
+        body_text = " ".join([p.get_text() for p in soup.find_all('p', limit=5)])
 
-            # HTMLをパース
-            soup = BeautifulSoup(response.text, 'html.parser')
+        content = f"Title: {title.strip()}\\n\\nBody: {body_text.strip()}"
+        logger.info(f"📝 スクレイピング完了: {len(content)} chars")
+        return content
 
-            # JavaScriptやCSSを除去
-            for script in soup(["script", "style"]):
-                script.decompose()
-
-            # テキスト内容を抽出
-            text_content = soup.get_text()
-
-            # 改行や空白を整理
-            lines = (line.strip() for line in text_content.splitlines())
-            chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
-            text = ' '.join(chunk for chunk in chunks if chunk)
-
-            # テキスト内容を制限（最初の2000文字）
-            text = text[:2000]
-
-            logger.info(f"📝 テキスト抽出完了: {len(text)} chars")
-
-            # X(Twitter)の特別処理
-            if 'twitter.com' in domain or 'x.com' in domain:
-                logger.info("🐦 Twitter/X特別処理")
-                return await analyze_twitter_content(text, url)
-
-            # 悪用判定
-            logger.info("🔍 コンテンツ分析開始")
-            result = analyze_content_for_violations(text, domain)
-            logger.info(f"✅ 分析完了: {result['status']} - {result['reason']}")
-            return result
-
-    except httpx.TimeoutException:
-        logger.error(f"⏰ タイムアウト: {url}")
-        return {
-            "status": "unknown",
-            "reason": "サイトへのアクセスがタイムアウトしました",
-            "content_analysis": None
-        }
     except httpx.HTTPStatusError as e:
-        logger.error(f"🌐 HTTP エラー: {e.response.status_code} for {url}")
-        return {
-            "status": "unknown",
-            "reason": f"HTTP エラー: {e.response.status_code}",
-            "content_analysis": None
-        }
+        logger.error(f"❌ HTTPステータスエラー {url}: {e.response.status_code} {e.response.reason_phrase}")
+        return None
     except Exception as e:
-        logger.error(f"❌ 分析エラー: {str(e)} for {url}")
-        return {
-            "status": "unknown",
-            "reason": f"分析中にエラーが発生しました: {str(e)}",
-            "content_analysis": None
-        }
+        logger.error(f"❌ スクレイピング一般エラー {url}: {e}")
+        return None
 
-async def analyze_twitter_content(text: str, url: str) -> Dict[str, str]:
-    """Twitter/X投稿の内容を分析する"""
-    text_lower = text.lower()
+def judge_content_with_gemini(content: str) -> dict:
+    """スクレイピングした内容をGeminiで判定する"""
+    logger.info("🤖 Gemini AI判定開始")
 
-    # Twitter特有の悪用パターンをチェック
-    twitter_suspicious_patterns = [
-        'ダウンロードはこちら', 'download here', 'link in bio',
-        'dm for link', 'リンクは dm で', '詳細は dm',
-        'free manga', 'フリー漫画', '無料で読める'
-    ]
+    if not gemini_model:
+        logger.error("❌ Gemini モデルが初期化されていません")
+        return {"judgment": "？", "reason": "Gemini APIが設定されていません"}
 
-    if any(pattern in text_lower for pattern in twitter_suspicious_patterns):
-        return {
-            "status": "suspicious",
-            "reason": "Twitter投稿に疑わしい内容が含まれています",
-            "content_analysis": f"投稿内容（一部）: {text[:200]}..."
-        }
+    prompt = f"""
+以下のWebページの内容を分析し、著作権的に問題がある海賊版サイトか、
+それとも正規のサイトかを判断してください。
 
-    # 通常の悪用判定
-    return analyze_content_for_violations(text, 'twitter.com')
+【Webページの内容】
+{content[:2000]}
 
-def analyze_content_for_violations(text: str, domain: str) -> Dict[str, str]:
-    """テキスト内容から著作権侵害や悪用を判定する"""
-    text_lower = text.lower()
+【判断基準】
+- 正規サイト: 出版社、著者、公式書店、書評、ニュース記事など。
+- 海賊版サイト: 全文掲載、無料ダウンロード、違法コピーを示唆する文言など。
 
-    # 危険キーワードチェック（最優先）
-    found_danger_keywords = [keyword for keyword in DANGER_KEYWORDS if keyword.lower() in text_lower]
-    if found_danger_keywords:
-        return {
-            "status": "danger",
-            "reason": f"危険なキーワードが検出されました: {', '.join(found_danger_keywords)}",
-            "content_analysis": f"分析対象テキスト（一部）: {text[:300]}..."
-        }
-
-    # 疑わしいキーワードチェック
-    found_suspicious_keywords = [keyword for keyword in SUSPICIOUS_KEYWORDS if keyword.lower() in text_lower]
-    if found_suspicious_keywords:
-        return {
-            "status": "suspicious",
-            "reason": f"疑わしいキーワードが検出されました: {', '.join(found_suspicious_keywords)}",
-            "content_analysis": f"分析対象テキスト（一部）: {text[:300]}..."
-        }
-
-    # ドメインベースの判定
-    if any(suspicious in domain for suspicious in ['free', 'download', 'torrent', 'pirate']):
-        return {
-            "status": "suspicious",
-            "reason": "ドメイン名に疑わしい要素が含まれています",
-            "content_analysis": None
-        }
-
-    # 安全と判定
-    return {
-        "status": "medium",
-        "reason": "特に問題は検出されませんでした",
-        "content_analysis": None
-    }
-
-def analyze_domain(url: str) -> tuple[str, bool, str]:
-    """URLからドメインを抽出し、基本的な脅威レベルを評価（後方互換性のため残す）"""
-    from urllib.parse import urlparse
-
-    domain = urlparse(url).netloc.lower()
-    is_official = any(official_domain in domain for official_domain in OFFICIAL_DOMAINS)
-
-    # 基本的な脅威レベル評価
-    if is_official:
-        threat_level = "safe"
-    elif any(dangerous in domain for dangerous in ['torrent', 'pirate', 'illegal']):
-        threat_level = "danger"
-    elif any(suspicious in domain for suspicious in ['free', 'download', 'manga', 'raw']):
-        threat_level = "suspicious"
-    elif domain.endswith('.com') or domain.endswith('.jp') or domain.endswith('.org'):
-        threat_level = "medium"
-    else:
-        threat_level = "unknown"
-
-    return domain, is_official, threat_level
-
-async def analyze_and_judge_image(image_path: str) -> Dict:
-    """画像を分析して○×判定を行う"""
-    if not os.path.exists(image_path):
-        raise HTTPException(status_code=404, detail="指定された画像ファイルが見つかりません")
-
-    logger.info(f"🔍 画像分析・判定開始: {image_path}")
-
+        【回答形式】
+        以下のフォーマットで回答してください。
+        判定：[○、×、？ のいずれか]
+        理由：[判断の根拠を20字以内で簡潔に。判断不能な場合は「情報不足のため判断不能」と記載]
+"""
     try:
-        # Google Vision APIで画像分析
-        vision_result = await analyze_image_with_vision(image_path)
+        response = gemini_model.generate_content(prompt)
+        logger.info(f"📋 Gemini応答: {response.text[:100]}...")
 
-        if not vision_result["analysis_success"]:
-            logger.error("❌ Vision API分析に失敗")
-            return {
-                "judgment": "×",
-                "reason": "画像分析に失敗しました",
-                "details": vision_result.get("error", "不明なエラー"),
-                "confidence": 0
-            }
+        # レスポンスから判定と理由を抽出
+        lines = response.text.strip().split('\n')
+        judgment_line = next((line for line in lines if '判定：' in line), '')
+        reason_line = next((line for line in lines if '理由：' in line), '')
 
-        # 書籍関連でない場合は対象外
-        if not vision_result["is_book_related"]:
-            logger.info("📚 書籍関連ではない画像")
-            return {
-                "judgment": "○",
-                "reason": "書籍・漫画に関連しない画像のため問題なし",
-                "details": f"検出内容: {', '.join(vision_result['detected_labels'][:3])}",
-                "confidence": 0.9
-            }
+        judgment = judgment_line.split('：')[1].replace('[','').replace(']','').strip() if '：' in judgment_line else "？"
+        reason = reason_line.split('：')[1].replace('[','').replace(']','').strip() if '：' in reason_line else "AI応答の解析に失敗"
 
-        # 疑わしいキーワードがある場合は×
-        if vision_result["suspicious_keywords"]:
-            logger.warning(f"⚠️ 疑わしいキーワード検出: {vision_result['suspicious_keywords']}")
-            return {
-                "judgment": "×",
-                "reason": f"違法・疑わしいキーワードが検出されました: {', '.join(vision_result['suspicious_keywords'])}",
-                "details": vision_result["detected_text"][:200] if vision_result["detected_text"] else "テキスト検出なし",
-                "confidence": 0.8
-            }
-
-        # 書籍関連だが疑わしいキーワードなし
-        logger.info("✅ 書籍関連だが問題なし")
-        return {
-            "judgment": "○",
-            "reason": "書籍・漫画関連の画像ですが、問題となるキーワードは検出されませんでした",
-            "details": vision_result["detected_text"][:200] if vision_result["detected_text"] else "テキスト検出なし",
-            "confidence": 0.7,
-            "debug_analysis": {
-                "vision_result": vision_result,
-                "detected_objects": vision_result["detected_objects"],
-                "detected_labels": vision_result["detected_labels"],
-                "detected_text": vision_result["detected_text"],
-                "suspicious_keywords_found": vision_result["suspicious_keywords"],
-                "book_keywords_matched": vision_result.get("debug_info", {}).get("book_keywords_found", [])
-            }
-        }
-
+        logger.info(f"✅ Gemini判定完了: {judgment} - {reason}")
+        return {"judgment": judgment, "reason": reason}
     except Exception as e:
-        logger.error(f"❌ 画像分析・判定エラー: {str(e)}")
-        return {
-            "judgment": "×",
-            "reason": f"分析中にエラーが発生しました: {str(e)}",
-            "details": "",
-            "confidence": 0
-        }
+        error_msg = str(e)
+
+        # エラーの種類別にログと理由を分ける
+        if "404" in error_msg and "models/" in error_msg:
+            logger.error(f"❌ Gemini API モデルエラー: {error_msg}")
+            return {"judgment": "！", "reason": "Geminiモデルが見つかりません"}
+        elif "401" in error_msg or "403" in error_msg:
+            logger.error(f"❌ Gemini API 認証エラー: {error_msg}")
+            return {"judgment": "！", "reason": "Gemini API認証エラー"}
+        elif "429" in error_msg or "quota" in error_msg.lower():
+            logger.error(f"❌ Gemini API クォータエラー: {error_msg}")
+            return {"judgment": "！", "reason": "Gemini APIクォータ制限"}
+        elif "timeout" in error_msg.lower() or "connection" in error_msg.lower():
+            logger.error(f"❌ Gemini API ネットワークエラー: {error_msg}")
+            return {"judgment": "！", "reason": "Geminiネットワークエラー"}
+        else:
+            logger.error(f"❌ Gemini API 不明エラー: {error_msg}")
+            return {"judgment": "？", "reason": f"AI判定エラー: {error_msg[:50]}..."}
+
+
+
+
+
+
+
+# analyze_domain関数は削除（Vision API + Gemini判定を使用）
+
+
 
 # 不要な関数は削除されました
 
-async def search_with_google_custom_search(image_path: str) -> List[Dict]:
-    """Google Custom Search APIを使った実際の画像関連検索"""
-    if not GOOGLE_API_KEY or not GOOGLE_CSE_ID:
-        logger.warning("⚠️ Google API設定が不完全、スキップ")
-        return []
+# Google Custom Search API関数は削除（Vision API WEB_DETECTIONを使用）
 
-    try:
-        logger.info("🔍 Google Custom Search API検索開始")
+# 画像特徴ベース検索関数は削除（Vision API WEB_DETECTIONを使用）
 
-        # 日本の書籍・漫画関連の海賊版サイトを優先検索
-        search_queries = [
-            "漫画 無料 ダウンロード 違法 サイト site:*.jp",
-            "ライトノベル raw 無料 ダウンロード site:*.jp",
-            "本 電子書籍 違法 ダウンロード 海賊版",
-            "manga raw download 日本語",
-            "漫画村 類似 サイト 違法"
-        ]
-
-        processed_results = []
-
-        for query in search_queries:
-            logger.info(f"🔍 検索クエリ: {query}")
-
-            search_url = "https://www.googleapis.com/customsearch/v1"
-            params = {
-                "key": GOOGLE_API_KEY,
-                "cx": GOOGLE_CSE_ID,
-                "q": query,
-                "num": 5,
-                "safe": "off",
-                "lr": "lang_ja",  # 日本語のページを優先
-                "gl": "jp"        # 日本からの検索として実行
-            }
-
-            async with httpx.AsyncClient() as client:
-                response = await client.get(search_url, params=params)
-                if response.status_code == 200:
-                    data = response.json()
-                    logger.info(f"📋 Google検索結果: {len(data.get('items', []))}件")
-
-                    for item in data.get('items', [])[:3]:  # 各クエリから最大3件
-                        url = item.get('link', '')
-                        title = item.get('title', 'タイトル不明')
-                        snippet = item.get('snippet', '')
-
-                        if url:
-                            domain = url.split('/')[2] if '/' in url else url
-
-                            # 実際のドメイン分析を実行
-                            detailed_analysis = await check_domain_and_analyze(url, domain)
-
-                            processed_results.append({
-                                "url": url,
-                                "domain": domain,
-                                "title": title[:100],  # タイトルを制限
-                                "source": f"Google検索: {query[:30]}",
-                                "is_official": detailed_analysis["status"] == "safe",
-                                "threat_level": detailed_analysis["status"],
-                                "detailed_analysis": detailed_analysis,
-                                "thumbnail": "",
-                                "analysis_timestamp": datetime.now().isoformat(),
-                                "snippet": snippet[:200]  # スニペットを制限
-                            })
-
-        # 重複URLを除去
-        unique_results = []
-        seen_urls = set()
-
-        for result in processed_results:
-            if result["url"] not in seen_urls:
-                seen_urls.add(result["url"])
-                unique_results.append(result)
-
-        logger.info(f"✅ Google検索処理完了: {len(unique_results)}件（重複除去後）")
-        return unique_results[:10]  # 最大10件
-
-    except Exception as e:
-        logger.error(f"❌ Google Custom Search API エラー: {str(e)}")
-        return []
-
-async def search_based_on_image_features(image_path: str) -> List[Dict]:
-    """画像の特徴から推測した実際のWeb検索"""
-    logger.info("🎯 画像特徴ベース検索開始")
-
-    try:
-        # 画像の基本情報を分析
-        filename = os.path.basename(image_path)
-
-        # 実際のWeb検索（海賊版関連サイト検索）
-        piracy_sites = [
-            "mangafreak.net",
-            "mangadex.org",
-            "mangaraw.to",
-            "rawmanga.top",
-            "novelupdates.com"
-        ]
-
-        processed_results = []
-
-        for site in piracy_sites[:5]:  # 最初の5つのサイトをチェック
-            logger.info(f"🔍 サイト分析: {site}")
-
-            # サイトのURLを構築
-            url = f"https://{site}"
-
-            try:
-                # 実際のドメイン分析を実行
-                detailed_analysis = await check_domain_and_analyze(url, site)
-
-                processed_results.append({
-                    "url": url,
-                    "domain": site,
-                    "title": f"{site} - 海賊版サイト検査結果",
-                    "source": "実際のサイト分析",
-                    "is_official": detailed_analysis["status"] == "safe",
-                    "threat_level": detailed_analysis["status"],
-                    "detailed_analysis": detailed_analysis,
-                    "thumbnail": "",
-                    "analysis_timestamp": datetime.now().isoformat()
-                })
-
-            except Exception as site_error:
-                logger.warning(f"⚠️ サイト {site} の分析でエラー: {str(site_error)}")
-                continue
-
-        logger.info(f"✅ 特徴ベース検索完了: {len(processed_results)}件")
-        return processed_results
-
-    except Exception as e:
-        logger.error(f"❌ 特徴ベース検索エラー: {str(e)}")
-        return []
-
-async def try_base64_serpapi_search(image_path: str) -> List[Dict]:
-    """Base64エンコード方式でSerpAPI検索を実行"""
-    try:
-        logger.info("🔍 Base64方式でSerpAPI検索開始")
-
-        # 画像をBase64エンコード
-        encoded_image = encode_image_to_base64(image_path)
-        logger.info(f"📸 画像Base64エンコード完了: {len(encoded_image)} chars")
-
-        client = serpapi.Client(api_key=SERPAPI_KEY)
-        search_params = {
-            "engine": "google_reverse_image",
-            "image_url": f"data:image/jpeg;base64,{encoded_image}",
-            "hl": "ja",
-            "gl": "jp"
-        }
-
-        logger.info("🌐 SerpAPI Base64検索実行中...")
-        results = client.search(search_params)
-
-        # デバッグ: レスポンス構造を確認
-        logger.info(f"📋 SerpAPIレスポンスキー: {list(results.keys())}")
-
-        # 各キーの内容を詳細ログ出力
-        for key, value in results.items():
-            if isinstance(value, list):
-                logger.info(f"📋 {key}: {len(value)}個のアイテム")
-            elif isinstance(value, dict):
-                logger.info(f"📋 {key}: 辞書型 ({len(value)}個のキー)")
-            else:
-                logger.info(f"📋 {key}: {type(value).__name__} - {str(value)[:100]}")
-
-        # 検索クレジット情報を確認
-        if 'search_metadata' in results:
-            metadata = results['search_metadata']
-            logger.info(f"🔍 検索メタデータ: {metadata}")
-
-        # エラー情報を確認
-        if 'error' in results:
-            logger.error(f"❌ SerpAPIエラー: {results['error']}")
-            return []
-
-        processed_results = []
-
-        # 画像検索結果を処理
-        if "image_results" in results and results["image_results"]:
-            logger.info(f"✅ image_results発見: {len(results['image_results'])}件")
-            for item in results["image_results"][:10]:
-                url = item.get("link", "")
-                title = item.get("title", "")
-                source = item.get("source", "")
-
-                if url and title:
-                    domain, is_official, basic_threat_level = analyze_domain(url)
-
-                    try:
-                        detailed_analysis = await check_domain_and_analyze(url, domain)
-                    except Exception as e:
-                        detailed_analysis = {
-                            "status": "unknown",
-                            "reason": f"分析エラー: {str(e)}",
-                            "content_analysis": None
-                        }
-
-                    processed_results.append({
-                        "url": url,
-                        "domain": domain,
-                        "title": title,
-                        "source": source,
-                        "is_official": is_official,
-                        "threat_level": basic_threat_level,
-                        "detailed_analysis": detailed_analysis,
-                        "thumbnail": item.get("thumbnail", ""),
-                        "analysis_timestamp": datetime.now().isoformat()
-                    })
-
-        # インライン画像結果も処理
-        if "inline_images" in results and results["inline_images"]:
-            logger.info(f"✅ inline_images発見: {len(results['inline_images'])}件")
-            for item in results["inline_images"][:5]:
-                url = item.get("link", "")
-                title = item.get("title", "")
-                source = item.get("source", "")
-
-                if url and title:
-                    domain, is_official, basic_threat_level = analyze_domain(url)
-
-                    try:
-                        detailed_analysis = await check_domain_and_analyze(url, domain)
-                    except Exception as e:
-                        detailed_analysis = {
-                            "status": "unknown",
-                            "reason": f"分析エラー: {str(e)}",
-                            "content_analysis": None
-                        }
-
-                    processed_results.append({
-                        "url": url,
-                        "domain": domain,
-                        "title": title,
-                        "source": source,
-                        "is_official": is_official,
-                        "threat_level": basic_threat_level,
-                        "detailed_analysis": detailed_analysis,
-                        "thumbnail": item.get("thumbnail", ""),
-                        "analysis_timestamp": datetime.now().isoformat()
-                    })
-
-        logger.info(f"✅ Base64検索結果処理完了: {len(processed_results)}件")
-        return processed_results
-
-    except Exception as e:
-        logger.error(f"❌ Base64 SerpAPI検索エラー: {str(e)}")
-        logger.error(f"❌ エラー詳細: {type(e).__name__}")
-        return []
-
-async def try_serpapi_search(image_path: str) -> List[Dict]:
-    """URL方式でSerpAPI検索を実行（フォールバック）"""
-    try:
-        filename = os.path.basename(image_path)
-        ngrok_url = "https://a46d8d27d10b.ngrok-free.app"
-        image_url = f"{ngrok_url}/temp-images/{filename}"
-
-        logger.info(f"📸 URL方式SerpAPI検索: {image_url}")
-
-        client = serpapi.Client(api_key=SERPAPI_KEY)
-        search_params = {
-            "engine": "google_reverse_image",
-            "image_url": image_url,
-            "hl": "ja",
-            "gl": "jp"
-        }
-
-        results = client.search(search_params)
-        logger.info(f"📋 URL方式レスポンス: {len(results.get('image_results', []))}件")
-
-        processed_results = []
-
-        # URL方式の結果を処理（Base64と同じロジック）
-        if "image_results" in results and results["image_results"]:
-            for item in results["image_results"][:10]:
-                url = item.get("link", "")
-                title = item.get("title", "")
-                source = item.get("source", "")
-
-                if url and title:
-                    domain, is_official, basic_threat_level = analyze_domain(url)
-
-                    try:
-                        detailed_analysis = await check_domain_and_analyze(url, domain)
-                    except Exception as e:
-                        detailed_analysis = {
-                            "status": "unknown",
-                            "reason": f"分析エラー: {str(e)}",
-                            "content_analysis": None
-                        }
-
-                    processed_results.append({
-                        "url": url,
-                        "domain": domain,
-                        "title": title,
-                        "source": f"{source} (URL)",
-                        "is_official": is_official,
-                        "threat_level": basic_threat_level,
-                        "detailed_analysis": detailed_analysis,
-                        "thumbnail": item.get("thumbnail", ""),
-                        "analysis_timestamp": datetime.now().isoformat()
-                    })
-
-        return processed_results
-
-    except Exception as e:
-        logger.error(f"❌ URL SerpAPI検索エラー: {str(e)}")
-        logger.error(f"❌ エラー詳細: {type(e).__name__}")
-        return []
+# SerpAPI関連の関数は削除（Vision API WEB_DETECTIONを使用）
 
 @app.get("/")
 async def root():
     return {
         "message": "Book Leak Detector API",
         "api_keys": {
-            "google_api_key_configured": GOOGLE_API_KEY is not None,
-            "google_cse_id_configured": GOOGLE_CSE_ID is not None,
             "gemini_api_key_configured": GEMINI_API_KEY is not None,
-            "serpapi_key_configured": SERPAPI_KEY is not None
+            "google_vision_api_configured": GOOGLE_APPLICATION_CREDENTIALS is not None
         },
         "upload_count": len(upload_records),
         "search_results_count": len(search_results)
@@ -1003,10 +517,8 @@ async def health_check():
     return {
         "status": "healthy",
         "api_keys": {
-            "google_api_key_configured": GOOGLE_API_KEY is not None,
-            "google_cse_id_configured": GOOGLE_CSE_ID is not None,
             "gemini_api_key_configured": GEMINI_API_KEY is not None,
-            "serpapi_key_configured": SERPAPI_KEY is not None
+            "google_vision_api_configured": GOOGLE_APPLICATION_CREDENTIALS is not None
         },
         "system": {
             "upload_directory_exists": os.path.exists(UPLOAD_DIR),
@@ -1018,9 +530,9 @@ async def health_check():
 
 @app.post("/search/{image_id}")
 async def analyze_image(image_id: str):
-    """指定された画像IDに対してGoogle Vision API分析を実行し○×判定する"""
+    """指定された画像IDに対してWeb検索を実行し、類似画像のURLリストを取得する"""
 
-    logger.info(f"🔍 画像分析開始: image_id={image_id}")
+    logger.info(f"🔍 Web画像検索開始: image_id={image_id}")
 
     # アップロード記録を確認
     if image_id not in upload_records:
@@ -1037,42 +549,76 @@ async def analyze_image(image_id: str):
     record = upload_records[image_id]
     image_path = record["file_path"]
 
-    logger.info(f"📁 分析対象画像: {image_path}")
+    logger.info(f"📁 検索対象画像: {image_path}")
 
     try:
-        # Google Vision APIで分析・判定
-        logger.info("🤖 Google Vision API分析開始")
-        judgment_result = await analyze_and_judge_image(image_path)
-        logger.info(f"✅ 分析完了: 判定={judgment_result['judgment']}")
+        # 画像ファイルを開いてコンテンツを読み込む
+        with open(image_path, 'rb') as image_file:
+            image_content = image_file.read()
 
-        # 分析結果をメモリに保存
-        search_results[image_id] = [judgment_result]
+        logger.info(f"📸 画像ファイル読み込み完了: {len(image_content)} bytes")
+
+                # Google Vision API WEB_DETECTIONでURL検索
+        logger.info("🌐 Google Vision API WEB_DETECTION実行中...")
+        url_list = search_web_for_image(image_content)
+
+        logger.info(f"✅ Web検索完了: {len(url_list)}件のURLを発見")
+
+        # 各URLに対してスクレイピング + Gemini判定を実行
+        processed_results = []
+
+        for i, url in enumerate(url_list[:10]):  # 最大10件を処理
+            logger.info(f"🔄 URL処理中 ({i+1}/{min(len(url_list), 10)}): {url}")
+
+            # ページ内容をスクレイピング
+            content = scrape_page_content(url)
+
+            if content:
+                # Geminiで判定
+                result = judge_content_with_gemini(content)
+
+                processed_results.append({
+                    "url": url,
+                    "judgment": result['judgment'],
+                    "reason": result['reason']
+                })
+
+                logger.info(f"  ✅ 処理完了: {result['judgment']} - {result['reason']}")
+            else:
+                # スクレイピング失敗時
+                processed_results.append({
+                    "url": url,
+                    "judgment": "？",
+                    "reason": "ページの内容を取得できませんでした"
+                })
+                logger.info(f"  ❌ スクレイピング失敗: {url}")
+
+        # 最終結果を保存
+        search_results[image_id] = processed_results
 
         # アップロード記録を更新
         record["analysis_status"] = "completed"
         record["analysis_time"] = datetime.now().isoformat()
-        record["judgment"] = judgment_result["judgment"]
-        record["reason"] = judgment_result["reason"]
-        record["confidence"] = judgment_result.get("confidence", 0)
+        record["found_urls_count"] = len(url_list)
+        record["processed_results_count"] = len(processed_results)
         save_records()
 
-        logger.info(f"✅ 分析完了: image_id={image_id}, 判定={judgment_result['judgment']}")
+        logger.info(f"✅ 分析完了: image_id={image_id}, URL発見={len(url_list)}件, 処理完了={len(processed_results)}件")
 
         return {
             "success": True,
             "image_id": image_id,
-            "judgment": judgment_result["judgment"],
-            "reason": judgment_result["reason"],
-            "details": judgment_result.get("details", ""),
-            "confidence": judgment_result.get("confidence", 0),
+            "found_urls_count": len(url_list),
+            "processed_results_count": len(processed_results),
+            "results": processed_results,
             "analysis_time": record["analysis_time"],
-            "message": f"分析が完了しました。判定: {judgment_result['judgment']}"
+            "message": f"Web検索・分析が完了しました。{len(url_list)}件のURLが見つかり、{len(processed_results)}件を分析しました。"
         }
 
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"❌ 分析エラー: {str(e)}")
+        logger.error(f"❌ Web検索エラー: {str(e)}")
 
         # エラー状態を記録
         record["analysis_status"] = "failed"
@@ -1083,8 +629,8 @@ async def analyze_image(image_id: str):
         raise HTTPException(
             status_code=500,
             detail={
-                "error": "analysis_failed",
-                "message": f"画像分析中にエラーが発生しました: {str(e)}",
+                "error": "search_failed",
+                "message": f"Web検索中にエラーが発生しました: {str(e)}",
                 "image_id": image_id
             }
         )
@@ -1104,27 +650,43 @@ async def get_search_results(image_id: str):
     if image_id not in upload_records:
         raise HTTPException(
             status_code=404,
-            detail="指定されたimage_idが見つかりません。"
+            detail={"error": "image_not_found", "message": "指定されたimage_idのアップロード記録が見つかりません。"}
         )
 
     record = upload_records[image_id]
 
+    # 分析がまだ、または失敗している場合
     if record.get("analysis_status") != "completed":
-        raise HTTPException(
-            status_code=404,
-            detail="指定された画像の分析結果がありません。先に分析を実行してください。"
-        )
+        return {
+            "success": True,
+            "image_id": image_id,
+            "analysis_status": record.get("analysis_status", "not_started"),
+            "message": "分析が完了していません。先に分析を実行してください。",
+            "details": record.get("analysis_error")
+        }
 
+    # 分析は完了したが、有効な結果が0件だった場合
+    if record.get("processed_results_count", 0) == 0:
+        return {
+            "success": True,
+            "image_id": image_id,
+            "analysis_status": "completed_no_results",
+            "message": "分析は完了しましたが、有効なWebページが見つかりませんでした。",
+            "found_urls_count": record.get("found_urls_count", 0),
+            "processed_results_count": 0,
+            "results": []
+        }
+
+    # 正常な結果を返す
     return {
         "success": True,
         "image_id": image_id,
+        "analysis_status": "completed",
         "original_filename": record.get("original_filename", "不明"),
-        "judgment": record.get("judgment", "×"),
-        "reason": record.get("reason", "分析結果不明"),
-        "confidence": record.get("confidence", 0),
         "analysis_time": record.get("analysis_time", "不明"),
-        "file_size": record.get("file_size", 0),
-        "message": f"判定結果: {record.get('judgment', '×')}"
+        "found_urls_count": record.get("found_urls_count", 0),
+        "processed_results_count": record.get("processed_results_count", 0),
+        "results": search_results.get(image_id, [])
     }
 
 # テスト用エンドポイント
@@ -1185,30 +747,39 @@ async def test_search():
 
 @app.get("/test-domain/{domain}")
 async def test_domain_analysis(domain: str):
-    """指定されたドメインの判定テストを実行する"""
+    """指定されたドメインの判定テストを実行する（新ワークフロー対応）"""
     logger.info(f"🧪 ドメインテスト開始: {domain}")
 
     # テスト用URL
     test_url = f"https://{domain}"
 
     try:
-        # ドメイン分析を実行
-        result = await check_domain_and_analyze(test_url, domain)
+        # ページ内容をスクレイピング
+        content = scrape_page_content(test_url)
 
-        # 基本的な脅威レベル評価も取得
-        _, is_official, basic_threat_level = analyze_domain(test_url)
+        if content:
+            # Geminiで判定
+            result = judge_content_with_gemini(content)
 
-        logger.info(f"✅ ドメインテスト完了: {domain} -> {result['status']}")
+            logger.info(f"✅ ドメインテスト完了: {domain} -> {result['judgment']}")
 
-        return {
-            "success": True,
-            "domain": domain,
-            "test_url": test_url,
-            "is_official": is_official,
-            "basic_threat_level": basic_threat_level,
-            "detailed_analysis": result,
-            "test_time": datetime.now().isoformat()
-        }
+            return {
+                "success": True,
+                "domain": domain,
+                "test_url": test_url,
+                "judgment": result['judgment'],
+                "reason": result['reason'],
+                "scraped_content_length": len(content),
+                "test_time": datetime.now().isoformat()
+            }
+        else:
+            logger.warning(f"⚠️ スクレイピング失敗: {domain}")
+            return {
+                "success": False,
+                "domain": domain,
+                "error": "ページの内容を取得できませんでした",
+                "test_time": datetime.now().isoformat()
+            }
 
     except Exception as e:
         logger.error(f"❌ ドメインテストエラー: {str(e)}")
@@ -1228,12 +799,10 @@ async def get_debug_info():
         "total_search_results": len(search_results),
         "recent_uploads": list(upload_records.keys())[-5:] if upload_records else [],
         "api_keys_status": {
-            "google_api_key": GOOGLE_API_KEY is not None,
-            "google_cse_id": GOOGLE_CSE_ID is not None,
             "gemini_api_key": GEMINI_API_KEY is not None,
-            "serpapi_key": SERPAPI_KEY is not None
+            "google_vision_api": GOOGLE_APPLICATION_CREDENTIALS is not None
         },
-        "official_domains_count": len(OFFICIAL_DOMAINS),
+        "vision_api_status": "active",
         "timestamp": datetime.now().isoformat()
     }
 
