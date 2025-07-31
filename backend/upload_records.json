@@ -564,5 +564,20 @@
     "judgment": "○",
     "reason": "書籍・漫画関連の画像ですが、問題となるキーワードは検出されませんでした",
     "confidence": 0.7
+  },
+  "d3c2de32-6f79-440a-8226-b78a8bc78f7c": {
+    "id": "d3c2de32-6f79-440a-8226-b78a8bc78f7c",
+    "original_filename": "kokuhaku04.jpg",
+    "saved_filename": "d3c2de32-6f79-440a-8226-b78a8bc78f7c.jpg",
+    "file_path": "uploads/d3c2de32-6f79-440a-8226-b78a8bc78f7c.jpg",
+    "content_type": "image/jpeg",
+    "file_size": 166519,
+    "upload_time": "2025-07-30T23:12:10.808178",
+    "status": "uploaded",
+    "analysis_status": "completed",
+    "analysis_time": "2025-07-30T23:12:13.240936",
+    "judgment": "○",
+    "reason": "書籍・漫画関連の画像ですが、問題となるキーワードは検出されませんでした",
+    "confidence": 0.7
   }
 }

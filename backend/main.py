@@ -241,7 +241,12 @@ async def analyze_image_with_vision(image_path: str) -> Dict:
             "detected_labels": detected_labels,
             "is_book_related": is_book_related,
             "suspicious_keywords": suspicious_keywords,
-            "analysis_success": True
+            "analysis_success": True,
+            "debug_info": {
+                "all_detected_content": all_detected_content,
+                "book_keywords_found": [k for k in book_keywords if k in all_detected_content],
+                "illegal_keywords_found": [k for k in illegal_keywords if k in all_detected_content]
+            }
         }
 
     except Exception as e:
@@ -466,7 +471,15 @@ async def analyze_and_judge_image(image_path: str) -> Dict:
             "judgment": "○",
             "reason": "書籍・漫画関連の画像ですが、問題となるキーワードは検出されませんでした",
             "details": vision_result["detected_text"][:200] if vision_result["detected_text"] else "テキスト検出なし",
-            "confidence": 0.7
+            "confidence": 0.7,
+            "debug_analysis": {
+                "vision_result": vision_result,
+                "detected_objects": vision_result["detected_objects"],
+                "detected_labels": vision_result["detected_labels"],
+                "detected_text": vision_result["detected_text"],
+                "suspicious_keywords_found": vision_result["suspicious_keywords"],
+                "book_keywords_matched": vision_result.get("debug_info", {}).get("book_keywords_found", [])
+            }
         }
 
     except Exception as e:
