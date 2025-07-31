@@ -244,135 +244,207 @@ function App() {
             </div>
           )}
 
-          {/* 結果リスト */}
+                              {/* 結果リスト - 横3列レイアウト */}
           {analysisResults.results && analysisResults.results.length > 0 && (
             <div>
-              <h3 style={{ marginBottom: '20px', color: '#374151' }}>📋 分析結果一覧</h3>
-              <div style={{ display: 'grid', gap: '20px' }}>
-                {analysisResults.results.map((result, index) => {
-                  const domain = new URL(result.url).hostname;
-                  const getJudgmentColor = (judgment: string) => {
-                    switch (judgment) {
-                      case '○': return { bg: '#d1fae5', border: '#10b981', text: '#065f46' };
-                      case '×': return { bg: '#fee2e2', border: '#ef4444', text: '#991b1b' };
-                      case '？': return { bg: '#fef3c7', border: '#f59e0b', text: '#92400e' };
-                      case '！': return { bg: '#e0e7ff', border: '#6366f1', text: '#3730a3' };
-                      default: return { bg: '#f3f4f6', border: '#9ca3af', text: '#374151' };
-                    }
-                  };
-                  const colors = getJudgmentColor(result.judgment);
+              <h3 style={{ marginBottom: '30px', color: '#374151' }}>📋 分析結果一覧</h3>
 
-                  return (
-                    <div key={index} style={{
-                      backgroundColor: 'white',
-                      borderRadius: '12px',
-                      padding: '20px',
-                      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
-                      border: '1px solid #e5e7eb',
-                      transition: 'all 0.2s ease-in-out',
-                      cursor: 'pointer'
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.transform = 'translateY(-2px)';
-                      e.currentTarget.style.boxShadow = '0 10px 25px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)';
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.transform = 'translateY(0)';
-                      e.currentTarget.style.boxShadow = '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)';
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'flex-start', gap: '15px' }}>
+              {/* 3列グリッドレイアウト */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: '1fr 1fr 1fr',
+                gap: '20px',
+                marginBottom: '20px'
+              }}>
+                {(() => {
+                                  const groupedResults = {
+                  '○': analysisResults.results.filter(r => r.judgment === '○'),
+                  '？': analysisResults.results.filter(r => r.judgment === '？' || r.judgment === '！'),
+                  '×': analysisResults.results.filter(r => r.judgment === '×')
+                };
 
-                        {/* 画像・アイコン */}
+                  return Object.entries(groupedResults).map(([judgment, results]) => {
+                    const getGroupConfig = (j: string) => {
+                      switch (j) {
+                        case '×': return {
+                          bg: 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)',
+                          border: '#ef4444',
+                          title: '⚠️ 要注意サイト',
+                          icon: '❌'
+                        };
+                        case '？': return {
+                          bg: 'linear-gradient(135deg, #fefce8 0%, #fef3c7 100%)',
+                          border: '#f59e0b',
+                          title: '❓ 判定不明',
+                          icon: '❓'
+                        };
+                        case '○': return {
+                          bg: 'linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)',
+                          border: '#10b981',
+                          title: '✅ 正規サイト',
+                          icon: '✅'
+                        };
+                        default: return {
+                          bg: 'linear-gradient(135deg, #f9fafb 0%, #f3f4f6 100%)',
+                          border: '#9ca3af',
+                          title: '不明',
+                          icon: '❔'
+                        };
+                      }
+                    };
+
+                    const groupConfig = getGroupConfig(judgment);
+
+                    return (
+                      <div key={judgment} style={{
+                        background: groupConfig.bg,
+                        border: `2px solid ${groupConfig.border}`,
+                        borderRadius: '16px',
+                        padding: '20px',
+                        minHeight: '300px',
+                        display: 'flex',
+                        flexDirection: 'column'
+                      }}>
+                        {/* カラムヘッダー */}
                         <div style={{
-                          width: '48px',
-                          height: '48px',
-                          borderRadius: '8px',
-                          backgroundColor: '#f3f4f6',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          flexShrink: 0,
-                          backgroundImage: `url(https://www.google.com/s2/favicons?domain=${domain}&sz=48)`,
-                          backgroundSize: 'contain',
-                          backgroundRepeat: 'no-repeat',
-                          backgroundPosition: 'center'
+                          textAlign: 'center',
+                          marginBottom: '20px',
+                          borderBottom: `2px solid ${groupConfig.border}`,
+                          paddingBottom: '15px'
                         }}>
-                          {/* フォールバック文字 */}
-                          <span style={{ fontSize: '20px', color: '#6b7280', fontWeight: 'bold' }}>
-                            {domain.charAt(0).toUpperCase()}
-                          </span>
+                          <div style={{
+                            fontSize: '32px',
+                            marginBottom: '8px'
+                          }}>
+                            {groupConfig.icon}
+                          </div>
+                          <h4 style={{
+                            margin: 0,
+                            color: '#374151',
+                            fontSize: '16px',
+                            fontWeight: '700'
+                          }}>
+                            {groupConfig.title}
+                          </h4>
+                          <div style={{
+                            backgroundColor: 'white',
+                            color: groupConfig.border,
+                            border: `2px solid ${groupConfig.border}`,
+                            borderRadius: '20px',
+                            fontSize: '14px',
+                            fontWeight: '600',
+                            padding: '4px 12px',
+                            marginTop: '8px',
+                            display: 'inline-block'
+                          }}>
+                            {results.length}件
+                          </div>
                         </div>
 
-                        {/* コンテンツ */}
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          {/* ドメイン名 */}
-                          <h4 style={{
-                            margin: '0 0 8px 0',
-                            fontSize: '16px',
-                            fontWeight: '600',
-                            color: '#111827',
-                            wordBreak: 'break-all'
-                          }}>
-                            {domain}
-                          </h4>
-
-                          {/* URL */}
-                          <p style={{
-                            margin: '0 0 12px 0',
-                            fontSize: '14px',
-                            color: '#6b7280',
-                            wordBreak: 'break-all',
-                            lineHeight: '1.4'
-                          }}>
-                            {result.url}
-                          </p>
-
-                          {/* AI分析結果 */}
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
-                            <span style={{
-                              backgroundColor: colors.bg,
-                              color: colors.text,
-                              border: `2px solid ${colors.border}`,
-                              padding: '4px 12px',
-                              borderRadius: '20px',
-                              fontSize: '14px',
-                              fontWeight: '600'
+                        {/* カラム内の結果 */}
+                        <div style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '12px',
+                          flex: 1
+                        }}>
+                          {results.length === 0 ? (
+                            <div style={{
+                              textAlign: 'center',
+                              color: '#9ca3af',
+                              fontStyle: 'italic',
+                              marginTop: '20px'
                             }}>
-                              {result.judgment}
-                            </span>
-                            <span style={{
-                              fontSize: '14px',
-                              color: '#374151',
-                              fontStyle: 'italic'
-                            }}>
-                              {result.reason}
-                            </span>
-                          </div>
+                              該当なし
+                            </div>
+                          ) : (
+                            results.map((result, index) => {
+                              const domain = new URL(result.url).hostname;
 
-                          {/* リンク */}
-                          <a
-                            href={result.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              gap: '5px',
-                              fontSize: '14px',
-                              color: '#3b82f6',
-                              textDecoration: 'none',
-                              fontWeight: '500'
-                            }}
-                            onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'}
-                            onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}
-                          >
-                            🔗 サイトを開く
-                          </a>
+                              return (
+                                <div key={`${judgment}-${index}`} style={{
+                                  backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                                  borderRadius: '10px',
+                                  padding: '12px',
+                                  border: '1px solid rgba(255, 255, 255, 0.5)',
+                                  transition: 'all 0.2s ease-in-out',
+                                  backdropFilter: 'blur(10px)'
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 1)';
+                                  e.currentTarget.style.transform = 'translateY(-2px)';
+                                  e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.backgroundColor = 'rgba(255, 255, 255, 0.9)';
+                                  e.currentTarget.style.transform = 'translateY(0)';
+                                  e.currentTarget.style.boxShadow = 'none';
+                                }}>
+
+                                  {/* サイト情報 */}
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
+                                    <div style={{
+                                      width: '24px',
+                                      height: '24px',
+                                      borderRadius: '4px',
+                                      backgroundColor: '#f3f4f6',
+                                      backgroundImage: `url(https://www.google.com/s2/favicons?domain=${domain}&sz=24)`,
+                                      backgroundSize: 'contain',
+                                      backgroundRepeat: 'no-repeat',
+                                      backgroundPosition: 'center',
+                                      flexShrink: 0
+                                    }} />
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                      <div style={{
+                                        fontSize: '13px',
+                                        fontWeight: '600',
+                                        color: '#111827',
+                                        wordBreak: 'break-all',
+                                        marginBottom: '2px'
+                                      }}>
+                                        {domain}
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  {/* 判定理由 */}
+                                  <div style={{
+                                    fontSize: '11px',
+                                    color: '#6b7280',
+                                    marginBottom: '8px',
+                                    lineHeight: '1.3'
+                                  }}>
+                                    {result.reason}
+                                  </div>
+
+                                  {/* リンク */}
+                                  <a
+                                    href={result.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '4px',
+                                      fontSize: '11px',
+                                      color: '#3b82f6',
+                                      textDecoration: 'none',
+                                      fontWeight: '500'
+                                    }}
+                                    onMouseEnter={(e) => e.currentTarget.style.textDecoration = 'underline'}
+                                    onMouseLeave={(e) => e.currentTarget.style.textDecoration = 'none'}
+                                  >
+                                    🔗 開く
+                                  </a>
+                                </div>
+                              );
+                            })
+                          )}
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  });
+                })()}
               </div>
             </div>
           )}

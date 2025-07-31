@@ -18,6 +18,14 @@ import httpx
 from bs4 import BeautifulSoup
 from google.cloud import vision
 import google.generativeai as genai
+try:
+    from serpapi import GoogleSearch
+except ImportError:
+    try:
+        from serpapi import GoogleSearch
+    except ImportError:
+        GoogleSearch = None
+        print("⚠️ SerpAPI not available - continuing without it")
 
 # ログ設定
 logging.basicConfig(level=logging.INFO)
@@ -52,6 +60,12 @@ app = FastAPI(title="Book Leak Detector", version="1.0.0")
 # 環境変数から必要なAPI_KEYを取得
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GOOGLE_APPLICATION_CREDENTIALS = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+SERPAPI_KEY = os.getenv("SERPAPI_KEY")
+X_API_KEY = os.getenv("X_API_KEY")
+X_API_SECRET = os.getenv("X_API_SECRET")
+X_ACCESS_TOKEN = os.getenv("X_ACCESS_TOKEN")
+X_ACCESS_TOKEN_SECRET = os.getenv("X_ACCESS_TOKEN_SECRET")
+X_BEARER_TOKEN = os.getenv("X_BEARER_TOKEN")
 
 # Gemini APIの設定
 if GEMINI_API_KEY:
@@ -66,12 +80,23 @@ if not GEMINI_API_KEY:
     missing_keys.append("GEMINI_API_KEY")
 if not GOOGLE_APPLICATION_CREDENTIALS:
     missing_keys.append("GOOGLE_APPLICATION_CREDENTIALS")
+if not SERPAPI_KEY:
+    missing_keys.append("SERPAPI_KEY (精度向上用)")
+if not X_BEARER_TOKEN:
+    missing_keys.append("X_BEARER_TOKEN (Twitter内容取得用)")
 
 if missing_keys:
-    print(f"警告: 以下の環境変数が設定されていません: {', '.join(missing_keys)}")
+    required_missing = [k for k in missing_keys if "精度向上用" not in k and "オプション" not in k]
+    if required_missing:
+        print(f"警告: 以下の必須環境変数が設定されていません: {', '.join(required_missing)}")
+    optional_missing = [k for k in missing_keys if "精度向上用" in k or "オプション" in k or "Twitter内容取得用" in k]
+    if optional_missing:
+        print(f"情報: 以下のオプション環境変数が設定されていません: {', '.join(optional_missing)}")
     print("完全な機能を使用するには、.envファイルで以下を設定してください:")
     print("- GEMINI_API_KEY: Gemini AI用")
     print("- GOOGLE_APPLICATION_CREDENTIALS: Google Vision API用サービスアカウントキー")
+    print("- SERPAPI_KEY: SerpAPI用（精度向上）")
+    print("- X_BEARER_TOKEN: X API用（Twitter内容取得）")
 else:
     print("✓ 必要なAPI_KEYが正常に設定されています")
 
@@ -143,69 +168,737 @@ def validate_image_file(file: UploadFile) -> bool:
 
 # Base64エンコード関数は削除（不要）
 
+def validate_url_availability(url: str) -> bool:
+    """
+    URLの有効性を事前にチェックする（HEADリクエスト）
+    200番台のステータスコードの場合のみTrueを返す
+    """
+    try:
+        with httpx.Client(timeout=5.0, follow_redirects=True) as client:
+            response = client.head(url, headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            })
+            return 200 <= response.status_code < 300
+    except Exception as e:
+        logger.warning(f"⚠️ URL有効性チェック失敗 {url}: {e}")
+        return False
+
+def is_reliable_domain(url: str) -> bool:
+    """
+    ドメインが信頼できるかどうかをチェックする
+    疑わしい画像ホスティングサービスや怪しいドメインを除外
+    """
+    try:
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        domain = parsed.netloc.lower()
+
+        # 除外すべき画像ホスティング/CDNドメイン
+        excluded_domains = [
+            'pbs.twimg.com',
+            'm.media-amazon.com',
+            'img-cdn.theqoo.net',
+            'i.imgur.com',
+            'cdn.discordapp.com',
+            'media.discordapp.net',
+            'images.unsplash.com',
+            'cdn.pixabay.com',
+            'images.pexels.com',
+            'img.freepik.com',
+            'thumbs.dreamstime.com',
+            'previews.123rf.com',
+            'st.depositphotos.com',
+            'c8.alamy.com',
+            'media.gettyimages.com',
+            'us.123rf.com',
+            'image.shutterstock.com',
+            't3.ftcdn.net',
+            't4.ftcdn.net',
+            'static.turbosquid.com',
+            'render.fineartamerica.com'
+        ]
+
+        # 除外ドメインチェック
+        for excluded in excluded_domains:
+            if excluded in domain:
+                logger.info(f"⏭️ 除外ドメインのためスキップ: {domain}")
+                return False
+
+        # 極端に短いドメイン名を除外（怪しいドメインの可能性）
+        if len(domain.replace('.', '')) < 5:
+            logger.info(f"⏭️ 短すぎるドメインのためスキップ: {domain}")
+            return False
+
+        # 数字のみのサブドメインを除外
+        if any(part.isdigit() for part in domain.split('.')):
+            logger.info(f"⏭️ 数字サブドメインのためスキップ: {domain}")
+            return False
+
+        return True
+    except Exception as e:
+        logger.warning(f"⚠️ ドメイン信頼性チェック失敗 {url}: {e}")
+        return False
+
 def search_web_for_image(image_content: bytes) -> list[str]:
     """
-    画像コンテンツを受け取り、Google Cloud Vision APIのWEB_DETECTIONを使って
+    画像コンテンツを受け取り、Google Vision API + SerpAPIで
     類似・同一画像が使用されているURLのリストを返す。
+    精度向上のため、両方のAPIを組み合わせて使用。
     """
-    logger.info("🔍 Google Vision API WEB_DETECTION検索開始")
+    logger.info("🔍 画像検索開始（Vision API + SerpAPI併用）")
+
+    all_urls = []
 
     try:
+        # 1. Google Vision API WEB_DETECTION
+        logger.info("📊 【Phase 1】Google Vision API WEB_DETECTION")
         image = vision.Image(content=image_content)
         response = vision_client.web_detection(image=image)
         web_detection = response.web_detection
 
-        # URLを選別し、ページのURLを優先する
-        page_urls = [page.url for page in web_detection.pages_with_matching_images if page.url] if web_detection.pages_with_matching_images else []
+        # デバッグ用: 各マッチタイプの件数をログ出力
+        exact_matches_count = len(web_detection.best_guess_labels) if web_detection.best_guess_labels else 0
+        full_matching_count = len(web_detection.full_matching_images) if web_detection.full_matching_images else 0
+        partial_matching_count = len(web_detection.partial_matching_images) if web_detection.partial_matching_images else 0
+        pages_count = len(web_detection.pages_with_matching_images) if web_detection.pages_with_matching_images else 0
 
-        # 画像URLは参考程度に収集
-        image_urls = []
+        logger.info(f"📈 Vision API検出結果:")
+        logger.info(f"  - 完全一致ページ数: {exact_matches_count}件")
+        logger.info(f"  - 完全一致画像数: {full_matching_count}件")
+        logger.info(f"  - 部分一致画像数: {partial_matching_count}件（高品質のみ使用）")
+        logger.info(f"  - マッチ画像含むページ数: {pages_count}件")
+
+        vision_urls = []
+
+        # Vision APIからURL収集
+        if web_detection.pages_with_matching_images:
+            logger.info("🎯 マッチページからURL抽出中...")
+            for page in web_detection.pages_with_matching_images:
+                if page.url and page.url.startswith(('http://', 'https://')):
+                    score = getattr(page, 'score', 1.0)
+                    if score >= 0.1 or score == 0.0:
+                        vision_urls.append(page.url)
+                        logger.info(f"  ✅ ページ追加 (score: {score:.2f}): {page.url}")
+
         if web_detection.full_matching_images:
-            image_urls.extend(img.url for img in web_detection.full_matching_images if img.url)
-        if web_detection.partial_matching_images:
-            image_urls.extend(img.url for img in web_detection.partial_matching_images if img.url)
+            logger.info("🎯 完全一致画像からURL抽出中...")
+            for img in web_detection.full_matching_images:
+                if img.url and img.url.startswith(('http://', 'https://')):
+                    vision_urls.append(img.url)
+                    logger.info(f"  ✅ 完全一致画像追加: {img.url}")
 
-        # 重複を除去し、ページURLを優先したリストを作成
+        if web_detection.partial_matching_images and len(vision_urls) < 5:
+            logger.info("🎯 高品質部分一致からURL補完中...")
+            for i, img in enumerate(web_detection.partial_matching_images[:5]):
+                if img.url and img.url.startswith(('http://', 'https://')):
+                    vision_urls.append(img.url)
+                    logger.info(f"  ✅ 部分一致補完追加: {img.url}")
+
+        all_urls.extend(vision_urls)
+        logger.info(f"✅ Vision API: {len(vision_urls)}件のURL取得")
+
+        # 2. SerpAPI 画像逆検索（追加検索）
+        logger.info("📊 【Phase 2】SerpAPI 画像逆検索")
+
+        # Vision APIで取得した画像URLを使ってSerpAPI検索
+        serpapi_urls = []
+        if vision_urls and SERPAPI_KEY:
+            # 最初の数個の画像URLでSerpAPI検索を実行
+            for i, img_url in enumerate(vision_urls[:3]):  # 最初の3つで検索
+                logger.info(f"🔍 SerpAPI検索 ({i+1}/3): {img_url}")
+                serp_results = search_with_serpapi(img_url)
+                serpapi_urls.extend(serp_results)
+
+                if len(serpapi_urls) >= 10:  # 十分な数が集まったら停止
+                    break
+
+        all_urls.extend(serpapi_urls)
+        logger.info(f"✅ SerpAPI: {len(serpapi_urls)}件のURL取得")
+
+        # 重複除去とフィルタリング
+        logger.info("🔧 URL品質フィルタリング開始...")
+        filtered_urls = []
         seen = set()
-        unique_urls = []
 
-        # page_urls を先に追加
-        for url in page_urls:
-            if url not in seen:
-                unique_urls.append(url)
-                seen.add(url)
+        for url in all_urls:
+            if url in seen:
+                continue
+            seen.add(url)
 
-        # image_urls を追加（既にseenにあるものはスキップ）
-        for url in image_urls:
-            if url not in seen:
-                unique_urls.append(url)
-                seen.add(url)
+            # ドメイン信頼性チェック（最低限の除外のみ）
+            if not is_reliable_domain_relaxed(url):
+                continue
 
-        url_list = unique_urls
-        logger.info(f"🌐 発見されたユニークURL: {len(url_list)}件")
-        for i, url in enumerate(url_list[:5]):  # 最初の5件をログに表示
+            # URL有効性チェック（厳格版）
+            logger.info(f"🔍 URL有効性チェック中: {url}")
+            if not validate_url_availability_fast(url):
+                logger.info(f"  ❌ 無効URLスキップ: {url}")
+                continue
+
+            filtered_urls.append(url)
+            logger.info(f"  ✅ 有効URL追加: {url}")
+
+            # 最大25件に制限（両API併用により増加）
+            if len(filtered_urls) >= 25:
+                break
+
+        logger.info(f"🌐 最終的に選別されたURL: {len(filtered_urls)}件")
+        logger.info(f"📊 内訳: Vision API={len(vision_urls)}件, SerpAPI={len(serpapi_urls)}件")
+
+        for i, url in enumerate(filtered_urls[:10]):
             logger.info(f"  {i+1}: {url}")
 
-        return url_list
+        if len(filtered_urls) > 10:
+            logger.info(f"  ... 他 {len(filtered_urls) - 10}件")
+
+        return filtered_urls
 
     except Exception as e:
-        logger.error(f"❌ WEB_DETECTION エラー: {str(e)}")
+        logger.error(f"❌ 画像検索エラー: {str(e)}")
         return []
 
+def is_reliable_domain_relaxed(url: str) -> bool:
+    """
+    ドメイン信頼性チェック（最低限の除外のみ）
+    本来の趣旨：怪しいドメインこそAI判定で悪用チェックするため、除外は最小限に
+    """
+    try:
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        domain = parsed.netloc.lower()
+
+        # 最低限の除外：明らかに画像サービスのみ
+        image_only_domains = [
+            'i.imgur.com',
+            'cdn.discordapp.com',
+            'media.discordapp.net',
+            'images.unsplash.com',
+            'cdn.pixabay.com',
+            'images.pexels.com',
+        ]
+
+        # 画像サービスのみ除外（他はすべてAI判定対象）
+        for image_domain in image_only_domains:
+            if image_domain in domain:
+                logger.info(f"⏭️ 画像サービスのためスキップ: {domain}")
+                return False
+
+        # その他のドメインはすべて通す（悪用チェックのため）
+        return True
+    except Exception as e:
+        logger.warning(f"⚠️ ドメイン信頼性チェック失敗 {url}: {e}")
+        return True  # エラーの場合は通す
+
+def search_with_serpapi(image_url: str) -> list[str]:
+    """
+    SerpAPIを使用して画像の逆検索を実行
+    Google Vision APIと組み合わせて精度向上
+    """
+    if not SERPAPI_KEY:
+        logger.warning("⚠️ SERPAPI_KEY が設定されていないため、SerpAPI検索をスキップ")
+        return []
+
+    if not GoogleSearch:
+        logger.warning("⚠️ SerpAPIライブラリが利用できないため、SerpAPI検索をスキップ")
+        return []
+
+    logger.info("🔍 SerpAPI画像逆検索開始")
+
+    try:
+        # SerpAPIで画像検索を実行
+        search = GoogleSearch({
+            "engine": "google_images",
+            "q": image_url,
+            "api_key": SERPAPI_KEY,
+            "tbs": "simg",  # 類似画像検索
+            "num": 20,      # 最大20件取得
+            "safe": "off"   # セーフサーチ無効
+        })
+
+        results = search.get_dict()
+
+        if "images_results" not in results:
+            logger.warning("⚠️ SerpAPI: 画像検索結果が見つかりません")
+            return []
+
+        urls = []
+        for result in results["images_results"][:15]:  # 上位15件
+            if "link" in result:
+                urls.append(result["link"])
+            elif "original" in result:
+                urls.append(result["original"])
+
+        logger.info(f"✅ SerpAPI検索完了: {len(urls)}件のURLを発見")
+        return urls
+
+    except Exception as e:
+        logger.error(f"❌ SerpAPI検索エラー: {str(e)}")
+        return []
+
+def get_x_tweet_content(tweet_url: str) -> str | None:
+    """
+    X（Twitter）のツイートURLから投稿内容を取得
+    X API v2のBearer Token認証を使用
+    """
+    if not X_BEARER_TOKEN:
+        logger.warning("⚠️ X_BEARER_TOKEN が設定されていないため、ツイート内容取得をスキップ")
+        return None
+
+    try:
+        import re
+        from urllib.parse import urlparse
+
+        # ツイートIDを抽出
+        tweet_id_match = re.search(r'/status/(\d+)', tweet_url)
+        if not tweet_id_match:
+            logger.warning(f"⚠️ ツイートIDを抽出できません: {tweet_url}")
+            return None
+
+        tweet_id = tweet_id_match.group(1)
+        logger.info(f"🐦 ツイート内容取得開始: ID={tweet_id}")
+
+        # X API v2でツイート内容を取得（Bearer Token認証）
+        headers = {
+            'Authorization': f'Bearer {X_BEARER_TOKEN}',
+            'Content-Type': 'application/json'
+        }
+
+        with httpx.Client(timeout=10.0) as client:
+            response = client.get(
+                f"https://api.twitter.com/2/tweets/{tweet_id}",
+                headers=headers,
+                params={
+                    'tweet.fields': 'text,author_id,created_at,public_metrics',
+                    'user.fields': 'username,name',
+                    'expansions': 'author_id'
+                }
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                if 'data' in data:
+                    tweet_text = data['data'].get('text', '')
+                    author_info = ""
+
+                    # 作者情報も取得
+                    if 'includes' in data and 'users' in data['includes']:
+                        user = data['includes']['users'][0]
+                        username = user.get('username', '')
+                        name = user.get('name', '')
+                        author_info = f"@{username} ({name})"
+
+                    logger.info(f"✅ ツイート内容取得完了: {len(tweet_text)}文字")
+                    return f"X投稿内容 {author_info}: {tweet_text}"
+                else:
+                    logger.warning("⚠️ ツイートデータが見つかりません")
+                    return None
+            else:
+                logger.error(f"❌ X API エラー: {response.status_code} - {response.text}")
+                return None
+
+    except Exception as e:
+        logger.error(f"❌ X API取得エラー: {str(e)}")
+        return None
+
+def validate_url_availability_fast(url: str) -> bool:
+    """
+    URLの有効性を高速チェック（厳格版）
+    白紙ページや無効なコンテンツを事前に除外
+    Twitter画像URLは特別処理のため通す
+    """
+    try:
+        # Twitter画像URLは特別処理のため、検証をスキップして通す
+        if 'pbs.twimg.com' in url:
+            logger.info(f"🐦 Twitter画像URL検出 - 特別処理のため通過: {url}")
+            return True
+
+        with httpx.Client(timeout=5.0, follow_redirects=True) as client:
+            # 1. HEADリクエストでステータス確認
+            try:
+                head_response = client.head(url, headers={
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                })
+
+                # 4xx/5xxエラーは即座に除外
+                if head_response.status_code >= 400:
+                    logger.info(f"❌ HTTPエラー {head_response.status_code}: {url}")
+                    return False
+
+                # Content-Typeチェック
+                content_type = head_response.headers.get('content-type', '').lower()
+                if content_type and 'text/html' not in content_type:
+                    logger.info(f"❌ 非HTMLコンテンツ ({content_type}): {url}")
+                    return False
+
+            except httpx.RequestError:
+                # HEADが失敗した場合はGETで再試行
+                pass
+
+            # 2. GETリクエストでコンテンツの有効性を確認
+            response = client.get(url, headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            })
+
+            # ステータスコードチェック
+            if not (200 <= response.status_code < 300):
+                logger.info(f"❌ 無効ステータス {response.status_code}: {url}")
+                return False
+
+            # Content-Typeの最終確認
+            content_type = response.headers.get('content-type', '').lower()
+            if 'text/html' not in content_type:
+                logger.info(f"❌ 非HTMLレスポンス ({content_type}): {url}")
+                return False
+
+            # コンテンツの実質性チェック
+            content_length = len(response.text.strip())
+            if content_length < 100:  # 100文字未満は空白ページとみなす
+                logger.info(f"❌ 空白ページ (長さ: {content_length}): {url}")
+                return False
+
+            # 空白ページやエラーページの典型的なパターンをチェック
+            content_lower = response.text.lower()
+            error_indicators = [
+                'page not found',
+                'not found',
+                '404',
+                'error',
+                'page does not exist',
+                'página no encontrada',  # スペイン語の「ページが見つかりません」
+                'no se encontró',
+                'sin contenido',
+                'empty page',
+                'blank page'
+            ]
+
+            for indicator in error_indicators:
+                if indicator in content_lower and content_length < 1000:
+                    logger.info(f"❌ エラーページ検出 ('{indicator}'): {url}")
+                    return False
+
+            logger.info(f"✅ 有効なコンテンツを確認: {url}")
+            return True
+
+    except httpx.TimeoutException:
+        logger.info(f"❌ タイムアウト: {url}")
+        return False
+    except httpx.RequestError as e:
+        logger.info(f"❌ リクエストエラー: {url} - {e}")
+        return False
+    except Exception as e:
+        logger.warning(f"⚠️ URL検証エラー: {url} - {e}")
+        return False
+
+def is_trusted_news_domain(url: str) -> bool:
+    """
+    信頼できるニュース・出版系ドメインかチェック
+    これらのドメインはGemini判定をスキップして直接○判定
+    """
+    try:
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        domain = parsed.netloc.lower()
+
+                # 信頼できるニュース・出版・公式サイトドメイン
+        trusted_domains = [
+            'news.yahoo.co.jp',
+            'www3.nhk.or.jp',
+            'mainichi.jp',
+            'www.asahi.com',
+            'www.yomiuri.co.jp',
+            'www.sankei.com',
+            'www.nikkei.com',
+            'toyokeizai.net',
+            'diamond.jp',
+            'gendai.media',
+            'bunshun.jp',
+            'shinchosha.co.jp',
+            'kadokawa.co.jp',
+            'www.shogakukan.co.jp',
+            'www.amazon.co.jp',
+            'books.rakuten.co.jp',
+            'honto.jp',
+            'www.kinokuniya.co.jp',
+            'www.tsutaya.co.jp',
+            'natalie.mu',
+            'www.oricon.co.jp',
+            'more.hpplus.jp',
+            'www.vogue.co.jp',
+            'www.elle.com',
+            'www.cosmopolitan.com',
+            'mi-mollet.com',
+            'www.25ans.jp',
+            'cancam.jp',
+            'ray-web.jp',
+            'www.biteki.com'
+        ]
+
+        # 完全一致チェック
+        if domain in trusted_domains:
+            return True
+
+        # サブドメインを含む部分一致チェック
+        for trusted in trusted_domains:
+            if domain.endswith('.' + trusted) or domain == trusted:
+                return True
+
+        # 楽天・Amazonの部分一致チェック（より広範囲に対応）
+        trusted_patterns = [
+            'rakuten.co.jp',  # search.rakuten.co.jp, books.rakuten.co.jp など
+            'amazon.co.jp',   # www.amazon.co.jp など
+            'amazon.com',     # www.amazon.com など
+        ]
+
+        for pattern in trusted_patterns:
+            if pattern in domain:
+                logger.info(f"✅ 信頼パターン一致: {pattern} in {domain}")
+                return True
+
+        return False
+    except Exception as e:
+        logger.warning(f"⚠️ ドメイン信頼性チェック失敗 {url}: {e}")
+        return False
+
+def convert_twitter_image_to_tweet(url: str) -> str | None:
+    """
+    Twitter画像URL（pbs.twimg.com）から元ツイートの内容を取得を試みる
+    pbs.twimg.com画像URLからツイートIDを推定し、X APIで内容取得
+    """
+    try:
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+
+        # Twitter画像URLの場合
+        if 'pbs.twimg.com' in parsed.netloc:
+            logger.info(f"🐦 Twitter画像URL検出: {url}")
+
+            # X APIまたはSerpAPIが利用可能な場合、ツイート検索を試行
+            if X_BEARER_TOKEN or (SERPAPI_KEY and GoogleSearch):
+                tweet_content = get_x_tweet_content_by_image(url)
+                if tweet_content:
+                    return tweet_content
+
+                # 検索で見つからなかった場合でも、Geminiに画像の性質を伝える
+                logger.info("🐦 ツイート内容は特定できませんでしたが、Twitter画像として処理")
+                return f"TWITTER_IMAGE_UNKNOWN:{url}"
+
+            # API利用不可の場合は従来の処理
+            return f"TWITTER_IMAGE:{url}"
+
+        return None
+    except Exception as e:
+        logger.warning(f"⚠️ Twitter URL変換失敗 {url}: {e}")
+        return None
+
+def get_x_tweet_content_by_image(image_url: str) -> str | None:
+    """
+    画像URLからツイート内容を探索する
+    X API v2とSerpAPIを組み合わせてツイートを特定
+    """
+    try:
+        logger.info(f"🐦 画像URL経由でツイート検索: {image_url}")
+
+        # 方法1: SerpAPIでTwitter内検索
+        if SERPAPI_KEY and GoogleSearch:
+            logger.info("🔍 SerpAPIでTwitter検索実行中...")
+            search = GoogleSearch({
+                "engine": "google",
+                "q": f"site:twitter.com {image_url}",
+                "api_key": SERPAPI_KEY,
+                "num": 10
+            })
+
+            results = search.get_dict()
+
+            if "organic_results" in results:
+                for result in results["organic_results"][:5]:
+                    if "link" in result and "twitter.com" in result["link"]:
+                        logger.info(f"🐦 ツイートURL発見: {result['link']}")
+                        # ツイートURLが見つかった場合、内容を取得
+                        tweet_content = get_x_tweet_content(result["link"])
+                        if tweet_content:
+                            return tweet_content
+
+        # 方法2: 画像URLからツイートIDを推定（部分的）
+        if X_BEARER_TOKEN:
+            logger.info("🔍 X APIで直接検索試行中...")
+            # pbs.twimg.com URLから可能な限りメタデータを抽出
+            # 実際のツイートIDを特定することは困難だが、可能性のあるIDパターンを検索
+
+            # この部分は技術的に制限があるため、一般的なエラーハンドリングを行う
+            logger.warning("⚠️ 画像URLからの直接ツイート特定は技術的に困難")
+
+        # 方法3: より汎用的なリバース検索
+        if SERPAPI_KEY and GoogleSearch:
+            logger.info("🔍 汎用画像検索でTwitter関連情報探索中...")
+            search = GoogleSearch({
+                "engine": "google_images",
+                "q": image_url,
+                "api_key": SERPAPI_KEY,
+                "tbs": "simg",
+                "num": 20
+            })
+
+            results = search.get_dict()
+
+            if "images_results" in results:
+                for result in results["images_results"][:10]:
+                    if "link" in result and "twitter.com" in result["link"]:
+                        logger.info(f"🐦 リバース検索でツイートURL発見: {result['link']}")
+                        tweet_content = get_x_tweet_content(result["link"])
+                        if tweet_content:
+                            return tweet_content
+
+        logger.warning("⚠️ 画像からツイート内容を特定できませんでした")
+        return None
+
+    except Exception as e:
+        logger.error(f"❌ 画像経由ツイート検索エラー: {str(e)}")
+        return None
+
+def judge_content_with_gemini(content: str) -> dict:
+    """
+    Gemini AIを使ってコンテンツを判定する
+    """
+    if not gemini_model:
+        logger.error("❌ Gemini モデルが利用できません")
+        return {"judgment": "！", "reason": "AI判定サービスが利用できません"}
+
+    logger.info("🤖 Gemini AI判定開始")
+
+    try:
+        # Twitter画像の場合の特別処理
+        if content.startswith("TWITTER_IMAGE:"):
+            logger.info("🐦 Twitter画像URL（内容取得不可）の特別処理")
+            return {
+                "judgment": "？",
+                "reason": "Twitter画像のため投稿内容を直接確認できません"
+            }
+        elif content.startswith("TWITTER_IMAGE_UNKNOWN:"):
+            logger.info("🐦 Twitter画像URL（内容不明）の特別処理")
+            return {
+                "judgment": "？",
+                "reason": "Twitter画像ですが投稿内容を特定できませんでした"
+            }
+        elif content.startswith("X投稿内容"):
+            logger.info("🐦 X API経由で取得したツイート内容を分析")
+            # 実際のツイート内容があるので、通常の判定を継続
+
+        prompt = f"""
+以下のWebページの内容を分析し、著作権的に問題がある海賊版サイトか、
+それとも正規のサイトかを判断してください。
+
+【Webページの内容】
+{content[:2000]}
+
+【判断基準】
+- 正規サイト: 出版社、著者、公式書店、書評、ニュース記事など。
+- 海賊版サイト: 全文掲載、無料ダウンロード、違法コピーを示唆する文言など。
+
+【回答形式】
+以下のフォーマットで回答してください。
+判定：[○、×、？ のいずれか]
+理由：[判断の根拠を20字以内で簡潔に。判断不能な場合は「情報不足のため判断不能」と記載]
+        """
+
+        response = gemini_model.generate_content(prompt)
+        result_text = response.text.strip()
+
+        logger.info(f"📋 Gemini応答: {result_text}")
+
+        # 応答を解析
+        lines = result_text.strip().split('\n')
+        judgment = "？"
+        reason = "応答解析失敗"
+
+        for line in lines:
+            line = line.strip()
+            if '判定：' in line or '判定:' in line:
+                judgment_part = line.split('：')[1] if '：' in line else line.split(':')[1]
+                judgment = judgment_part.replace('[','').replace(']','').strip()
+                if judgment not in ['○', '×', '？']:
+                    judgment = "？"
+            elif '理由：' in line or '理由:' in line:
+                reason_part = line.split('：')[1] if '：' in line else line.split(':')[1]
+                reason = reason_part.replace('[','').replace(']','').strip()
+
+        logger.info(f"✅ Gemini判定完了: {judgment} - {reason}")
+        return {"judgment": judgment, "reason": reason}
+
+    except Exception as e:
+        error_msg = str(e)
+        logger.error(f"❌ Gemini API エラー: {error_msg}")
+
+        # エラータイプに応じた分類
+        if "not found" in error_msg.lower():
+            return {"judgment": "！", "reason": "AIモデルが見つかりません"}
+        elif "quota" in error_msg.lower() or "limit" in error_msg.lower():
+            return {"judgment": "！", "reason": "API利用制限に達しました"}
+        elif "auth" in error_msg.lower() or "permission" in error_msg.lower():
+            return {"judgment": "！", "reason": "API認証エラーです"}
+        elif "network" in error_msg.lower() or "timeout" in error_msg.lower():
+            return {"judgment": "！", "reason": "ネットワークエラーです"}
+        else:
+            return {"judgment": "？", "reason": "AI判定処理でエラーが発生"}
+
+def analyze_url_efficiently(url: str) -> dict:
+    """
+    URLを効率的に分析する
+    1. 信頼できるニュースサイトは事前に○判定
+    2. Twitter画像URLは特別処理
+    3. その他はスクレイピング→Gemini判定
+    """
+    logger.info(f"🔄 URL分析開始: {url}")
+
+    # 1. 信頼できるニュース・出版系ドメインの事前チェック
+    if is_trusted_news_domain(url):
+        logger.info(f"✅ 信頼ドメインのため事前○判定: {url}")
+        return {
+            "url": url,
+            "judgment": "○",
+            "reason": "信頼できるニュース・出版サイト"
+        }
+
+    # 2. Twitter画像URLの特別処理
+    twitter_content = convert_twitter_image_to_tweet(url)
+    if twitter_content:
+        judgment_result = judge_content_with_gemini(twitter_content)
+        return {
+            "url": url,
+            "judgment": judgment_result["judgment"],
+            "reason": judgment_result["reason"]
+        }
+
+    # 3. 通常のスクレイピング→Gemini判定
+    scraped_content = scrape_page_content(url)
+    if not scraped_content:
+        logger.info(f"  ❌ スクレイピング失敗: {url}")
+        return None
+
+    judgment_result = judge_content_with_gemini(scraped_content)
+    logger.info(f"  ✅ 分析完了: {judgment_result['judgment']} - {judgment_result['reason']}")
+
+    return {
+        "url": url,
+        "judgment": judgment_result["judgment"],
+        "reason": judgment_result["reason"]
+    }
+
 def scrape_page_content(url: str) -> str | None:
-    """
-    URLのページからタイトルと本文の一部を抽出する。
-    画像URLやHTML以外のコンテンツはスキップする。
-    """
     # 1. 拡張子とドメインで簡易フィルタリング
     image_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp']
     if any(url.lower().endswith(ext) for ext in image_extensions):
         logger.info(f"⏭️  画像拡張子のためスキップ: {url}")
         return None
 
-    image_host_domains = ['pbs.twimg.com', 'm.media-amazon.com', 'img-cdn.theqoo.net']
+    image_host_domains = ['m.media-amazon.com', 'img-cdn.theqoo.net']
     if any(domain in url for domain in image_host_domains):
         logger.info(f"⏭️  画像ホスティングドメインのためスキップ: {url}")
+        return None
+
+    # Twitter画像URLは特別処理（スクレイピングはスキップ）
+    if 'pbs.twimg.com' in url:
+        logger.info(f"🐦 Twitter画像URL検出のためスクレイピングスキップ: {url}")
         return None
 
     logger.info(f"🌐 スクレイピング開始: {url}")
@@ -240,68 +933,6 @@ def scrape_page_content(url: str) -> str | None:
     except Exception as e:
         logger.error(f"❌ スクレイピング一般エラー {url}: {e}")
         return None
-
-def judge_content_with_gemini(content: str) -> dict:
-    """スクレイピングした内容をGeminiで判定する"""
-    logger.info("🤖 Gemini AI判定開始")
-
-    if not gemini_model:
-        logger.error("❌ Gemini モデルが初期化されていません")
-        return {"judgment": "？", "reason": "Gemini APIが設定されていません"}
-
-    prompt = f"""
-以下のWebページの内容を分析し、著作権的に問題がある海賊版サイトか、
-それとも正規のサイトかを判断してください。
-
-【Webページの内容】
-{content[:2000]}
-
-【判断基準】
-- 正規サイト: 出版社、著者、公式書店、書評、ニュース記事など。
-- 海賊版サイト: 全文掲載、無料ダウンロード、違法コピーを示唆する文言など。
-
-        【回答形式】
-        以下のフォーマットで回答してください。
-        判定：[○、×、？ のいずれか]
-        理由：[判断の根拠を20字以内で簡潔に。判断不能な場合は「情報不足のため判断不能」と記載]
-"""
-    try:
-        response = gemini_model.generate_content(prompt)
-        logger.info(f"📋 Gemini応答: {response.text[:100]}...")
-
-        # レスポンスから判定と理由を抽出
-        lines = response.text.strip().split('\n')
-        judgment_line = next((line for line in lines if '判定：' in line), '')
-        reason_line = next((line for line in lines if '理由：' in line), '')
-
-        judgment = judgment_line.split('：')[1].replace('[','').replace(']','').strip() if '：' in judgment_line else "？"
-        reason = reason_line.split('：')[1].replace('[','').replace(']','').strip() if '：' in reason_line else "AI応答の解析に失敗"
-
-        logger.info(f"✅ Gemini判定完了: {judgment} - {reason}")
-        return {"judgment": judgment, "reason": reason}
-    except Exception as e:
-        error_msg = str(e)
-
-        # エラーの種類別にログと理由を分ける
-        if "404" in error_msg and "models/" in error_msg:
-            logger.error(f"❌ Gemini API モデルエラー: {error_msg}")
-            return {"judgment": "！", "reason": "Geminiモデルが見つかりません"}
-        elif "401" in error_msg or "403" in error_msg:
-            logger.error(f"❌ Gemini API 認証エラー: {error_msg}")
-            return {"judgment": "！", "reason": "Gemini API認証エラー"}
-        elif "429" in error_msg or "quota" in error_msg.lower():
-            logger.error(f"❌ Gemini API クォータエラー: {error_msg}")
-            return {"judgment": "！", "reason": "Gemini APIクォータ制限"}
-        elif "timeout" in error_msg.lower() or "connection" in error_msg.lower():
-            logger.error(f"❌ Gemini API ネットワークエラー: {error_msg}")
-            return {"judgment": "！", "reason": "Geminiネットワークエラー"}
-        else:
-            logger.error(f"❌ Gemini API 不明エラー: {error_msg}")
-            return {"judgment": "？", "reason": f"AI判定エラー: {error_msg[:50]}..."}
-
-
-
-
 
 
 
@@ -564,34 +1195,26 @@ async def analyze_image(image_id: str):
 
         logger.info(f"✅ Web検索完了: {len(url_list)}件のURLを発見")
 
-        # 各URLに対してスクレイピング + Gemini判定を実行
+        # 各URLを効率的に分析（ニュースサイトは事前○判定、Twitterは特別処理）
         processed_results = []
 
         for i, url in enumerate(url_list[:10]):  # 最大10件を処理
             logger.info(f"🔄 URL処理中 ({i+1}/{min(len(url_list), 10)}): {url}")
 
-            # ページ内容をスクレイピング
-            content = scrape_page_content(url)
+            # 効率的な分析実行
+            result = analyze_url_efficiently(url)
 
-            if content:
-                # Geminiで判定
-                result = judge_content_with_gemini(content)
-
-                processed_results.append({
-                    "url": url,
-                    "judgment": result['judgment'],
-                    "reason": result['reason']
-                })
-
+            if result:
+                processed_results.append(result)
                 logger.info(f"  ✅ 処理完了: {result['judgment']} - {result['reason']}")
             else:
-                # スクレイピング失敗時
+                # 分析失敗時
                 processed_results.append({
                     "url": url,
                     "judgment": "？",
-                    "reason": "ページの内容を取得できませんでした"
+                    "reason": "分析に失敗しました"
                 })
-                logger.info(f"  ❌ スクレイピング失敗: {url}")
+                logger.info(f"  ❌ 分析失敗: {url}")
 
         # 最終結果を保存
         search_results[image_id] = processed_results
