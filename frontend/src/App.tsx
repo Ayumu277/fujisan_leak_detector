@@ -209,8 +209,9 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({
           const info = response.data
           setFileInfo(info)
 
-          // PDFの場合は画像取得を試行しない
+          // PDFの場合はPDFプレビューを取得
           if (info.fileType === 'pdf' || (info.filename && info.filename.toLowerCase().endsWith('.pdf'))) {
+            setImageSrc(`${API_BASE}/pdf-preview/${fileId}`)
             setIsLoading(false)
           } else {
             // 画像の場合はAPI から画像取得
@@ -305,7 +306,7 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({
           ❌<br/>
           <span style={{ fontSize: '0.6rem' }}>エラー</span>
         </div>
-      ) : isPdf ? (
+      ) : isPdf && !imageSrc ? (
         <div style={{
           position: 'absolute',
           top: '50%',
@@ -321,13 +322,32 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({
           )}
         </div>
       ) : imageSrc ? (
-        <img
-          src={imageSrc}
-          alt="画像プレビュー"
-          style={imageStyle}
-          onLoad={handleImageLoad}
-          onError={handleImageError}
-        />
+        <>
+          <img
+            src={imageSrc}
+            alt="画像プレビュー"
+            style={imageStyle}
+            onLoad={handleImageLoad}
+            onError={handleImageError}
+          />
+          {/* PDFの場合は右上にバッジを表示 */}
+          {isPdf && (
+            <div style={{
+              position: 'absolute',
+              top: '4px',
+              right: '4px',
+              backgroundColor: '#dc2626',
+              color: 'white',
+              fontSize: '0.6rem',
+              fontWeight: 'bold',
+              padding: '2px 4px',
+              borderRadius: '4px',
+              lineHeight: '1'
+            }}>
+              PDF
+            </div>
+          )}
+        </>
       ) : null}
     </div>
   )

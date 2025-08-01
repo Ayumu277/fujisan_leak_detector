@@ -1397,11 +1397,18 @@ def judge_content_with_gemini(content: str) -> dict:
         # ---------- 高精度判定用 Gemini プロンプト ----------
         # 完全に安全な公式ドメイン（コンテンツチェック不要）
         official_domains = [
+            # 出版社
             'www.kadokawa.co.jp', 'www.shogakukan.co.jp', 'www.shueisha.co.jp',
-            'www.kodansha.co.jp', 'www.nhk.or.jp', 'www.asahi.com', 'www.yomiuri.co.jp',
+            'www.kodansha.co.jp', 
+            # メディア
+            'www.nhk.or.jp', 'www.asahi.com', 'www.yomiuri.co.jp',
             'www.sankei.com', 'www.nikkei.com', 'mainichi.jp', 'news.yahoo.co.jp',
+            # 書店・EC
             'shop.delivered.co.kr', 'www.deliveredh.shop', 'books.rakuten.co.jp',
-            'honto.jp', 'www.kinokuniya.co.jp'
+            'honto.jp', 'www.kinokuniya.co.jp', '7net.omni7.jp', 'www.7net.omni7.jp',
+            'www.hmv.co.jp', 'hmv.co.jp', 'www.tsutaya.co.jp', 'tsutaya.co.jp',
+            'www.yodobashi.com', 'yodobashi.com', 'www.biccamera.com', 'biccamera.com',
+            'www.tower.jp', 'tower.jp', 'books.shufunotomo.co.jp', 'books.bunka.co.jp'
         ]
 
         # 公式だが内容確認が必要なドメイン
@@ -3100,9 +3107,9 @@ async def get_file_info(file_id: str):
             status_code=404,
             detail="指定されたファイルが見つかりません"
         )
-
+    
     record = upload_records[file_id]
-
+    
     return {
         "file_id": file_id,
         "filename": record.get("original_filename", "不明"),
@@ -3111,6 +3118,61 @@ async def get_file_info(file_id: str):
         "uploadTime": record.get("upload_time", ""),
         "analysisStatus": record.get("analysis_status", "pending")
     }
+
+@app.get("/pdf-preview/{file_id}")
+async def get_pdf_preview(file_id: str):
+    """
+    PDFファイルの最初のページを画像として取得する
+    """
+    if file_id not in upload_records:
+        raise HTTPException(
+            status_code=404,
+            detail="指定されたファイルが見つかりません"
+        )
+    
+    record = upload_records[file_id]
+    file_path = record["file_path"]
+    
+    if not os.path.exists(file_path):
+        raise HTTPException(
+            status_code=404,
+            detail="ファイルが存在しません"
+        )
+    
+    # PDFファイルかチェック
+    if record.get("file_type") != "pdf":
+        raise HTTPException(
+            status_code=400,
+            detail="指定されたファイルはPDFではありません"
+        )
+    
+    try:
+        # PDFの最初のページを画像に変換
+        with open(file_path, 'rb') as file:
+            pdf_content = file.read()
+        
+        pdf_images = convert_pdf_to_images(pdf_content)
+        if not pdf_images:
+            raise HTTPException(
+                status_code=500,
+                detail="PDFから画像を生成できませんでした"
+            )
+        
+        # 最初のページの画像を返す
+        first_page_image = pdf_images[0]
+        
+        return Response(
+            content=first_page_image,
+            media_type="image/png",
+            headers={"Content-Disposition": f"inline; filename=\"{file_id}_preview.png\""}
+        )
+        
+    except Exception as e:
+        logger.error(f"❌ PDFプレビュー生成エラー {file_id}: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail="PDFプレビューの生成に失敗しました"
+        )
 
 if __name__ == "__main__":
     import uvicorn
