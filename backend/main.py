@@ -304,31 +304,55 @@ load_history()
 
 # Vision APIクライアントをグローバルで初期化（Render対応）
 try:
-    # Renderでは環境変数に直接JSONコンテンツを設定する場合がある
+    import json
+    from google.oauth2 import service_account
+    
+    # まず GOOGLE_APPLICATION_CREDENTIALS_JSON を確認
     google_credentials_json = os.getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON")
     if google_credentials_json:
-        # JSON文字列から認証情報を作成
-        import json
-        from google.oauth2 import service_account
         credentials_info = json.loads(google_credentials_json)
         credentials = service_account.Credentials.from_service_account_info(credentials_info)
         vision_client = vision.ImageAnnotatorClient(credentials=credentials)
-        logger.info("✅ Google Vision API認証完了（JSON環境変数）")
+        logger.info("✅ Google Vision API認証完了（GOOGLE_APPLICATION_CREDENTIALS_JSON）")
     else:
-        # 従来のファイルパス方式
-        vision_client = vision.ImageAnnotatorClient()
-        logger.info("✅ Google Vision API認証完了（ファイルパス）")
+        # GOOGLE_APPLICATION_CREDENTIALS の値を確認
+        google_credentials = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+        if google_credentials:
+            # JSON文字列かファイルパスかを判定
+            if google_credentials.strip().startswith('{'):
+                # JSON文字列として処理
+                credentials_info = json.loads(google_credentials)
+                credentials = service_account.Credentials.from_service_account_info(credentials_info)
+                vision_client = vision.ImageAnnotatorClient(credentials=credentials)
+                logger.info("✅ Google Vision API認証完了（GOOGLE_APPLICATION_CREDENTIALS JSON形式）")
+            else:
+                # ファイルパスとして処理
+                if os.path.exists(google_credentials):
+                    vision_client = vision.ImageAnnotatorClient()
+                    logger.info("✅ Google Vision API認証完了（ファイルパス）")
+                else:
+                    logger.warning(f"⚠️ 認証ファイルが見つかりません: {google_credentials}")
+                    vision_client = None
+        else:
+            # デフォルト認証を試行
+            vision_client = vision.ImageAnnotatorClient()
+            logger.info("✅ Google Vision API認証完了（デフォルト認証）")
 except Exception as e:
     logger.warning(f"⚠️ Google Vision API初期化失敗: {e}")
     vision_client = None
 
 # Geminiモデルをグローバルで初期化
 if GEMINI_API_KEY:
-    gemini_model = genai.GenerativeModel('gemini-2.5-flash')
-    logger.info("✅ Gemini モデル初期化完了")
+    try:
+        gemini_model = genai.GenerativeModel('gemini-2.5-flash')
+        logger.info("✅ Gemini モデル初期化完了")
+        logger.info("✅ Gemini API設定確認完了")
+    except Exception as e:
+        logger.error(f"❌ Gemini モデル初期化失敗: {e}")
+        gemini_model = None
 else:
+    logger.error("❌ GEMINI_API_KEY が設定されていません")
     gemini_model = None
-    logger.warning("⚠️ Gemini モデルを初期化できませんでした")
 
 def validate_file(file: UploadFile) -> bool:
     """アップロードされたファイルが有効な画像またはPDFかどうかを検証"""
