@@ -43,9 +43,18 @@ except ImportError:
         logger.warning("⚠️ PDF処理ライブラリが見つかりません。pip install PyMuPDF または pip install pdf2image PyPDF2 を実行してください")
 try:
     from serpapi import GoogleSearch  # type: ignore
+    SerpAPI_available = True
+    print("✅ SerpAPI available")
 except ImportError:
-    GoogleSearch = None
-    print("⚠️ SerpAPI not available - continuing without it")
+    try:
+        # 代替インポート方法
+        from serpapi.google_search import GoogleSearch  # type: ignore
+        SerpAPI_available = True
+        print("✅ SerpAPI available (alternative import)")
+    except ImportError:
+        GoogleSearch = None
+        SerpAPI_available = False
+        print("⚠️ SerpAPI not available - continuing without it")
 
 # ログ設定
 logging.basicConfig(level=logging.INFO)
@@ -119,6 +128,14 @@ if missing_keys:
     print("- X_BEARER_TOKEN: X API用（Twitter内容取得）")
 else:
     print("✓ 必要なAPI_KEYが正常に設定されています")
+
+# SerpAPI利用可能性をログ出力
+if SerpAPI_available and SERPAPI_KEY:
+    print("✓ SerpAPI機能が利用可能です")
+elif SERPAPI_KEY:
+    print("⚠️ SERPAPI_KEYは設定されていますが、ライブラリが利用できません")
+else:
+    print("⚠️ SerpAPI機能は利用できません（API KEY未設定）")
 
 # CORS設定 - 本番環境対応
 allowed_origins = [
@@ -693,7 +710,7 @@ def search_with_serpapi(image_url: str) -> list[str]:
         logger.warning("⚠️ SERPAPI_KEY が設定されていないため、SerpAPI検索をスキップ")
         return []
 
-    if not GoogleSearch:
+    if not SerpAPI_available or not GoogleSearch:
         logger.warning("⚠️ SerpAPIライブラリが利用できないため、SerpAPI検索をスキップ")
         return []
 
@@ -988,7 +1005,7 @@ def convert_twitter_image_to_tweet_url(url: str) -> dict | None:
             logger.info(f"🐦 Twitter画像URL検出: {url}")
 
             # X APIまたはSerpAPIが利用可能な場合、ツイート検索を試行
-            if X_BEARER_TOKEN or (SERPAPI_KEY and GoogleSearch):
+            if X_BEARER_TOKEN or (SERPAPI_KEY and SerpAPI_available):
                 tweet_result = get_x_tweet_url_and_content_by_image(url)
                 if tweet_result:
                     return tweet_result
@@ -1059,7 +1076,7 @@ def get_x_tweet_url_and_content_by_image(image_url: str) -> dict | None:
                                         logger.info(f"🔍 関連エンティティ発見: {entity.description}")
 
                                         # このエンティティを使ってさらに検索
-                                        if SERPAPI_KEY and GoogleSearch:
+                                        if SERPAPI_KEY and SerpAPI_available:
                                             search = GoogleSearch({
                                                 "engine": "google",
                                                 "q": f'site:x.com OR site:twitter.com "{entity.description}"',
@@ -1105,7 +1122,7 @@ def get_x_tweet_url_and_content_by_image(image_url: str) -> dict | None:
                 logger.info(f"📅 推定投稿日時: {tweet_datetime}")
 
                 # この情報を使ってより精密な検索を実行
-                if SERPAPI_KEY and GoogleSearch:
+                if SERPAPI_KEY and SerpAPI_available:
                     date_str = tweet_datetime.strftime("%Y-%m-%d")
                     search = GoogleSearch({
                         "engine": "google",
@@ -1130,7 +1147,7 @@ def get_x_tweet_url_and_content_by_image(image_url: str) -> dict | None:
                 logger.warning(f"⚠️ Snowflake ID デコード失敗: {decode_error}")
 
         # 方法3: SerpAPIでリバース画像検索（改良版）
-        if SERPAPI_KEY and GoogleSearch:
+        if SERPAPI_KEY and SerpAPI_available:
             logger.info("🔍 SerpAPIでリバース画像検索実行中...")
             search = GoogleSearch({
                 "engine": "google_reverse_image",
@@ -1159,7 +1176,7 @@ def get_x_tweet_url_and_content_by_image(image_url: str) -> dict | None:
                                     }
 
         # 方法4: 通常のGoogle検索でTwitter内を検索
-        if SERPAPI_KEY and GoogleSearch:
+        if SERPAPI_KEY and SerpAPI_available:
             logger.info("🔍 SerpAPIでTwitter内検索実行中...")
             search = GoogleSearch({
                 "engine": "google",
@@ -1232,7 +1249,7 @@ def get_x_tweet_content_by_image(image_url: str) -> str | None:
                                         logger.info(f"🔍 関連エンティティ発見: {entity.description}")
 
                                         # このエンティティを使ってさらに検索
-                                        if SERPAPI_KEY and GoogleSearch:
+                                        if SERPAPI_KEY and SerpAPI_available:
                                             search = GoogleSearch({
                                                 "engine": "google",
                                                 "q": f'site:x.com OR site:twitter.com "{entity.description}"',
@@ -1275,7 +1292,7 @@ def get_x_tweet_content_by_image(image_url: str) -> str | None:
                 logger.info(f"📅 推定投稿日時: {tweet_datetime}")
 
                 # この情報を使ってより精密な検索を実行
-                if SERPAPI_KEY and GoogleSearch:
+                if SERPAPI_KEY and SerpAPI_available:
                     date_str = tweet_datetime.strftime("%Y-%m-%d")
                     search = GoogleSearch({
                         "engine": "google",
@@ -1297,7 +1314,7 @@ def get_x_tweet_content_by_image(image_url: str) -> str | None:
                 logger.warning(f"⚠️ Snowflake ID デコード失敗: {decode_error}")
 
         # 方法3: SerpAPIでリバース画像検索（改良版）
-        if SERPAPI_KEY and GoogleSearch:
+        if SERPAPI_KEY and SerpAPI_available:
             logger.info("🔍 SerpAPIでリバース画像検索実行中...")
             search = GoogleSearch({
                 "engine": "google_reverse_image",
@@ -1323,7 +1340,7 @@ def get_x_tweet_content_by_image(image_url: str) -> str | None:
                                     return tweet_content
 
         # 方法4: 通常のGoogle検索でTwitter内を検索
-        if SERPAPI_KEY and GoogleSearch:
+        if SERPAPI_KEY and SerpAPI_available:
             logger.info("🔍 SerpAPIでTwitter内検索実行中...")
             search = GoogleSearch({
                 "engine": "google",
@@ -3083,9 +3100,9 @@ async def get_file_info(file_id: str):
             status_code=404,
             detail="指定されたファイルが見つかりません"
         )
-    
+
     record = upload_records[file_id]
-    
+
     return {
         "file_id": file_id,
         "filename": record.get("original_filename", "不明"),

@@ -208,7 +208,7 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({
           const response = await axios.get(`${API_BASE}/file-info/${fileId}`)
           const info = response.data
           setFileInfo(info)
-          
+
           // PDFの場合は画像取得を試行しない
           if (info.fileType === 'pdf' || (info.filename && info.filename.toLowerCase().endsWith('.pdf'))) {
             setIsLoading(false)
@@ -2116,7 +2116,7 @@ function App() {
 
                         const renderResultSection = (title: string, sectionResults: any[], bgColor: string, textColor: string, icon: string) => {
                           if (sectionResults.length === 0) return null
-                          
+
                           return (
                             <div key={title} style={{ marginBottom: '24px' }}>
                               <div style={{
@@ -2134,7 +2134,7 @@ function App() {
                                 <span style={{ fontSize: '1.2rem' }}>{icon}</span>
                                 {title} ({sectionResults.length}件)
                               </div>
-                              
+
                               <div style={{
                                 display: 'grid',
                                 gridTemplateColumns: '1fr',
