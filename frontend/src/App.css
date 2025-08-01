@@ -142,6 +142,17 @@ a:hover {
     margin: 5px 0;
     width: 100%;
   }
+
+  /* 画像プレビュー調整 */
+  .image-preview-container[style*="width: 200px"] {
+    width: 150px !important;
+    height: 150px !important;
+  }
+
+  .image-preview-container[style*="width: 120px"] {
+    width: 100px !important;
+    height: 100px !important;
+  }
 }
 
 @media (max-width: 480px) {
@@ -155,5 +166,21 @@ a:hover {
 
   .results-grid {
     grid-template-columns: 1fr;
+  }
+
+  /* モバイル用画像プレビュー更に縮小 */
+  .image-preview-container[style*="width: 200px"] {
+    width: 120px !important;
+    height: 120px !important;
+  }
+
+  .image-preview-container[style*="width: 120px"] {
+    width: 80px !important;
+    height: 80px !important;
+  }
+
+  .image-preview-container[style*="width: 60px"] {
+    width: 50px !important;
+    height: 50px !important;
   }
 }

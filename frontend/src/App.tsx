@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import axios from 'axios'
 import './App.css'
 
@@ -108,12 +108,196 @@ interface SummaryReportResponse {
   generated_at: string
 }
 
+interface BatchUploadFile {
+  file_id: string
+  filename: string
+  size: number
+  status: string
+}
+
+interface BatchUploadResponse {
+  success: boolean
+  total_files: number
+  uploaded_count: number
+  error_count: number
+  total_size: number
+  files: BatchUploadFile[]
+  errors: Array<{
+    filename: string
+    error: string
+    message: string
+  }>
+  upload_time: string
+}
+
+interface BatchFileStatus {
+  file_id: string
+  filename: string
+  status: 'pending' | 'processing' | 'completed' | 'error'
+  progress: number
+  results_count?: number
+  error?: string
+}
+
+interface BatchJobStatus {
+  batch_id: string
+  total_files: number
+  completed_files: number
+  status: 'processing' | 'completed' | 'error'
+  start_time: string
+  end_time?: string
+  files: BatchFileStatus[]
+  error?: string
+}
+
 const API_BASE = 'http://localhost:8000'
 
+// 画像プレビューコンポーネント
+interface ImagePreviewProps {
+  file?: File
+  fileId?: string
+  className?: string
+  style?: React.CSSProperties
+  size?: 'small' | 'medium' | 'large'
+  onClick?: () => void
+}
+
+const ImagePreview: React.FC<ImagePreviewProps> = ({
+  file,
+  fileId,
+  className = '',
+  style = {},
+  size = 'medium',
+  onClick
+}) => {
+  const [imageSrc, setImageSrc] = useState<string>('')
+  const [isLoading, setIsLoading] = useState(true)
+  const [hasError, setHasError] = useState(false)
+
+  const sizeConfig = {
+    small: { width: '60px', height: '60px' },
+    medium: { width: '120px', height: '120px' },
+    large: { width: '200px', height: '200px' }
+  }
+
+  useEffect(() => {
+    if (file) {
+      // File オブジェクトから画像URL作成
+      const url = URL.createObjectURL(file)
+      setImageSrc(url)
+      setIsLoading(false)
+
+      return () => URL.revokeObjectURL(url)
+    } else if (fileId) {
+      // API から画像取得
+      setImageSrc(`${API_BASE}/image/${fileId}`)
+      setIsLoading(false)
+    }
+  }, [file, fileId])
+
+  const handleImageLoad = () => {
+    setIsLoading(false)
+    setHasError(false)
+  }
+
+  const handleImageError = () => {
+    setIsLoading(false)
+    setHasError(true)
+  }
+
+  const containerStyle = {
+    ...sizeConfig[size],
+    position: 'relative' as const,
+    borderRadius: '8px',
+    overflow: 'hidden',
+    backgroundColor: '#f3f4f6',
+    border: '2px solid #e5e7eb',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: onClick ? 'pointer' : 'default',
+    transition: 'all 0.3s ease',
+    ...style
+  }
+
+  const imageStyle = {
+    width: '100%',
+    height: '100%',
+    objectFit: 'cover' as const,
+    transition: 'opacity 0.3s ease'
+  }
+
+  return (
+    <div
+      className={className}
+      style={containerStyle}
+      onClick={onClick}
+      onMouseEnter={(e) => {
+        if (onClick) {
+          e.currentTarget.style.transform = 'scale(1.05)'
+          e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)'
+        }
+      }}
+      onMouseLeave={(e) => {
+        if (onClick) {
+          e.currentTarget.style.transform = 'scale(1)'
+          e.currentTarget.style.boxShadow = 'none'
+        }
+      }}
+    >
+      {isLoading && (
+        <div style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          color: '#9ca3af',
+          fontSize: '0.8rem'
+        }}>
+          📷
+        </div>
+      )}
+
+      {hasError ? (
+        <div style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          color: '#ef4444',
+          fontSize: '0.8rem',
+          textAlign: 'center'
+        }}>
+          ❌<br/>
+          <span style={{ fontSize: '0.6rem' }}>エラー</span>
+        </div>
+      ) : imageSrc ? (
+        <img
+          src={imageSrc}
+          alt="画像プレビュー"
+          style={imageStyle}
+          onLoad={handleImageLoad}
+          onError={handleImageError}
+        />
+      ) : null}
+    </div>
+  )
+}
+
 function App() {
+  // シングルファイル用（既存互換性）
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [uploadData, setUploadData] = useState<UploadResponse | null>(null)
   const [analysisResults, setAnalysisResults] = useState<ResultsResponse | null>(null)
+
+  // マルチファイル用
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([])
+  const [batchUploadData, setBatchUploadData] = useState<BatchUploadResponse | null>(null)
+  const [batchJobStatus, setBatchJobStatus] = useState<BatchJobStatus | null>(null)
+  const [activeTab, setActiveTab] = useState<string>('overview')
+  const [isBatchMode, setIsBatchMode] = useState(false)
+
+  // 共通
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [currentStep, setCurrentStep] = useState<'upload' | 'analyze' | 'results'>('upload')
@@ -122,17 +306,87 @@ function App() {
   const [diffData, setDiffData] = useState<DiffResponse | null>(null)
   const [showHistory, setShowHistory] = useState(false)
   const [uploadProgress, setUploadProgress] = useState(0)
+  const [batchResults, setBatchResults] = useState<{[fileId: string]: ResultsResponse}>({})
+  const [showBatchResults, setShowBatchResults] = useState(false)
 
-  // ファイル選択
+  // ファイル選択（単体）
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (file) {
-      setSelectedFile(file)
-      setError(null)
+    const files = event.target.files
+    if (!files || files.length === 0) return
+
+    if (files.length === 1) {
+      // シングルファイルモード
+      setSelectedFile(files[0])
+      setSelectedFiles([])
+      setIsBatchMode(false)
+    } else {
+      // バッチファイルモード
+      setSelectedFiles(Array.from(files))
+      setSelectedFile(null)
+      setIsBatchMode(true)
+    }
+    setError(null)
+  }
+
+  // ドラッグ&ドロップファイル選択
+  const handleFileDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    const files = event.dataTransfer.files
+    if (!files || files.length === 0) return
+
+    // ファイル制限チェック
+    if (files.length > 10) {
+      setError('ファイル数は最大10個までです')
+      return
+    }
+
+    const validFiles = Array.from(files).filter(file => {
+      const isValid = file.type.startsWith('image/')
+      if (!isValid) {
+        showErrorToast(`${file.name} は画像ファイルではありません`)
+      }
+      return isValid
+    })
+
+    if (validFiles.length === 0) {
+      setError('有効な画像ファイルがありません')
+      return
+    }
+
+    if (validFiles.length === 1) {
+      // シングルファイルモード
+      setSelectedFile(validFiles[0])
+      setSelectedFiles([])
+      setIsBatchMode(false)
+    } else {
+      // バッチファイルモード
+      setSelectedFiles(validFiles)
+      setSelectedFile(null)
+      setIsBatchMode(true)
+    }
+    setError(null)
+  }
+
+  // ファイル削除
+  const removeFile = (index: number) => {
+    const newFiles = selectedFiles.filter((_, i) => i !== index)
+    setSelectedFiles(newFiles)
+    if (newFiles.length === 0) {
+      setIsBatchMode(false)
     }
   }
 
-  // 画像アップロード
+  // 全ファイルクリア
+  const clearAllFiles = () => {
+    setSelectedFiles([])
+    setSelectedFile(null)
+    setIsBatchMode(false)
+    setBatchUploadData(null)
+    setBatchJobStatus(null)
+    setError(null)
+  }
+
+  // 画像アップロード（シングル）
   const handleUpload = async () => {
     if (!selectedFile) {
       setError('ファイルを選択してください')
@@ -190,7 +444,73 @@ function App() {
     }
   }
 
-  // 画像分析実行
+  // バッチアップロード
+  const handleBatchUpload = async () => {
+    if (selectedFiles.length === 0) {
+      setError('ファイルを選択してください')
+      return
+    }
+
+    setLoading(true)
+    setError(null)
+    setUploadProgress(0)
+
+    try {
+      const formData = new FormData()
+      selectedFiles.forEach(file => {
+        formData.append('files', file)
+      })
+
+      // プログレスバーのシミュレーション
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => {
+          if (prev >= 90) {
+            clearInterval(progressInterval)
+            return 90
+          }
+          return prev + 5
+        })
+      }, 300)
+
+      const response = await axios.post<BatchUploadResponse>(`${API_BASE}/batch-upload`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        onUploadProgress: (progressEvent) => {
+          if (progressEvent.total) {
+            const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total)
+            setUploadProgress(progress)
+          }
+        }
+      })
+
+      clearInterval(progressInterval)
+      setUploadProgress(100)
+
+      // 完了後少し待ってからステップ移行
+      setTimeout(() => {
+        setBatchUploadData(response.data)
+        setCurrentStep('analyze')
+        setUploadProgress(0)
+
+        if (response.data.error_count > 0) {
+          showErrorToast(`${response.data.error_count}件のエラーがありました`)
+        } else {
+          showSuccessToast(`${response.data.uploaded_count}ファイルのアップロードが完了しました`)
+        }
+      }, 500)
+
+    } catch (err: any) {
+      setError(`バッチアップロードエラー: ${err.response?.data?.detail || err.message}`)
+      setUploadProgress(0)
+    } finally {
+      setTimeout(() => {
+        setLoading(false)
+      }, 500)
+    }
+  }
+
+    // 画像分析実行（シングル）
   const handleAnalyze = async () => {
     if (!uploadData) return
 
@@ -226,6 +546,91 @@ function App() {
     } finally {
       setLoading(false)
     }
+  }
+
+  // バッチ分析実行
+  const handleBatchAnalyze = async () => {
+    if (!batchUploadData || batchUploadData.files.length === 0) return
+
+    setLoading(true)
+    setCurrentStep('analyze')
+    setError(null)
+
+    try {
+      const fileIds = batchUploadData.files.map(f => f.file_id)
+
+      // バッチ検索開始
+      const response = await axios.post(`${API_BASE}/batch-search`, {
+        file_ids: fileIds
+      }, {
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      })
+
+      if (response.data.success) {
+        const batchId = response.data.batch_id
+
+        // 進捗監視開始
+        startBatchProgressMonitoring(batchId)
+
+        showSuccessToast('バッチ分析を開始しました')
+      }
+    } catch (err: any) {
+      setError(`バッチ分析エラー: ${err.response?.data?.detail || err.message}`)
+      setLoading(false)
+    }
+  }
+
+    // バッチ進捗監視
+  const startBatchProgressMonitoring = (batchId: string) => {
+    const interval = setInterval(async () => {
+      try {
+        const response = await axios.get(`${API_BASE}/batch-status/${batchId}`)
+        const status = response.data.batch as BatchJobStatus
+
+        setBatchJobStatus(status)
+
+        if (status.status === 'completed' || status.status === 'error') {
+          clearInterval(interval)
+          setLoading(false)
+          setCurrentStep('results')
+
+          if (status.status === 'completed') {
+            showSuccessToast('バッチ分析が完了しました')
+            await fetchBatchResults(status.files)
+            setShowBatchResults(true)
+            setActiveTab('overview')
+          } else {
+            showErrorToast('バッチ分析でエラーが発生しました')
+          }
+        }
+      } catch (err) {
+        console.error('進捗取得エラー:', err)
+        clearInterval(interval)
+        setLoading(false)
+      }
+    }, 2000) // 2秒ごとに確認
+  }
+
+  // バッチ結果を取得
+  const fetchBatchResults = async (files: BatchFileStatus[]) => {
+    const results: {[fileId: string]: ResultsResponse} = {}
+
+    for (const file of files) {
+      if (file.status === 'completed') {
+        try {
+          const response = await axios.get<ResultsResponse>(`${API_BASE}/results/${file.file_id}`)
+          if (response.data.success) {
+            results[file.file_id] = response.data
+          }
+        } catch (error) {
+          console.error(`ファイル ${file.filename} の結果取得エラー:`, error)
+        }
+      }
+    }
+
+    setBatchResults(results)
   }
 
   // 履歴データを取得
@@ -415,15 +820,28 @@ function App() {
     setTimeout(() => setShowToast(null), 3000)
   }
 
-  // リセット機能
+    // リセット機能
   const handleReset = () => {
+    // シングルファイル関連
     setSelectedFile(null)
     setUploadData(null)
     setAnalysisResults(null)
+
+    // バッチファイル関連
+    setSelectedFiles([])
+    setBatchUploadData(null)
+    setBatchJobStatus(null)
+    setBatchResults({})
+    setShowBatchResults(false)
+    setIsBatchMode(false)
+    setActiveTab('overview')
+
+    // 共通
     setError(null)
     setCurrentStep('upload')
     setShowToast(null)
     setDiffData(null)
+    setUploadProgress(0)
   }
 
 
@@ -618,85 +1036,285 @@ function App() {
             📤 Step 1: 画像をアップロード
           </h2>
 
-          {/* ドラッグ&ドロップエリア */}
+                              {/* ドラッグ&ドロップエリア */}
           <div
             style={{
+              position: 'relative',
               border: '3px dashed #d1d5db',
               borderRadius: '15px',
               padding: '40px',
               textAlign: 'center',
-              backgroundColor: selectedFile ? '#f0f9ff' : '#fafafa',
-              borderColor: selectedFile ? '#3b82f6' : '#d1d5db',
+              backgroundColor: (selectedFile || selectedFiles.length > 0) ? '#f0f9ff' : '#fafafa',
+              borderColor: (selectedFile || selectedFiles.length > 0) ? '#3b82f6' : '#d1d5db',
               transition: 'all 0.3s ease',
               cursor: 'pointer',
               marginBottom: '20px'
             }}
+            onDrop={handleFileDrop}
+            onDragOver={(e) => e.preventDefault()}
+            onDragEnter={(e) => e.preventDefault()}
           >
-            <div style={{ fontSize: '3rem', marginBottom: '15px' }}>
-              {selectedFile ? '✅' : '📁'}
-            </div>
-
             <input
               type="file"
               accept="image/*"
+              multiple
               onChange={handleFileSelect}
               disabled={loading}
               style={{
                 position: 'absolute',
-                opacity: 0,
+                top: 0,
+                left: 0,
                 width: '100%',
                 height: '100%',
-                cursor: 'pointer'
+                opacity: 0,
+                cursor: 'pointer',
+                zIndex: 1
               }}
             />
 
-            <div style={{ color: '#6b7280', fontSize: '1.1rem', marginBottom: '10px' }}>
-              {selectedFile
-                ? `選択済み: ${selectedFile.name}`
-                : 'ここに画像をドロップするか、クリックして選択'
-              }
-            </div>
+            <div style={{
+              position: 'relative',
+              zIndex: 0,
+              pointerEvents: 'none'
+            }}>
+              <div style={{ fontSize: '3rem', marginBottom: '15px' }}>
+                {selectedFile || selectedFiles.length > 0 ? '✅' : '📁'}
+              </div>
 
-            <div style={{ color: '#9ca3af', fontSize: '0.9rem' }}>
-              対応形式: JPEG, PNG, GIF, WebP (最大10MB)
+              <div style={{ color: '#6b7280', fontSize: '1.1rem', marginBottom: '10px' }}>
+                {selectedFile
+                  ? `選択済み: ${selectedFile.name}`
+                  : selectedFiles.length > 0
+                    ? `選択済み: ${selectedFiles.length}ファイル`
+                    : 'ここに画像をドロップするか、クリックして選択'
+                }
+              </div>
+
+              <div style={{ color: '#9ca3af', fontSize: '0.9rem' }}>
+                対応形式: JPEG, PNG, GIF, WebP (各10MB、合計50MB、最大10ファイル)
+              </div>
+
+              {isBatchMode && (
+                <div style={{
+                  marginTop: '15px',
+                  color: '#3b82f6',
+                  fontSize: '0.9rem',
+                  fontWeight: '600'
+                }}>
+                  🚀 バッチモード: 複数ファイルを一括処理
+                </div>
+              )}
             </div>
           </div>
+
+          {/* シングルファイル画像プレビュー */}
+          {selectedFile && !isBatchMode && (
+            <div style={{
+              backgroundColor: '#f8fafc',
+              borderRadius: '12px',
+              padding: '20px',
+              marginBottom: '20px',
+              border: '1px solid #e2e8f0',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '20px'
+            }}>
+              <ImagePreview
+                file={selectedFile}
+                size="large"
+                style={{ flexShrink: 0 }}
+              />
+              <div style={{ flex: 1 }}>
+                <h4 style={{
+                  margin: '0 0 10px 0',
+                  color: '#1f2937',
+                  fontSize: '1.1rem'
+                }}>
+                  📄 選択された画像
+                </h4>
+                <div style={{
+                  fontSize: '0.9rem',
+                  color: '#6b7280',
+                  marginBottom: '8px'
+                }}>
+                  <strong>ファイル名:</strong> {selectedFile.name}
+                </div>
+                <div style={{
+                  fontSize: '0.9rem',
+                  color: '#6b7280',
+                  marginBottom: '8px'
+                }}>
+                  <strong>サイズ:</strong> {Math.round(selectedFile.size / 1024)} KB
+                </div>
+                <div style={{
+                  fontSize: '0.9rem',
+                  color: '#6b7280'
+                }}>
+                  <strong>タイプ:</strong> {selectedFile.type}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* 選択されたファイル一覧 */}
+          {selectedFiles.length > 0 && (
+            <div style={{
+              backgroundColor: '#f8fafc',
+              borderRadius: '12px',
+              padding: '20px',
+              marginBottom: '20px',
+              border: '1px solid #e2e8f0'
+            }}>
+              <div style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                marginBottom: '15px'
+              }}>
+                <h4 style={{ margin: 0, color: '#1f2937', fontSize: '1rem' }}>
+                  📋 選択されたファイル ({selectedFiles.length}/10)
+                </h4>
+                <button
+                  onClick={clearAllFiles}
+                  style={{
+                    padding: '6px 12px',
+                    backgroundColor: '#ef4444',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '8px',
+                    fontSize: '0.8rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  全削除
+                </button>
+              </div>
+
+                            <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+                gap: '15px',
+                maxHeight: '300px',
+                overflowY: 'auto'
+              }}>
+                {selectedFiles.map((file, index) => (
+                  <div key={index} style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    backgroundColor: 'white',
+                    padding: '12px',
+                    borderRadius: '12px',
+                    border: '1px solid #e5e7eb',
+                    boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)',
+                    fontSize: '0.85rem'
+                  }}>
+                    {/* 画像プレビュー */}
+                    <ImagePreview
+                      file={file}
+                      size="small"
+                      style={{ flexShrink: 0 }}
+                    />
+
+                    <div style={{
+                      flex: 1,
+                      overflow: 'hidden',
+                      minWidth: 0
+                    }}>
+                      <div style={{
+                        fontWeight: '600',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                        marginBottom: '4px',
+                        color: '#1f2937'
+                      }}>
+                        {file.name}
+                      </div>
+                      <div style={{
+                        fontSize: '0.75rem',
+                        color: '#6b7280'
+                      }}>
+                        {Math.round(file.size / 1024)} KB
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => removeFile(index)}
+                      style={{
+                        backgroundColor: '#f87171',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '6px',
+                        padding: '6px 8px',
+                        fontSize: '0.7rem',
+                        cursor: 'pointer',
+                        flexShrink: 0,
+                        transition: 'all 0.2s ease'
+                      }}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.backgroundColor = '#ef4444'
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.backgroundColor = '#f87171'
+                      }}
+                    >
+                      削除
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{
+                marginTop: '10px',
+                fontSize: '0.8rem',
+                color: '#6b7280',
+                textAlign: 'center'
+              }}>
+                合計サイズ: {Math.round(selectedFiles.reduce((sum, file) => sum + file.size, 0) / 1024 / 1024 * 100) / 100} MB
+              </div>
+            </div>
+          )}
 
           {/* アップロードボタン */}
           <div style={{ textAlign: 'center' }}>
             <button
-              onClick={handleUpload}
-              disabled={!selectedFile || loading}
+              onClick={isBatchMode ? handleBatchUpload : handleUpload}
+              disabled={(!selectedFile && selectedFiles.length === 0) || loading}
               style={{
                 padding: '15px 40px',
-                backgroundColor: selectedFile && !loading ? '#3b82f6' : '#9ca3af',
+                backgroundColor: (selectedFile || selectedFiles.length > 0) && !loading ? '#3b82f6' : '#9ca3af',
                 color: 'white',
                 border: 'none',
                 borderRadius: '25px',
-                cursor: selectedFile && !loading ? 'pointer' : 'not-allowed',
+                cursor: (selectedFile || selectedFiles.length > 0) && !loading ? 'pointer' : 'not-allowed',
                 fontSize: '1.1rem',
                 fontWeight: '600',
                 transition: 'all 0.3s ease',
-                boxShadow: selectedFile && !loading ? '0 4px 15px rgba(59, 130, 246, 0.3)' : 'none',
+                boxShadow: (selectedFile || selectedFiles.length > 0) && !loading ? '0 4px 15px rgba(59, 130, 246, 0.3)' : 'none',
                 transform: loading ? 'scale(0.95)' : 'scale(1)'
               }}
               onMouseEnter={(e) => {
-                if (selectedFile && !loading) {
+                if ((selectedFile || selectedFiles.length > 0) && !loading) {
                   e.currentTarget.style.backgroundColor = '#2563eb';
                   e.currentTarget.style.transform = 'translateY(-2px)';
                 }
               }}
               onMouseLeave={(e) => {
-                if (selectedFile && !loading) {
+                if ((selectedFile || selectedFiles.length > 0) && !loading) {
                   e.currentTarget.style.backgroundColor = '#3b82f6';
                   e.currentTarget.style.transform = 'translateY(0)';
                 }
               }}
             >
               {loading && currentStep === 'upload' ? (
-                <>🔄 アップロード中...</>
+                isBatchMode ?
+                  <>🔄 バッチアップロード中...</> :
+                  <>🔄 アップロード中...</>
               ) : (
-                <>🚀 アップロード開始</>
+                isBatchMode ?
+                  <>🚀 バッチアップロード開始</> :
+                  <>🚀 アップロード開始</>
               )}
             </button>
           </div>
@@ -725,10 +1343,52 @@ function App() {
               </div>
             </div>
           )}
+
+          {/* バッチアップロード完了表示 */}
+          {batchUploadData && (
+            <div style={{
+              backgroundColor: '#dcfce7',
+              color: '#166534',
+              padding: '15px 20px',
+              borderRadius: '12px',
+              marginTop: '20px',
+              border: '1px solid #bbf7d0'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px' }}>
+                <div style={{ fontSize: '1.2rem' }}>🎉</div>
+                <div style={{ fontWeight: '600' }}>
+                  バッチアップロード完了!
+                </div>
+              </div>
+
+              <div style={{ fontSize: '0.9rem', opacity: 0.8 }}>
+                成功: {batchUploadData.uploaded_count}件 /
+                エラー: {batchUploadData.error_count}件 /
+                合計サイズ: {Math.round(batchUploadData.total_size / 1024 / 1024 * 100) / 100} MB
+              </div>
+
+              {batchUploadData.errors.length > 0 && (
+                <div style={{ marginTop: '10px' }}>
+                  <details style={{ fontSize: '0.8rem' }}>
+                    <summary style={{ cursor: 'pointer', color: '#dc2626' }}>
+                      エラー詳細 ({batchUploadData.errors.length}件)
+                    </summary>
+                    <ul style={{ marginTop: '5px', paddingLeft: '20px' }}>
+                      {batchUploadData.errors.map((error, index) => (
+                        <li key={index} style={{ marginBottom: '2px' }}>
+                          {error.filename}: {error.message}
+                        </li>
+                      ))}
+                    </ul>
+                  </details>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Step 2: 画像分析実行 */}
-        {uploadData && (
+        {(uploadData || batchUploadData) && (
           <div style={{
             backgroundColor: 'white',
             borderRadius: '20px',
@@ -745,12 +1405,117 @@ function App() {
               fontSize: '1.5rem',
               fontWeight: '600'
             }}>
-              🔍 Step 2: AI画像分析
+              🔍 Step 2: {isBatchMode ? 'バッチAI画像分析' : 'AI画像分析'}
             </h2>
+
+            {/* バッチ進捗表示 */}
+            {batchJobStatus && (
+              <div style={{
+                backgroundColor: '#f8fafc',
+                borderRadius: '12px',
+                padding: '20px',
+                marginBottom: '20px',
+                border: '1px solid #e2e8f0'
+              }}>
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  marginBottom: '15px'
+                }}>
+                  <h4 style={{ margin: 0, color: '#1f2937' }}>
+                    📊 分析進捗: {batchJobStatus.completed_files}/{batchJobStatus.total_files}
+                  </h4>
+                  <div style={{
+                    padding: '4px 12px',
+                    borderRadius: '20px',
+                    fontSize: '0.8rem',
+                    fontWeight: '600',
+                    backgroundColor: batchJobStatus.status === 'completed' ? '#dcfce7' :
+                                   batchJobStatus.status === 'error' ? '#fef2f2' : '#dbeafe',
+                    color: batchJobStatus.status === 'completed' ? '#166534' :
+                           batchJobStatus.status === 'error' ? '#dc2626' : '#1d4ed8'
+                  }}>
+                    {batchJobStatus.status === 'processing' ? '処理中' :
+                     batchJobStatus.status === 'completed' ? '完了' : 'エラー'}
+                  </div>
+                </div>
+
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))',
+                  gap: '10px',
+                  maxHeight: '200px',
+                  overflowY: 'auto'
+                }}>
+                  {batchJobStatus.files.map((file, index) => (
+                    <div key={index} style={{
+                      backgroundColor: 'white',
+                      padding: '12px',
+                      borderRadius: '8px',
+                      border: '1px solid #e5e7eb',
+                      position: 'relative'
+                    }}>
+                      <div style={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        marginBottom: '8px'
+                      }}>
+                        <div style={{
+                          fontSize: '0.8rem',
+                          fontWeight: '600',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          whiteSpace: 'nowrap',
+                          marginRight: '8px'
+                        }}>
+                          📄 {file.filename}
+                        </div>
+                        <div style={{ fontSize: '0.9rem' }}>
+                          {file.status === 'pending' ? '⏳' :
+                           file.status === 'processing' ? '🔄' :
+                           file.status === 'completed' ? '✅' : '❌'}
+                        </div>
+                      </div>
+
+                      {file.status === 'processing' && (
+                        <div style={{
+                          width: '100%',
+                          height: '4px',
+                          backgroundColor: '#e5e7eb',
+                          borderRadius: '2px',
+                          overflow: 'hidden'
+                        }}>
+                          <div style={{
+                            width: `${file.progress}%`,
+                            height: '100%',
+                            backgroundColor: '#3b82f6',
+                            transition: 'width 0.3s ease'
+                          }} />
+                        </div>
+                      )}
+
+                      {file.status === 'completed' && file.results_count !== undefined && (
+                        <div style={{ fontSize: '0.7rem', color: '#6b7280', marginTop: '4px' }}>
+                          検出: {file.results_count}件
+                        </div>
+                      )}
+
+                      {file.status === 'error' && file.error && (
+                        <div style={{ fontSize: '0.7rem', color: '#dc2626', marginTop: '4px' }}>
+                          エラー: {file.error}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div style={{ textAlign: 'center' }}>
               <button
-                onClick={handleAnalyze}
+                onClick={isBatchMode ? handleBatchAnalyze : handleAnalyze}
                 disabled={loading}
                 style={{
                   padding: '15px 40px',
@@ -779,9 +1544,9 @@ function App() {
                 }}
               >
                 {loading && currentStep === 'analyze' ? (
-                  <>🔄 AI分析中...</>
+                  isBatchMode ? <>🔄 バッチAI分析中...</> : <>🔄 AI分析中...</>
                 ) : (
-                  <>🚀 分析実行</>
+                  isBatchMode ? <>🚀 バッチ分析実行</> : <>🚀 分析実行</>
                 )}
               </button>
             </div>
@@ -858,7 +1623,7 @@ function App() {
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ backgroundColor: '#f8f9fa' }}>
-                      <th style={{ padding: '15px', textAlign: 'left', fontWeight: '600', borderBottom: '1px solid #dee2e6' }}>ファイル名</th>
+                      <th style={{ padding: '15px', textAlign: 'left', fontWeight: '600', borderBottom: '1px solid #dee2e6', minWidth: '250px' }}>画像・ファイル名</th>
                       <th style={{ padding: '15px', textAlign: 'center', fontWeight: '600', borderBottom: '1px solid #dee2e6' }}>分析日時</th>
                       <th style={{ padding: '15px', textAlign: 'center', fontWeight: '600', borderBottom: '1px solid #dee2e6' }}>結果</th>
                       <th style={{ padding: '15px', textAlign: 'center', fontWeight: '600', borderBottom: '1px solid #dee2e6' }}>操作</th>
@@ -870,12 +1635,20 @@ function App() {
                         borderBottom: index !== historyData.history.length - 1 ? '1px solid #f1f3f4' : 'none'
                       }}>
                         <td style={{ padding: '15px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <div style={{
-                              fontSize: '20px'
-                            }}>📄</div>
-                            <div>
-                              <div style={{ fontWeight: '500', fontSize: '14px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                            <ImagePreview
+                              fileId={entry.image_id}
+                              size="small"
+                              style={{ flexShrink: 0 }}
+                            />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{
+                                fontWeight: '500',
+                                fontSize: '14px',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap'
+                              }}>
                                 {entry.original_filename}
                               </div>
                               <div style={{ fontSize: '12px', color: '#6b7280' }}>
@@ -977,7 +1750,7 @@ function App() {
       )}
 
       {/* Step 3: 分析結果表示 */}
-      {analysisResults && (
+      {(analysisResults || showBatchResults) && (
         <div style={{
           animation: 'fadeIn 0.8s ease-out 0.4s both'
         }}>
@@ -1060,35 +1833,375 @@ function App() {
             </div>
           )}
 
-          {/* サマリー */}
-          <div style={{
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            color: 'white',
-            padding: '20px',
-            borderRadius: '15px',
-            marginBottom: '30px',
-            boxShadow: '0 8px 32px rgba(31, 38, 135, 0.37)'
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '15px' }}>
-              <div>
-                <h3 style={{ margin: '0 0 5px 0', fontSize: '18px' }}>🔍 検索完了</h3>
-                <p style={{ margin: 0, opacity: 0.9 }}>{analysisResults.message}</p>
-              </div>
-              <div style={{ display: 'flex', gap: '20px' }}>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '24px', fontWeight: 'bold' }}>{analysisResults.found_urls_count || 0}</div>
-                  <div style={{ fontSize: '14px', opacity: 0.8 }}>発見URL</div>
+          {/* バッチ結果タブナビゲーション */}
+          {showBatchResults && Object.keys(batchResults).length > 0 && (
+            <div style={{ marginBottom: '20px' }}>
+              <div style={{
+                backgroundColor: 'white',
+                borderRadius: '15px',
+                padding: '20px',
+                boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+                border: '1px solid #e5e7eb'
+              }}>
+                <h3 style={{ margin: '0 0 20px 0', color: '#1f2937', fontSize: '1.2rem' }}>
+                  📁 ファイル別結果 ({Object.keys(batchResults).length}件)
+                </h3>
+
+                <div style={{
+                  display: 'flex',
+                  gap: '10px',
+                  marginBottom: '20px',
+                  overflowX: 'auto',
+                  paddingBottom: '10px'
+                }}>
+                  <button
+                    onClick={() => setActiveTab('overview')}
+                    style={{
+                      padding: '8px 16px',
+                      backgroundColor: activeTab === 'overview' ? '#3b82f6' : '#f3f4f6',
+                      color: activeTab === 'overview' ? 'white' : '#6b7280',
+                      border: 'none',
+                      borderRadius: '20px',
+                      fontSize: '0.9rem',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      whiteSpace: 'nowrap',
+                      transition: 'all 0.3s ease'
+                    }}
+                  >
+                    📊 統合ビュー
+                  </button>
+
+                  {Object.entries(batchResults).map(([fileId, result]) => (
+                    <button
+                      key={fileId}
+                      onClick={() => setActiveTab(fileId)}
+                      style={{
+                        padding: '8px 16px',
+                        backgroundColor: activeTab === fileId ? '#10b981' : '#f3f4f6',
+                        color: activeTab === fileId ? 'white' : '#6b7280',
+                        border: 'none',
+                        borderRadius: '20px',
+                        fontSize: '0.9rem',
+                        fontWeight: '600',
+                        cursor: 'pointer',
+                        whiteSpace: 'nowrap',
+                        transition: 'all 0.3s ease',
+                        maxWidth: '200px',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis'
+                      }}
+                    >
+                      📄 {result.original_filename || `ファイル${fileId.slice(0, 8)}`}
+                    </button>
+                  ))}
                 </div>
-                <div style={{ textAlign: 'center' }}>
-                  <div style={{ fontSize: '24px', fontWeight: 'bold' }}>{analysisResults.processed_results_count || 0}</div>
-                  <div style={{ fontSize: '14px', opacity: 0.8 }}>分析完了</div>
+
+                {/* 統合ビュー */}
+                {activeTab === 'overview' && (
+                  <div>
+                    <h4 style={{ margin: '0 0 15px 0', color: '#1f2937' }}>📊 統合サマリー</h4>
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                      gap: '15px',
+                      marginBottom: '20px'
+                    }}>
+                      {Object.entries(batchResults).map(([fileId, result]) => {
+                        const summary = result.results?.reduce((acc, r) => {
+                          if (r.judgment === '○') acc.safe++
+                          else if (r.judgment === '×') acc.dangerous++
+                          else if (r.judgment === '！') acc.warning++
+                          else acc.unknown++
+                          return acc
+                        }, { safe: 0, dangerous: 0, warning: 0, unknown: 0 }) || { safe: 0, dangerous: 0, warning: 0, unknown: 0 }
+
+                        return (
+                          <div key={fileId} style={{
+                            backgroundColor: '#f8fafc',
+                            padding: '15px',
+                            borderRadius: '10px',
+                            border: '1px solid #e2e8f0',
+                            cursor: 'pointer',
+                            transition: 'all 0.3s ease'
+                          }}
+                          onClick={() => setActiveTab(fileId)}
+                          onMouseEnter={(e) => {
+                            e.currentTarget.style.transform = 'translateY(-2px)'
+                            e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)'
+                          }}
+                          onMouseLeave={(e) => {
+                            e.currentTarget.style.transform = 'translateY(0)'
+                            e.currentTarget.style.boxShadow = 'none'
+                          }}
+                          >
+                            {/* 画像プレビュー */}
+                            <div style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '12px',
+                              marginBottom: '12px'
+                            }}>
+                              <ImagePreview
+                                fileId={fileId}
+                                size="small"
+                                style={{ flexShrink: 0 }}
+                              />
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{
+                                  fontSize: '0.9rem',
+                                  fontWeight: '600',
+                                  color: '#1f2937',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap'
+                                }}>
+                                  {result.original_filename}
+                                </div>
+                                <div style={{ fontSize: '0.75rem', color: '#6b7280' }}>
+                                  クリックで詳細表示
+                                </div>
+                              </div>
+                            </div>
+                            <div style={{ fontSize: '0.8rem', color: '#6b7280', marginBottom: '8px' }}>
+                              総検出: {result.results?.length || 0}件
+                            </div>
+                            <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+                              {summary.safe > 0 && (
+                                <span style={{
+                                  backgroundColor: '#dcfce7',
+                                  color: '#166534',
+                                  padding: '2px 8px',
+                                  borderRadius: '12px',
+                                  fontSize: '0.7rem',
+                                  fontWeight: '600'
+                                }}>
+                                  ○ {summary.safe}
+                                </span>
+                              )}
+                              {summary.dangerous > 0 && (
+                                <span style={{
+                                  backgroundColor: '#fef2f2',
+                                  color: '#dc2626',
+                                  padding: '2px 8px',
+                                  borderRadius: '12px',
+                                  fontSize: '0.7rem',
+                                  fontWeight: '600'
+                                }}>
+                                  × {summary.dangerous}
+                                </span>
+                              )}
+                              {summary.warning > 0 && (
+                                <span style={{
+                                  backgroundColor: '#fef3c7',
+                                  color: '#92400e',
+                                  padding: '2px 8px',
+                                  borderRadius: '12px',
+                                  fontSize: '0.7rem',
+                                  fontWeight: '600'
+                                }}>
+                                  ！ {summary.warning}
+                                </span>
+                              )}
+                              {summary.unknown > 0 && (
+                                <span style={{
+                                  backgroundColor: '#f3f4f6',
+                                  color: '#6b7280',
+                                  padding: '2px 8px',
+                                  borderRadius: '12px',
+                                  fontSize: '0.7rem',
+                                  fontWeight: '600'
+                                }}>
+                                  ？ {summary.unknown}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* 個別ファイル表示 */}
+                {activeTab !== 'overview' && batchResults[activeTab] && (
+                  <div>
+                    {/* ファイルヘッダー */}
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '20px',
+                      marginBottom: '20px',
+                      padding: '20px',
+                      backgroundColor: '#f8fafc',
+                      borderRadius: '12px',
+                      border: '1px solid #e2e8f0'
+                    }}>
+                      <ImagePreview
+                        fileId={activeTab}
+                        size="large"
+                        style={{ flexShrink: 0 }}
+                      />
+                      <div style={{ flex: 1 }}>
+                        <h4 style={{ margin: '0 0 8px 0', color: '#1f2937', fontSize: '1.2rem' }}>
+                          📄 {batchResults[activeTab].original_filename}
+                        </h4>
+                        <div style={{ fontSize: '0.9rem', color: '#6b7280', marginBottom: '8px' }}>
+                          検出: {batchResults[activeTab].results?.length || 0}件 |
+                          分析日時: {new Date(batchResults[activeTab].analysis_time || '').toLocaleString('ja-JP')}
+                        </div>
+                        <div style={{ fontSize: '0.85rem', color: '#9ca3af' }}>
+                          ファイルID: {activeTab}
+                        </div>
+                      </div>
+                    </div>
+
+                                        {batchResults[activeTab].results && batchResults[activeTab].results!.length > 0 ? (
+                      <div>
+
+                        <div style={{
+                          display: 'grid',
+                          gridTemplateColumns: '1fr',
+                          gap: '10px'
+                        }}>
+                          {batchResults[activeTab].results!.map((result, index) => (
+                            <div key={index} style={{
+                              backgroundColor: 'white',
+                              border: '1px solid #e5e7eb',
+                              borderRadius: '10px',
+                              padding: '15px',
+                              boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)'
+                            }}>
+                              <div style={{
+                                display: 'flex',
+                                alignItems: 'flex-start',
+                                gap: '15px'
+                              }}>
+                                <div style={{
+                                  flexShrink: 0,
+                                  width: '60px',
+                                  height: '40px',
+                                  borderRadius: '20px',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  fontSize: '1.2rem',
+                                  fontWeight: 'bold',
+                                  backgroundColor:
+                                    result.judgment === '○' ? '#dcfce7' :
+                                    result.judgment === '×' ? '#fef2f2' :
+                                    result.judgment === '！' ? '#fef3c7' : '#f3f4f6',
+                                  color:
+                                    result.judgment === '○' ? '#166534' :
+                                    result.judgment === '×' ? '#dc2626' :
+                                    result.judgment === '！' ? '#92400e' : '#6b7280'
+                                }}>
+                                  {result.judgment}
+                                </div>
+
+                                <div style={{ flex: 1 }}>
+                                  <div style={{
+                                    fontSize: '0.9rem',
+                                    fontWeight: '600',
+                                    marginBottom: '8px',
+                                    color: '#1f2937',
+                                    wordBreak: 'break-all'
+                                  }}>
+                                    <a href={result.url} target="_blank" rel="noopener noreferrer"
+                                       style={{ color: '#3b82f6', textDecoration: 'none' }}>
+                                      {result.url}
+                                    </a>
+                                  </div>
+
+                                  <div style={{
+                                    fontSize: '0.8rem',
+                                    color: '#6b7280',
+                                    lineHeight: '1.4'
+                                  }}>
+                                    {result.reason}
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : (
+                      <div style={{
+                        textAlign: 'center',
+                        padding: '40px',
+                        color: '#9ca3af',
+                        fontSize: '0.9rem'
+                      }}>
+                        このファイルでは検出結果がありませんでした
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* サマリー（シングルファイルモードのみ） */}
+          {analysisResults && (
+            <div style={{
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              color: 'white',
+              padding: '20px',
+              borderRadius: '15px',
+              marginBottom: '30px',
+              boxShadow: '0 8px 32px rgba(31, 38, 135, 0.37)'
+            }}>
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '20px',
+                flexWrap: 'wrap'
+              }}>
+                {/* 画像プレビュー */}
+                {uploadData && (
+                  <ImagePreview
+                    fileId={uploadData.file_id}
+                    size="medium"
+                    style={{
+                      flexShrink: 0,
+                      border: '3px solid rgba(255, 255, 255, 0.3)',
+                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)'
+                    }}
+                  />
+                )}
+
+                <div style={{ flex: 1, minWidth: '200px' }}>
+                  <h3 style={{ margin: '0 0 8px 0', fontSize: '18px' }}>🔍 検索完了</h3>
+                  <p style={{ margin: '0 0 15px 0', opacity: 0.9, fontSize: '14px' }}>
+                    {analysisResults.message}
+                  </p>
+                  {uploadData && (
+                    <p style={{ margin: '0 0 15px 0', opacity: 0.8, fontSize: '13px' }}>
+                      📄 {uploadData.original_filename}
+                    </p>
+                  )}
+
+                  <div style={{ display: 'flex', gap: '20px' }}>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: '24px', fontWeight: 'bold' }}>{analysisResults.found_urls_count || 0}</div>
+                      <div style={{ fontSize: '12px', opacity: 0.8 }}>発見URL</div>
+                    </div>
+                    <div style={{ textAlign: 'center' }}>
+                      <div style={{ fontSize: '24px', fontWeight: 'bold' }}>{analysisResults.processed_results_count || 0}</div>
+                      <div style={{ fontSize: '12px', opacity: 0.8 }}>分析完了</div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
+          )}
 
-          {/* 結果が0件の場合 */}
-          {analysisResults.analysis_status === 'completed_no_results' && (
+          {/* シングルファイル結果表示 */}
+          {analysisResults && (
+            <div>
+              {/* 結果が0件の場合 */}
+              {analysisResults.analysis_status === 'completed_no_results' && (
             <div style={{
               textAlign: 'center',
               padding: '40px',
@@ -1444,6 +2557,8 @@ function App() {
               🔄 新しい画像を分析
             </button>
           </div>
+            </div>
+          )}
         </div>
       )}
 

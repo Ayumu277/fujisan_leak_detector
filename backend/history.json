@@ -112,5 +112,193 @@
         "reason": "Twitter画像ですが投稿内容を特定できませんでした"
       }
     ]
+  },
+  {
+    "history_id": "4c739e14-c259-4b7c-a1bc-03a90d7521dc",
+    "image_id": "21c2e327-db3f-4470-9d11-65d9e4ef18fd",
+    "image_hash": "bf8587b688b6b380589e2687871e40586412016200eb980dc88a3c9da18b475a",
+    "original_filename": "1281679705_l.jpg",
+    "analysis_date": "2025-08-01T15:24:54.697466",
+    "analysis_timestamp": 1754029494,
+    "found_urls_count": 0,
+    "processed_results_count": 0,
+    "results": []
+  },
+  {
+    "history_id": "2129f997-aab6-4b66-90c5-3732248f8c02",
+    "image_id": "5f7373b8-91dc-43f3-b87c-7bd408e1a267",
+    "image_hash": "0464b9334887d33283b794f00e15cc7b8ccec6d727e7bb5d18a0a7804db5b1a3",
+    "original_filename": "image.jpg",
+    "analysis_date": "2025-08-01T15:25:32.213653",
+    "analysis_timestamp": 1754029532,
+    "found_urls_count": 10,
+    "processed_results_count": 10,
+    "results": [
+      {
+        "url": "https://www.hmv.co.jp/artist_%E5%A4%A7%E6%A9%8B%E5%92%8C%E4%B9%9F_500000000056632/media_books_7/",
+        "judgment": "○",
+        "reason": "HMV&BOOKS onlineは正規のオンライン書店。"
+      },
+      {
+        "url": "https://healthspan.cohs.uci.edu/83282289479.htm",
+        "judgment": "×",
+        "reason": "本文に関連性のない情報のみで、海賊版を示唆。"
+      },
+      {
+        "url": "https://news.yahoo.co.jp/articles/6a251a5355091221bbee21eece5ebd0dc98da9d9?page=2",
+        "judgment": "○",
+        "reason": "信頼できるニュース・出版サイト"
+      },
+      {
+        "url": "https://more.hpplus.jp/entame/people/120007/",
+        "judgment": "○",
+        "reason": "信頼できるニュース・出版サイト"
+      },
+      {
+        "url": "https://search.rakuten.co.jp/search/mall/%E5%A4%A7%E6%A9%8B%E5%92%8C%E4%B9%9F/",
+        "judgment": "○",
+        "reason": "信頼できるニュース・出版サイト"
+      },
+      {
+        "url": "https://wagoncreamery.com/market/90215508",
+        "judgment": "？",
+        "reason": "情報不足のため判断不能"
+      },
+      {
+        "url": "https://pbs.twimg.com/media/GrmcAbWWcAAbGcQ?format=jpg&name=4096x4096",
+        "judgment": "？",
+        "reason": "Twitter画像ですが投稿内容を特定できませんでした"
+      },
+      {
+        "url": "https://pbs.twimg.com/media/GrmcAbWWcAAbGcQ.jpg:large",
+        "judgment": "？",
+        "reason": "Twitter画像ですが投稿内容を特定できませんでした"
+      },
+      {
+        "url": "https://pbs.twimg.com/media/GrmpbssXsAARf3_.jpg:large",
+        "judgment": "？",
+        "reason": "Twitter画像ですが投稿内容を特定できませんでした"
+      },
+      {
+        "url": "https://pbs.twimg.com/media/GsdJUeFagAAwaQb?format=jpg&name=large",
+        "judgment": "？",
+        "reason": "Twitter画像ですが投稿内容を特定できませんでした"
+      }
+    ]
+  },
+  {
+    "history_id": "7406353d-e27e-432f-9527-5b28c5f5ea69",
+    "image_id": "977b1824-3bcf-47e5-8863-21be604fc44c",
+    "image_hash": "cd620b02e9af45f51ab58eadd315f9740b84561cb699272cf5e8e45a5e3c3594",
+    "original_filename": "more_sana.jpg",
+    "analysis_date": "2025-08-01T15:26:35.386646",
+    "analysis_timestamp": 1754029595,
+    "found_urls_count": 9,
+    "processed_results_count": 8,
+    "results": [
+      {
+        "url": "https://shop.delivered.co.kr/products/more-japan-magazine-2024-spring-cover-twice-sana",
+        "judgment": "？",
+        "reason": "情報不足のため判断不能"
+      },
+      {
+        "url": "https://www.reddit.com/r/twice/comments/1aucyfn/240219_japan_twitter_update_magazine_information/",
+        "judgment": "×",
+        "reason": "Redditは投稿サイトであり、著作権侵害コンテンツを含む可能性があるため。"
+      },
+      {
+        "url": "https://www.ubuy.mr/en/productjp/IRKVXSMCW-more-spring-2024-sana-twice",
+        "judgment": "×",
+        "reason": "タイトルに雑誌名と表紙モデル名のみで、本文は送料に関する記述のみ。内容が不自然。"
+      },
+      {
+        "url": "https://www.ubuy.co.bw/productjp/IRKVXSMCW-more-spring-2024-sana-twice",
+        "judgment": "？",
+        "reason": "情報不足のため判断不能"
+      },
+      {
+        "url": "https://www.instagram.com/p/C3hCXJpLAOv/",
+        "judgment": "？",
+        "reason": "情報不足のため判断不能"
+      },
+      {
+        "url": "https://pbs.twimg.com/media/GGqwkkXX0AAKvhd?format=jpg&name=4096x4096",
+        "judgment": "？",
+        "reason": "Twitter画像ですが投稿内容を特定できませんでした"
+      },
+      {
+        "url": "https://pbs.twimg.com/media/GJWhjZ6XYAAlwfY?format=jpg&name=4096x4096",
+        "judgment": "？",
+        "reason": "Twitter画像ですが投稿内容を特定できませんでした"
+      },
+      {
+        "url": "https://pbs.twimg.com/media/GGqw1EvasAAhQ32.jpg:large",
+        "judgment": "？",
+        "reason": "Twitter画像ですが投稿内容を特定できませんでした"
+      }
+    ]
+  },
+  {
+    "history_id": "eb7eeda6-faaa-4995-aa84-97a7d560e754",
+    "image_id": "60b4933a-1729-407b-b970-eab9bd823158",
+    "image_hash": "cd620b02e9af45f51ab58eadd315f9740b84561cb699272cf5e8e45a5e3c3594",
+    "original_filename": "more_sana.jpg",
+    "analysis_date": "2025-08-01T15:46:09.579991",
+    "analysis_timestamp": 1754030769,
+    "found_urls_count": 9,
+    "processed_results_count": 8,
+    "results": [
+      {
+        "url": "https://shop.delivered.co.kr/products/more-japan-magazine-2024-spring-cover-twice-sana",
+        "judgment": "？",
+        "reason": "情報不足のため判断不能"
+      },
+      {
+        "url": "https://shop.delivered.co.kr/collections/vendors?q=twice",
+        "judgment": "×",
+        "reason": "コンテンツが不足し、正規サイトと判断できない。"
+      },
+      {
+        "url": "https://www.ubuy.mr/en/productjp/IRKVXSMCW-more-spring-2024-sana-twice",
+        "judgment": "×",
+        "reason": "雑誌表紙のみで本文なし、販売サイトと推測。"
+      },
+      {
+        "url": "https://www.reddit.com/r/twice/comments/1aucyfn/240219_japan_twitter_update_magazine_information/",
+        "judgment": "×",
+        "reason": "TWICE関連コンテンツの違法アップロードの可能性あり。"
+      },
+      {
+        "url": "https://www.ubuy.co.bw/productjp/IRKVXSMCW-more-spring-2024-sana-twice",
+        "judgment": "？",
+        "reason": "情報不足のため判断不能"
+      },
+      {
+        "url": "https://pbs.twimg.com/media/GGqwkkXX0AAKvhd?format=jpg&name=4096x4096",
+        "judgment": "？",
+        "reason": "Twitter画像ですが投稿内容を特定できませんでした"
+      },
+      {
+        "url": "https://pbs.twimg.com/media/GJWhjZ6XYAAlwfY?format=jpg&name=4096x4096",
+        "judgment": "？",
+        "reason": "Twitter画像ですが投稿内容を特定できませんでした"
+      },
+      {
+        "url": "https://pbs.twimg.com/media/GGqw1EvasAAhQ32.jpg:large",
+        "judgment": "？",
+        "reason": "Twitter画像ですが投稿内容を特定できませんでした"
+      }
+    ]
+  },
+  {
+    "history_id": "9cdbb2d1-6533-4a58-859c-34442f2ca0c3",
+    "image_id": "0c44ca16-1b76-4912-9a18-8218b18ed191",
+    "image_hash": "bf8587b688b6b380589e2687871e40586412016200eb980dc88a3c9da18b475a",
+    "original_filename": "1281679705_l.jpg",
+    "analysis_date": "2025-08-01T15:46:11.620607",
+    "analysis_timestamp": 1754030771,
+    "found_urls_count": 0,
+    "processed_results_count": 0,
+    "results": []
   }
 ]

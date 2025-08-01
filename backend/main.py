@@ -1,6 +1,7 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 import os
 import json
 import uuid
@@ -131,6 +132,9 @@ HISTORY_FILE = "history.json"
 
 # メモリ内履歴データストレージ
 analysis_history: List[Dict] = []
+
+# バッチ処理状況管理
+batch_jobs: Dict[str, Dict] = {}
 
 def load_records():
     """JSONファイルから記録を読み込み"""
@@ -2013,6 +2017,331 @@ async def get_summary_report(image_id: str):
                 "image_id": image_id
             }
         )
+
+@app.post("/batch-upload")
+async def batch_upload_images(files: List[UploadFile] = File(...)):
+    """
+    複数の画像を一括でアップロードする
+    """
+    logger.info(f"📤 バッチアップロード開始: {len(files)}ファイル")
+
+    # ファイル数制限チェック
+    if len(files) > 10:
+        raise HTTPException(
+            status_code=400,
+            detail={
+                "error": "too_many_files",
+                "message": "ファイル数が上限を超えています。最大10ファイルまでです。",
+                "max_files": 10,
+                "received_files": len(files)
+            }
+        )
+
+    total_size = 0
+    uploaded_files = []
+    errors = []
+
+    for i, file in enumerate(files):
+        try:
+            logger.info(f"📁 ファイル処理中 ({i+1}/{len(files)}): {file.filename}")
+
+            # ファイル検証
+            if not validate_image_file(file):
+                errors.append({
+                    "filename": file.filename,
+                    "error": "invalid_file_format",
+                    "message": f"無効なファイル形式: {file.content_type}"
+                })
+                continue
+
+            # ファイル読み込み
+            content = await file.read()
+            file_size = len(content)
+            total_size += file_size
+
+            # 合計サイズ制限チェック（50MB）
+            if total_size > 50 * 1024 * 1024:
+                errors.append({
+                    "filename": file.filename,
+                    "error": "total_size_exceeded",
+                    "message": "合計ファイルサイズが50MBを超えています"
+                })
+                break
+
+            # 個別ファイルサイズ制限チェック（10MB）
+            if file_size > 10 * 1024 * 1024:
+                errors.append({
+                    "filename": file.filename,
+                    "error": "file_too_large",
+                    "message": f"ファイルサイズが大きすぎます: {file_size / (1024*1024):.1f}MB"
+                })
+                continue
+
+            # 画像の有効性確認
+            try:
+                image = Image.open(BytesIO(content))
+                image.verify()
+            except Exception as e:
+                errors.append({
+                    "filename": file.filename,
+                    "error": "corrupted_image",
+                    "message": f"破損した画像ファイル: {str(e)}"
+                })
+                continue
+
+            # ファイル保存
+            file_id = str(uuid.uuid4())
+            file_extension = os.path.splitext(file.filename or "image")[1].lower() or ".jpg"
+            safe_filename = f"{file_id}{file_extension}"
+            file_path = os.path.join(UPLOAD_DIR, safe_filename)
+
+            with open(file_path, "wb") as f:
+                f.write(content)
+
+            # 記録保存
+            upload_record = {
+                "id": file_id,
+                "original_filename": file.filename,
+                "saved_filename": safe_filename,
+                "file_path": file_path,
+                "content_type": file.content_type,
+                "file_size": file_size,
+                "upload_time": datetime.now().isoformat(),
+                "status": "uploaded",
+                "batch_upload": True
+            }
+
+            upload_records[file_id] = upload_record
+            uploaded_files.append({
+                "file_id": file_id,
+                "filename": file.filename,
+                "size": file_size,
+                "status": "success"
+            })
+
+            logger.info(f"✅ ファイル保存完了: {file.filename} -> {file_id}")
+
+        except Exception as e:
+            logger.error(f"❌ ファイル処理エラー {file.filename}: {str(e)}")
+            errors.append({
+                "filename": file.filename,
+                "error": "processing_failed",
+                "message": str(e)
+            })
+
+    # 記録を保存
+    save_records()
+
+    logger.info(f"✅ バッチアップロード完了: 成功={len(uploaded_files)}件, エラー={len(errors)}件")
+
+    return {
+        "success": True,
+        "total_files": len(files),
+        "uploaded_count": len(uploaded_files),
+        "error_count": len(errors),
+        "total_size": total_size,
+        "files": uploaded_files,
+        "errors": errors,
+        "upload_time": datetime.now().isoformat()
+    }
+
+@app.post("/batch-search")
+async def batch_search_images(
+    background_tasks: BackgroundTasks,
+    request: dict,
+    batch_id: Optional[str] = None
+):
+    """
+    複数の画像を一括で検索する
+    """
+    # リクエストボディから file_ids を取得
+    file_ids = request.get("file_ids", [])
+    if not file_ids:
+        raise HTTPException(
+            status_code=422,
+            detail="file_ids is required in request body"
+        )
+
+    if not batch_id:
+        batch_id = str(uuid.uuid4())
+
+    logger.info(f"🔍 バッチ検索開始: batch_id={batch_id}, {len(file_ids)}ファイル")
+
+    # バッチジョブ初期化
+    batch_jobs[batch_id] = {
+        "batch_id": batch_id,
+        "total_files": len(file_ids),
+        "completed_files": 0,
+        "status": "processing",
+        "start_time": datetime.now().isoformat(),
+        "files": []
+    }
+
+    # 各ファイルの初期状態を設定
+    for file_id in file_ids:
+        if file_id in upload_records:
+            batch_jobs[batch_id]["files"].append({
+                "file_id": file_id,
+                "filename": upload_records[file_id].get("original_filename", "不明"),
+                "status": "pending",
+                "progress": 0
+            })
+
+    # バックグラウンドで処理開始
+    background_tasks.add_task(process_batch_search, batch_id, file_ids)
+
+    return {
+        "success": True,
+        "batch_id": batch_id,
+        "message": f"バッチ検索を開始しました。{len(file_ids)}ファイルを処理します。",
+        "total_files": len(file_ids)
+    }
+
+def process_batch_search(batch_id: str, file_ids: List[str]):
+    """
+    バッチ検索をバックグラウンドで実行
+    """
+    try:
+        for i, file_id in enumerate(file_ids):
+            if batch_id not in batch_jobs:
+                return
+
+            # ファイル状態を更新
+            batch_jobs[batch_id]["files"][i]["status"] = "processing"
+            batch_jobs[batch_id]["files"][i]["progress"] = 0
+
+            logger.info(f"🔄 バッチ検索処理中 ({i+1}/{len(file_ids)}): {file_id}")
+
+            try:
+                # 既存の分析ロジックを使用
+                if file_id not in upload_records:
+                    batch_jobs[batch_id]["files"][i]["status"] = "error"
+                    batch_jobs[batch_id]["files"][i]["error"] = "ファイルが見つかりません"
+                    continue
+
+                record = upload_records[file_id]
+                image_path = record["file_path"]
+
+                # 画像ファイル読み込み
+                with open(image_path, 'rb') as image_file:
+                    image_content = image_file.read()
+
+                # 画像ハッシュ計算
+                image_hash = calculate_image_hash(image_content)
+
+                # プログレス更新
+                batch_jobs[batch_id]["files"][i]["progress"] = 20
+
+                # Web検索実行
+                url_list = search_web_for_image(image_content)
+
+                # プログレス更新
+                batch_jobs[batch_id]["files"][i]["progress"] = 60
+
+                # URL分析
+                processed_results = []
+                for j, url in enumerate(url_list[:10]):
+                    result = analyze_url_efficiently(url)
+                    if result:
+                        processed_results.append(result)
+
+                    # 小刻みな進捗更新
+                    progress = 60 + (j + 1) * 3  # 60% + 30%分を URL分析で使用
+                    batch_jobs[batch_id]["files"][i]["progress"] = min(progress, 90)
+
+                # 結果保存
+                search_results[file_id] = processed_results
+
+                # アップロード記録更新
+                record["analysis_status"] = "completed"
+                record["analysis_time"] = datetime.now().isoformat()
+                record["found_urls_count"] = len(url_list)
+                record["processed_results_count"] = len(processed_results)
+                record["image_hash"] = image_hash
+
+                # 履歴保存
+                save_analysis_to_history(file_id, image_hash, processed_results)
+
+                # 完了状態更新
+                batch_jobs[batch_id]["files"][i]["status"] = "completed"
+                batch_jobs[batch_id]["files"][i]["progress"] = 100
+                batch_jobs[batch_id]["files"][i]["results_count"] = len(processed_results)
+
+                logger.info(f"✅ バッチ検索完了 ({i+1}/{len(file_ids)}): {file_id}")
+
+            except Exception as e:
+                logger.error(f"❌ バッチ検索エラー {file_id}: {str(e)}")
+                batch_jobs[batch_id]["files"][i]["status"] = "error"
+                batch_jobs[batch_id]["files"][i]["error"] = str(e)
+
+            # 完了ファイル数更新
+            batch_jobs[batch_id]["completed_files"] = i + 1
+
+        # 全体完了
+        batch_jobs[batch_id]["status"] = "completed"
+        batch_jobs[batch_id]["end_time"] = datetime.now().isoformat()
+        save_records()
+
+        logger.info(f"✅ バッチ検索全体完了: batch_id={batch_id}")
+
+    except Exception as e:
+        logger.error(f"❌ バッチ検索全体エラー: {str(e)}")
+        if batch_id in batch_jobs:
+            batch_jobs[batch_id]["status"] = "error"
+            batch_jobs[batch_id]["error"] = str(e)
+
+@app.get("/batch-status/{batch_id}")
+async def get_batch_status(batch_id: str):
+    """
+    バッチ処理の進捗状況を取得
+    """
+    if batch_id not in batch_jobs:
+        raise HTTPException(
+            status_code=404,
+            detail="指定されたバッチIDが見つかりません。"
+        )
+
+    return {
+        "success": True,
+        "batch": batch_jobs[batch_id]
+    }
+
+@app.get("/image/{file_id}")
+async def get_image(file_id: str):
+    """
+    アップロードされた画像ファイルを取得
+    """
+    if file_id not in upload_records:
+        raise HTTPException(
+            status_code=404,
+            detail="指定された画像が見つかりません"
+        )
+
+    record = upload_records[file_id]
+    file_path = record["file_path"]
+
+    if not os.path.exists(file_path):
+        raise HTTPException(
+            status_code=404,
+            detail="画像ファイルが存在しません"
+        )
+
+    # ファイル拡張子から適切なメディアタイプを判定
+    _, ext = os.path.splitext(file_path)
+    media_type_map = {
+        '.jpg': 'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.png': 'image/png',
+        '.gif': 'image/gif',
+        '.webp': 'image/webp'
+    }
+    media_type = media_type_map.get(ext.lower(), 'image/jpeg')
+
+    return FileResponse(
+        file_path,
+        media_type=media_type,
+        filename=record.get("original_filename", f"image{ext}")
+    )
 
 if __name__ == "__main__":
     import uvicorn
