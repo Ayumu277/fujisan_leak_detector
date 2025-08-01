@@ -122,8 +122,8 @@ else:
 
 # CORS設定 - 本番環境対応
 allowed_origins = [
-    "http://localhost:3000", 
-    "http://localhost:5173", 
+    "http://localhost:3000",
+    "http://localhost:5173",
     "http://localhost:5174",
     "https://fujisan-leak-detector.onrender.com",  # Render フロントエンド URL（後で更新）
 ]
@@ -301,8 +301,25 @@ load_history()
 
 # 公式ドメインリストは削除（Gemini AIで動的判定）
 
-# Vision APIクライアントをグローバルで初期化
-vision_client = vision.ImageAnnotatorClient()
+# Vision APIクライアントをグローバルで初期化（Render対応）
+try:
+    # Renderでは環境変数に直接JSONコンテンツを設定する場合がある
+    google_credentials_json = os.getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON")
+    if google_credentials_json:
+        # JSON文字列から認証情報を作成
+        import json
+        from google.oauth2 import service_account
+        credentials_info = json.loads(google_credentials_json)
+        credentials = service_account.Credentials.from_service_account_info(credentials_info)
+        vision_client = vision.ImageAnnotatorClient(credentials=credentials)
+        logger.info("✅ Google Vision API認証完了（JSON環境変数）")
+    else:
+        # 従来のファイルパス方式
+        vision_client = vision.ImageAnnotatorClient()
+        logger.info("✅ Google Vision API認証完了（ファイルパス）")
+except Exception as e:
+    logger.warning(f"⚠️ Google Vision API初期化失敗: {e}")
+    vision_client = None
 
 # Geminiモデルをグローバルで初期化
 if GEMINI_API_KEY:

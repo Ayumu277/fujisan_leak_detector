@@ -8,6 +8,7 @@ beautifulsoup4==4.12.2
 python-dotenv==1.0.0
 google-cloud-vision==3.4.4
 google-generativeai
+google-auth==2.40.0
 serpapi==0.1.5
 
 # PDF処理用ライブラリ（推奨：PyMuPDF）
