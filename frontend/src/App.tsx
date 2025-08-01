@@ -2,6 +2,12 @@ import { useState, useEffect } from 'react'
 import axios from 'axios'
 import './App.css'
 
+// PDF.js のインポート
+import * as pdfjsLib from 'pdfjs-dist'
+
+// PDF.js worker の設定
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.269/pdf.worker.min.js`
+
 // TypeScript型定義
 interface UploadResponse {
   success: boolean
@@ -188,12 +194,59 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({
                 (fileInfo?.filename && fileInfo.filename.toLowerCase().endsWith('.pdf')) ||
                 fileInfo?.fileType === 'pdf'
 
+  // PDFプレビュー生成関数
+  const generatePdfPreview = async (pdfFile: File) => {
+    try {
+      setIsLoading(true)
+      setHasError(false)
+
+      // FileをArrayBufferに変換
+      const arrayBuffer = await pdfFile.arrayBuffer()
+      
+      // PDFドキュメントを読み込み
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
+      
+      // 最初のページを取得
+      const page = await pdf.getPage(1)
+      
+      // ビューポートを設定（スケール調整）
+      const viewport = page.getViewport({ scale: 2.0 })
+      
+      // Canvasを作成
+      const canvas = document.createElement('canvas')
+      const context = canvas.getContext('2d')
+      
+      if (!context) {
+        throw new Error('Canvas context could not be created')
+      }
+      
+      canvas.height = viewport.height
+      canvas.width = viewport.width
+      
+      // ページをCanvasにレンダリング
+      await page.render({
+        canvasContext: context,
+        viewport: viewport
+      }).promise
+      
+      // CanvasをDataURLに変換
+      const dataUrl = canvas.toDataURL('image/png')
+      setImageSrc(dataUrl)
+      setIsLoading(false)
+      
+    } catch (error) {
+      console.error('PDF preview generation failed:', error)
+      setHasError(true)
+      setIsLoading(false)
+    }
+  }
+
   useEffect(() => {
     const loadFileInfo = async () => {
       if (file) {
         if (isPdf) {
-          // PDFの場合はプレビューを作成しない
-          setIsLoading(false)
+          // PDFの場合はPDF.jsを使ってプレビューを生成
+          await generatePdfPreview(file)
         } else {
           // 画像の場合は従来通り
           const url = URL.createObjectURL(file)

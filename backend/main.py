@@ -1399,7 +1399,7 @@ def judge_content_with_gemini(content: str) -> dict:
         official_domains = [
             # 出版社
             'www.kadokawa.co.jp', 'www.shogakukan.co.jp', 'www.shueisha.co.jp',
-            'www.kodansha.co.jp', 
+            'www.kodansha.co.jp',
             # メディア
             'www.nhk.or.jp', 'www.asahi.com', 'www.yomiuri.co.jp',
             'www.sankei.com', 'www.nikkei.com', 'mainichi.jp', 'news.yahoo.co.jp',
@@ -3107,9 +3107,9 @@ async def get_file_info(file_id: str):
             status_code=404,
             detail="指定されたファイルが見つかりません"
         )
-    
+
     record = upload_records[file_id]
-    
+
     return {
         "file_id": file_id,
         "filename": record.get("original_filename", "不明"),
@@ -3129,44 +3129,44 @@ async def get_pdf_preview(file_id: str):
             status_code=404,
             detail="指定されたファイルが見つかりません"
         )
-    
+
     record = upload_records[file_id]
     file_path = record["file_path"]
-    
+
     if not os.path.exists(file_path):
         raise HTTPException(
             status_code=404,
             detail="ファイルが存在しません"
         )
-    
+
     # PDFファイルかチェック
     if record.get("file_type") != "pdf":
         raise HTTPException(
             status_code=400,
             detail="指定されたファイルはPDFではありません"
         )
-    
+
     try:
         # PDFの最初のページを画像に変換
         with open(file_path, 'rb') as file:
             pdf_content = file.read()
-        
+
         pdf_images = convert_pdf_to_images(pdf_content)
         if not pdf_images:
             raise HTTPException(
                 status_code=500,
                 detail="PDFから画像を生成できませんでした"
             )
-        
+
         # 最初のページの画像を返す
         first_page_image = pdf_images[0]
-        
+
         return Response(
             content=first_page_image,
             media_type="image/png",
             headers={"Content-Disposition": f"inline; filename=\"{file_id}_preview.png\""}
         )
-        
+
     except Exception as e:
         logger.error(f"❌ PDFプレビュー生成エラー {file_id}: {str(e)}")
         raise HTTPException(
