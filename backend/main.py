@@ -125,7 +125,8 @@ allowed_origins = [
     "http://localhost:3000",
     "http://localhost:5173",
     "http://localhost:5174",
-    "https://fujisan-leak-detector.onrender.com",  # Render フロントエンド URL（後で更新）
+    "https://fujisan-leak-detector.onrender.com",  # Render フロントエンド URL（予備）
+    "https://fujisan-leak-detector-1.onrender.com",  # 実際のフロントエンド URL
 ]
 
 # 環境変数でCORSオリジンを追加可能
