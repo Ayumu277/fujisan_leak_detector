@@ -1736,7 +1736,7 @@ async def upload_image(file: UploadFile = File(...)):
             )
 
         # ファイル種別による検証
-        is_pdf = is_pdf_file(file.content_type, file.filename or "")
+        is_pdf = is_pdf_file(file.content_type or "", file.filename or "")
 
         if is_pdf:
             # PDF検証
@@ -2855,7 +2855,7 @@ async def batch_upload_images(files: List[UploadFile] = File(...)):
                 continue
 
             # ファイル種別による検証
-            is_pdf = is_pdf_file(file.content_type, file.filename or "")
+            is_pdf = is_pdf_file(file.content_type or "", file.filename or "")
 
             if is_pdf:
                 # PDF検証
@@ -3001,7 +3001,7 @@ async def batch_search_images(
             })
 
     # バックグラウンドで処理開始
-    background_tasks.add_task(process_batch_search, batch_id, file_ids)
+    background_tasks.add_task(lambda: process_batch_search(batch_id, file_ids))
 
     return {
         "success": True,
