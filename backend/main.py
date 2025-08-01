@@ -18,14 +18,16 @@ import httpx
 from bs4 import BeautifulSoup
 from google.cloud import vision
 import google.generativeai as genai
+import hashlib
+import csv
+from io import StringIO
+from urllib.parse import urlparse
+from fastapi.responses import Response
 try:
-    from serpapi import GoogleSearch
+    from serpapi import GoogleSearch  # type: ignore
 except ImportError:
-    try:
-        from serpapi import GoogleSearch
-    except ImportError:
-        GoogleSearch = None
-        print("⚠️ SerpAPI not available - continuing without it")
+    GoogleSearch = None
+    print("⚠️ SerpAPI not available - continuing without it")
 
 # ログ設定
 logging.basicConfig(level=logging.INFO)
@@ -125,6 +127,10 @@ search_results: Dict[str, List[Dict]] = {}
 
 # JSONファイルでの永続化
 RECORDS_FILE = "upload_records.json"
+HISTORY_FILE = "history.json"
+
+# メモリ内履歴データストレージ
+analysis_history: List[Dict] = []
 
 def load_records():
     """JSONファイルから記録を読み込み"""
@@ -145,8 +151,121 @@ def save_records():
     except Exception as e:
         print(f"記録の保存に失敗: {e}")
 
-# アプリ起動時に記録を読み込み
+def load_history():
+    """履歴ファイルから履歴を読み込み"""
+    global analysis_history
+    try:
+        if os.path.exists(HISTORY_FILE):
+            with open(HISTORY_FILE, 'r', encoding='utf-8') as f:
+                analysis_history = json.load(f)
+                logger.info(f"📚 履歴読み込み完了: {len(analysis_history)}件")
+    except Exception as e:
+        logger.error(f"履歴の読み込みに失敗: {e}")
+        analysis_history = []
+
+def save_history():
+    """履歴ファイルに履歴を保存"""
+    try:
+        with open(HISTORY_FILE, 'w', encoding='utf-8') as f:
+            json.dump(analysis_history, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        logger.error(f"履歴の保存に失敗: {e}")
+
+def calculate_image_hash(image_content: bytes) -> str:
+    """
+    画像コンテンツからSHA-256ハッシュ値を計算
+    同じ画像を識別するために使用
+    """
+    return hashlib.sha256(image_content).hexdigest()
+
+def save_analysis_to_history(image_id: str, image_hash: str, results: List[Dict]):
+    """
+    分析結果を履歴に保存
+    """
+    global analysis_history
+
+    if image_id not in upload_records:
+        return
+
+    upload_record = upload_records[image_id]
+
+    history_entry = {
+        "history_id": str(uuid.uuid4()),
+        "image_id": image_id,
+        "image_hash": image_hash,
+        "original_filename": upload_record.get("original_filename", "不明"),
+        "analysis_date": datetime.now().isoformat(),
+        "analysis_timestamp": int(datetime.now().timestamp()),
+        "found_urls_count": upload_record.get("found_urls_count", 0),
+        "processed_results_count": len(results),
+        "results": results
+    }
+
+    analysis_history.append(history_entry)
+    save_history()
+    logger.info(f"📚 履歴に保存: {image_id} ({len(results)}件の結果)")
+
+def get_previous_analysis(image_hash: str, exclude_history_id: Optional[str] = None) -> Dict | None:
+    """
+    同じ画像ハッシュの過去の分析結果を取得（最新のもの）
+    """
+    matching_histories = [
+        h for h in analysis_history
+        if h.get("image_hash") == image_hash and h.get("history_id") != exclude_history_id
+    ]
+
+    if not matching_histories:
+        return None
+
+    # 最新の分析結果を返す
+    return max(matching_histories, key=lambda x: x.get("analysis_timestamp", 0))
+
+def calculate_diff(current_results: List[Dict], previous_results: List[Dict]) -> Dict:
+    """
+    現在の結果と過去の結果の差分を計算
+    """
+    # URLをキーとしてマップを作成
+    current_urls = {r["url"]: r for r in current_results}
+    previous_urls = {r["url"]: r for r in previous_results}
+
+    # 新規URL（現在にあるが過去にない）
+    new_urls = []
+    for url in current_urls:
+        if url not in previous_urls:
+            new_urls.append(current_urls[url])
+
+    # 消失URL（過去にあるが現在にない）
+    disappeared_urls = []
+    for url in previous_urls:
+        if url not in current_urls:
+            disappeared_urls.append(previous_urls[url])
+
+    # 判定変更URL（両方にあるが判定が変わった）
+    changed_urls = []
+    for url in current_urls:
+        if url in previous_urls:
+            current_judgment = current_urls[url].get("judgment", "？")
+            previous_judgment = previous_urls[url].get("judgment", "？")
+            if current_judgment != previous_judgment:
+                changed_urls.append({
+                    "url": url,
+                    "current": current_urls[url],
+                    "previous": previous_urls[url]
+                })
+
+    return {
+        "new_urls": new_urls,
+        "disappeared_urls": disappeared_urls,
+        "changed_urls": changed_urls,
+        "has_changes": len(new_urls) > 0 or len(disappeared_urls) > 0 or len(changed_urls) > 0,
+        "total_new": len(new_urls),
+        "total_disappeared": len(disappeared_urls),
+        "total_changed": len(changed_urls)
+    }
+
+# アプリ起動時に記録と履歴を読み込み
 load_records()
+load_history()
 
 # 公式ドメインリストは削除（Gemini AIで動的判定）
 
@@ -253,7 +372,7 @@ def search_web_for_image(image_content: bytes) -> list[str]:
         # 1. Google Vision API WEB_DETECTION
         logger.info("📊 【Phase 1】Google Vision API WEB_DETECTION")
         image = vision.Image(content=image_content)
-        response = vision_client.web_detection(image=image)
+        response = vision_client.web_detection(image=image)  # type: ignore
         web_detection = response.web_detection
 
         # デバッグ用: 各マッチタイプの件数をログ出力
@@ -841,7 +960,7 @@ def judge_content_with_gemini(content: str) -> dict:
         else:
             return {"judgment": "？", "reason": "AI判定処理でエラーが発生"}
 
-def analyze_url_efficiently(url: str) -> dict:
+def analyze_url_efficiently(url: str) -> Optional[Dict]:
     """
     URLを効率的に分析する
     1. 信頼できるニュースサイトは事前に○判定
@@ -1189,7 +1308,11 @@ async def analyze_image(image_id: str):
 
         logger.info(f"📸 画像ファイル読み込み完了: {len(image_content)} bytes")
 
-                # Google Vision API WEB_DETECTIONでURL検索
+        # 画像ハッシュを計算
+        image_hash = calculate_image_hash(image_content)
+        logger.info(f"🔑 画像ハッシュ計算完了: {image_hash[:16]}...")
+
+        # Google Vision API WEB_DETECTIONでURL検索
         logger.info("🌐 Google Vision API WEB_DETECTION実行中...")
         url_list = search_web_for_image(image_content)
 
@@ -1224,7 +1347,11 @@ async def analyze_image(image_id: str):
         record["analysis_time"] = datetime.now().isoformat()
         record["found_urls_count"] = len(url_list)
         record["processed_results_count"] = len(processed_results)
+        record["image_hash"] = image_hash
         save_records()
+
+        # 履歴に保存
+        save_analysis_to_history(image_id, image_hash, processed_results)
 
         logger.info(f"✅ 分析完了: image_id={image_id}, URL発見={len(url_list)}件, 処理完了={len(processed_results)}件")
 
@@ -1439,6 +1566,453 @@ async def get_system_logs():
         "logs": system_logs[-50:],  # 最新50件を返す
         "timestamp": datetime.now().isoformat()
     }
+
+def generate_evidence_hash(data: dict) -> str:
+    """
+    証拠データのハッシュ値を生成（改ざん防止用）
+    """
+    # データを文字列として正規化してハッシュ化
+    json_str = json.dumps(data, sort_keys=True, ensure_ascii=False)
+    return hashlib.sha256(json_str.encode('utf-8')).hexdigest()
+
+def create_evidence_data(image_id: str) -> dict:
+    """
+    証拠データを作成する
+    """
+    if image_id not in upload_records:
+        raise HTTPException(
+            status_code=404,
+            detail="指定されたimage_idが見つかりません。"
+        )
+
+    if image_id not in search_results:
+        raise HTTPException(
+            status_code=404,
+            detail="この画像の分析結果が見つかりません。先に分析を実行してください。"
+        )
+
+    upload_record = upload_records[image_id]
+    analysis_results = search_results[image_id]
+
+    # 現在時刻
+    current_time = datetime.now()
+
+    # 証拠データを構築
+    evidence_data = {
+        "evidence_info": {
+            "creation_date": current_time.isoformat(),
+            "creation_timestamp": int(current_time.timestamp()),
+            "evidence_id": f"evidence_{image_id}_{int(current_time.timestamp())}",
+            "system_info": "Book Leak Detector v1.0.0"
+        },
+        "image_info": {
+            "image_id": image_id,
+            "original_filename": upload_record.get("original_filename", "不明"),
+            "file_size": upload_record.get("file_size", 0),
+            "upload_time": upload_record.get("upload_time", "不明"),
+            "content_type": upload_record.get("content_type", "不明")
+        },
+        "analysis_info": {
+            "analysis_time": upload_record.get("analysis_time", "不明"),
+            "analysis_status": upload_record.get("analysis_status", "不明"),
+            "found_urls_count": upload_record.get("found_urls_count", 0),
+            "processed_results_count": upload_record.get("processed_results_count", 0)
+        },
+        "detection_results": {
+            "total_urls_detected": len(analysis_results),
+            "url_analysis": []
+        }
+    }
+
+    # 各URLの判定結果を追加
+    for result in analysis_results:
+        url_info = {
+            "url": result.get("url", ""),
+            "judgment": result.get("judgment", "？"),
+            "reason": result.get("reason", "理由不明"),
+            "analysis_timestamp": current_time.isoformat()
+        }
+        evidence_data["detection_results"]["url_analysis"].append(url_info)
+
+    # ハッシュ値を計算（改ざん防止用）
+    evidence_data["integrity"] = {
+        "hash_algorithm": "SHA-256",
+        "data_hash": generate_evidence_hash(evidence_data),
+        "note": "このハッシュ値は証拠データの改ざんを検知するために使用されます"
+    }
+
+    return evidence_data
+
+@app.get("/api/evidence/download/{image_id}")
+async def download_evidence(image_id: str):
+    """
+    検出結果を証拠として保存用JSONファイルをダウンロードする
+    """
+    logger.info(f"📥 証拠保全要求: image_id={image_id}")
+
+    try:
+        # 証拠データを作成
+        evidence_data = create_evidence_data(image_id)
+
+        # JSONファイル名を生成
+        timestamp = int(datetime.now().timestamp())
+        filename = f"evidence_{image_id}_{timestamp}.json"
+
+        # JSONデータを文字列に変換
+        json_content = json.dumps(evidence_data, ensure_ascii=False, indent=2)
+
+        logger.info(f"✅ 証拠保全データ生成完了: {filename}")
+
+        # ファイルとしてレスポンスを返す
+        return Response(
+            content=json_content,
+            media_type="application/json",
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}",
+                "Content-Type": "application/json; charset=utf-8"
+            }
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ 証拠保全エラー: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "evidence_creation_failed",
+                "message": f"証拠データの生成に失敗しました: {str(e)}",
+                "image_id": image_id
+            }
+        )
+
+@app.get("/api/history")
+async def get_analysis_history():
+    """
+    過去の検査履歴一覧を取得する
+    """
+    logger.info(f"📚 履歴取得要求: {len(analysis_history)}件")
+
+    try:
+        # 履歴を新しい順にソート
+        sorted_history = sorted(
+            analysis_history,
+            key=lambda x: x.get("analysis_timestamp", 0),
+            reverse=True
+        )
+
+        # 表示用に履歴データを整形
+        formatted_history = []
+        for entry in sorted_history:
+            formatted_entry = {
+                "history_id": entry.get("history_id"),
+                "image_id": entry.get("image_id"),
+                "image_hash": entry.get("image_hash"),
+                "original_filename": entry.get("original_filename"),
+                "analysis_date": entry.get("analysis_date"),
+                "analysis_timestamp": entry.get("analysis_timestamp"),
+                "found_urls_count": entry.get("found_urls_count", 0),
+                "processed_results_count": entry.get("processed_results_count", 0),
+                "summary": {
+                    "safe_count": len([r for r in entry.get("results", []) if r.get("judgment") == "○"]),
+                    "suspicious_count": len([r for r in entry.get("results", []) if r.get("judgment") == "×"]),
+                    "unknown_count": len([r for r in entry.get("results", []) if r.get("judgment") in ["？", "！"]])
+                }
+            }
+            formatted_history.append(formatted_entry)
+
+        return {
+            "success": True,
+            "total_history_count": len(analysis_history),
+            "history": formatted_history
+        }
+
+    except Exception as e:
+        logger.error(f"❌ 履歴取得エラー: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "history_retrieval_failed",
+                "message": f"履歴の取得に失敗しました: {str(e)}"
+            }
+        )
+
+@app.get("/api/history/diff/{image_id}")
+async def get_analysis_diff(image_id: str):
+    """
+    指定された画像IDの前回検査との差分を取得する
+    """
+    logger.info(f"🔄 差分取得要求: image_id={image_id}")
+
+    try:
+        # 現在の結果を取得
+        if image_id not in upload_records:
+            raise HTTPException(
+                status_code=404,
+                detail="指定されたimage_idが見つかりません。"
+            )
+
+        record = upload_records[image_id]
+        current_results = search_results.get(image_id, [])
+        image_hash = record.get("image_hash")
+
+        if not image_hash:
+            return {
+                "success": True,
+                "has_previous": False,
+                "message": "この画像に対する過去の分析結果がありません。"
+            }
+
+        # 同じハッシュの過去の分析結果を取得
+        previous_analysis = get_previous_analysis(image_hash)
+
+        if not previous_analysis:
+            return {
+                "success": True,
+                "has_previous": False,
+                "message": "この画像に対する過去の分析結果がありません。"
+            }
+
+        # 差分を計算
+        diff_result = calculate_diff(current_results, previous_analysis.get("results", []))
+
+        # 前回分析日時を含めて返す
+        response_data = {
+            "success": True,
+            "has_previous": True,
+            "image_id": image_id,
+            "image_hash": image_hash,
+            "current_analysis": {
+                "analysis_date": record.get("analysis_time"),
+                "results_count": len(current_results)
+            },
+            "previous_analysis": {
+                "analysis_date": previous_analysis.get("analysis_date"),
+                "results_count": len(previous_analysis.get("results", []))
+            },
+            "diff": diff_result
+        }
+
+        logger.info(f"✅ 差分計算完了: 新規={diff_result['total_new']}, 消失={diff_result['total_disappeared']}, 変更={diff_result['total_changed']}")
+
+        return response_data
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ 差分取得エラー: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "diff_calculation_failed",
+                "message": f"差分の計算に失敗しました: {str(e)}",
+                "image_id": image_id
+            }
+        )
+
+def generate_csv_report(image_id: str) -> str:
+    """
+    CSV形式のレポートを生成する
+    """
+    if image_id not in upload_records:
+        raise HTTPException(
+            status_code=404,
+            detail="指定されたimage_idが見つかりません。"
+        )
+
+    record = upload_records[image_id]
+    results = search_results.get(image_id, [])
+
+    # StringIOを使ってCSVデータを生成
+    output = StringIO()
+
+    # BOM付きUTF-8のためのBOMを追加
+    output.write('\ufeff')
+
+    writer = csv.writer(output)
+
+    # ヘッダー行（日本語）
+    headers = [
+        "検査日時",
+        "画像ファイル名",
+        "URL",
+        "ドメイン",
+        "判定結果",
+        "判定理由"
+    ]
+    writer.writerow(headers)
+
+    # データ行
+    analysis_time = record.get("analysis_time", "不明")
+    filename = record.get("original_filename", "不明")
+
+    for result in results:
+        url = result.get("url", "")
+        judgment = result.get("judgment", "？")
+        reason = result.get("reason", "理由不明")
+
+        # ドメインを抽出
+        try:
+            domain = urlparse(url).netloc
+        except:
+            domain = "不明"
+
+        writer.writerow([
+            analysis_time,
+            filename,
+            url,
+            domain,
+            judgment,
+            reason
+        ])
+
+    return output.getvalue()
+
+def generate_summary_report(image_id: str) -> dict:
+    """
+    経営層向けサマリーレポートを生成する
+    """
+    if image_id not in upload_records:
+        raise HTTPException(
+            status_code=404,
+            detail="指定されたimage_idが見つかりません。"
+        )
+
+    record = upload_records[image_id]
+    results = search_results.get(image_id, [])
+
+    # 統計を計算
+    total_count = len(results)
+    safe_count = len([r for r in results if r.get("judgment") == "○"])
+    dangerous_count = len([r for r in results if r.get("judgment") == "×"])
+    warning_count = len([r for r in results if r.get("judgment") in ["？", "！"]])
+
+    # 危険なドメインを集計
+    dangerous_domains = {}
+    for result in results:
+        if result.get("judgment") == "×":
+            try:
+                domain = urlparse(result.get("url", "")).netloc
+                if domain:
+                    dangerous_domains[domain] = dangerous_domains.get(domain, 0) + 1
+            except:
+                pass
+
+    # TOP5危険ドメイン
+    top_dangerous = sorted(dangerous_domains.items(), key=lambda x: x[1], reverse=True)[:5]
+
+    # 推奨アクション
+    if dangerous_count > 0:
+        if dangerous_count >= 3:
+            recommended_action = "至急対応が必要"
+            action_details = f"{dangerous_count}件の危険サイトが検出されました。法的対応を検討してください。"
+        else:
+            recommended_action = "要注意・監視継続"
+            action_details = f"{dangerous_count}件の危険サイトが検出されました。継続的な監視が必要です。"
+    elif warning_count > 0:
+        recommended_action = "経過観察"
+        action_details = f"{warning_count}件の不明サイトが検出されました。定期的な再検査を推奨します。"
+    else:
+        recommended_action = "安全"
+        action_details = "危険なサイトは検出されませんでした。"
+
+    return {
+        "summary": {
+            "analysis_date": record.get("analysis_time", "不明"),
+            "image_filename": record.get("original_filename", "不明"),
+            "total_detected": total_count,
+            "safe_sites": safe_count,
+            "dangerous_sites": dangerous_count,
+            "warning_sites": warning_count
+        },
+        "risk_assessment": {
+            "level": "高" if dangerous_count >= 3 else "中" if dangerous_count > 0 else "低",
+            "recommended_action": recommended_action,
+            "action_details": action_details
+        },
+        "top_dangerous_domains": [
+            {"domain": domain, "count": count} for domain, count in top_dangerous
+        ],
+        "recommendations": [
+            "定期的な再検査の実施",
+            "検出された危険サイトへの法的対応",
+            "社内への注意喚起と教育",
+            "検出結果の社内共有"
+        ]
+    }
+
+@app.get("/api/report/csv/{image_id}")
+async def download_csv_report(image_id: str):
+    """
+    CSV形式のレポートをダウンロードする
+    """
+    logger.info(f"📊 CSVレポート生成要求: image_id={image_id}")
+
+    try:
+        # CSVデータを生成
+        csv_content = generate_csv_report(image_id)
+
+        # ファイル名を生成
+        timestamp = int(datetime.now().timestamp())
+        filename = f"leak_detection_report_{image_id}_{timestamp}.csv"
+
+        logger.info(f"✅ CSVレポート生成完了: {filename}")
+
+        # CSVファイルとしてレスポンスを返す
+        return Response(
+            content=csv_content.encode('utf-8'),
+            media_type="text/csv",
+            headers={
+                "Content-Disposition": f"attachment; filename={filename}",
+                "Content-Type": "text/csv; charset=utf-8"
+            }
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ CSVレポート生成エラー: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "csv_report_generation_failed",
+                "message": f"CSVレポートの生成に失敗しました: {str(e)}",
+                "image_id": image_id
+            }
+        )
+
+@app.get("/api/report/summary/{image_id}")
+async def get_summary_report(image_id: str):
+    """
+    経営層向けサマリーレポートを取得する
+    """
+    logger.info(f"📊 サマリーレポート生成要求: image_id={image_id}")
+
+    try:
+        # サマリーレポートを生成
+        summary_data = generate_summary_report(image_id)
+
+        logger.info(f"✅ サマリーレポート生成完了: {image_id}")
+
+        return {
+            "success": True,
+            "image_id": image_id,
+            "report": summary_data,
+            "generated_at": datetime.now().isoformat()
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ サマリーレポート生成エラー: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "summary_report_generation_failed",
+                "message": f"サマリーレポートの生成に失敗しました: {str(e)}",
+                "image_id": image_id
+            }
+        )
 
 if __name__ == "__main__":
     import uvicorn

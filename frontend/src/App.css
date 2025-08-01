@@ -41,3 +41,119 @@ a {
 a:hover {
   text-decoration: none;
 }
+
+/* トースト通知のアニメーション */
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+/* フェードインアニメーション */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* カードのホバーエフェクト */
+.card-hover {
+  transition: all 0.3s ease;
+}
+
+.card-hover:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 15px 35px rgba(0, 0, 0, 0.15);
+}
+
+/* ボタンのスケールエフェクト */
+.button-scale {
+  transition: transform 0.2s ease;
+}
+
+.button-scale:hover {
+  transform: scale(1.05);
+}
+
+/* プログレスバーアニメーション */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.loading-pulse {
+  animation: pulse 2s infinite;
+}
+
+/* スピナーアニメーション */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spinner {
+  animation: spin 1s linear infinite;
+}
+
+/* レスポンシブ対応 */
+@media (max-width: 768px) {
+  .main-container {
+    padding: 0 15px;
+  }
+
+  .header {
+    padding: 25px 20px;
+    border-radius: 0 0 20px 20px;
+  }
+
+  .header h1 {
+    font-size: 2rem;
+  }
+
+  .card {
+    padding: 20px;
+    border-radius: 15px;
+  }
+
+  .button-group {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .button-group button {
+    margin: 5px 0;
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .header h1 {
+    font-size: 1.5rem;
+  }
+
+  .drag-drop-area {
+    padding: 25px 15px;
+  }
+
+  .results-grid {
+    grid-template-columns: 1fr;
+  }
+}

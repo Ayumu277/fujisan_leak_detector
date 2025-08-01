@@ -1,0 +1,17 @@
+{
+    "python.defaultInterpreterPath": "./backend/venv/bin/python",
+    "python.terminal.activateEnvironment": true,
+    "python.terminal.activateEnvInCurrentTerminal": true,
+    "python.analysis.extraPaths": [
+        "./backend"
+    ],
+    "python.envFile": "./backend/.env",
+    "python.analysis.stubPath": "./backend/venv/lib/python3.13/site-packages",
+    "python.languageServer": "Pylance",
+    "python.analysis.typeCheckingMode": "basic",
+    "python.analysis.autoImportCompletions": true,
+    "python.analysis.indexing": true,
+    "files.associations": {
+        "*.py": "python"
+    }
+}
