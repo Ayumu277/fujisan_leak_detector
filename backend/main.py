@@ -306,7 +306,7 @@ load_history()
 try:
     import json
     from google.oauth2 import service_account
-    
+
     # まず GOOGLE_APPLICATION_CREDENTIALS_JSON を確認
     google_credentials_json = os.getenv("GOOGLE_APPLICATION_CREDENTIALS_JSON")
     if google_credentials_json:
@@ -2857,7 +2857,7 @@ async def batch_search_images(
         "files": []
     }
 
-    # 各ファイルの初期状態を設定
+    # 各ファイルの初期状態を設定（すべてのfile_idsに対応）
     for file_id in file_ids:
         if file_id in upload_records:
             batch_jobs[batch_id]["files"].append({
@@ -2865,6 +2865,15 @@ async def batch_search_images(
                 "filename": upload_records[file_id].get("original_filename", "不明"),
                 "status": "pending",
                 "progress": 0
+            })
+        else:
+            # 存在しないファイルも配列に追加（エラー状態で）
+            batch_jobs[batch_id]["files"].append({
+                "file_id": file_id,
+                "filename": "ファイルが見つかりません",
+                "status": "error",
+                "progress": 0,
+                "error": "アップロードレコードが見つかりません"
             })
 
     # バックグラウンドで処理開始
@@ -2885,6 +2894,12 @@ def process_batch_search(batch_id: str, file_ids: List[str]):
         for i, file_id in enumerate(file_ids):
             if batch_id not in batch_jobs:
                 return
+
+            # 既にエラー状態のファイルをスキップ
+            if batch_jobs[batch_id]["files"][i]["status"] == "error":
+                logger.info(f"⏭️ スキップ ({i+1}/{len(file_ids)}): {file_id} - 既にエラー状態")
+                batch_jobs[batch_id]["completed_files"] = i + 1
+                continue
 
             # ファイル状態を更新
             batch_jobs[batch_id]["files"][i]["status"] = "processing"
@@ -2997,10 +3012,13 @@ def process_batch_search(batch_id: str, file_ids: List[str]):
         logger.info(f"✅ バッチ検索全体完了: batch_id={batch_id}")
 
     except Exception as e:
+        import traceback
         logger.error(f"❌ バッチ検索全体エラー: {str(e)}")
+        logger.error(f"❌ エラー詳細: {traceback.format_exc()}")
         if batch_id in batch_jobs:
             batch_jobs[batch_id]["status"] = "error"
             batch_jobs[batch_id]["error"] = str(e)
+            batch_jobs[batch_id]["end_time"] = datetime.now().isoformat()
 
 @app.get("/batch-status/{batch_id}")
 async def get_batch_status(batch_id: str):
