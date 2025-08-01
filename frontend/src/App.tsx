@@ -2,11 +2,8 @@ import { useState, useEffect } from 'react'
 import axios from 'axios'
 import './App.css'
 
-// PDF.js のインポート
-import * as pdfjsLib from 'pdfjs-dist'
-
-// PDF.js worker の設定
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/4.0.269/pdf.worker.min.js`
+// PDF.js は削除（CORSエラーのため使用しない）
+// 代わりにバックエンドのPDFプレビューAPIを使用
 
 // TypeScript型定義
 interface UploadResponse {
@@ -194,59 +191,17 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({
                 (fileInfo?.filename && fileInfo.filename.toLowerCase().endsWith('.pdf')) ||
                 fileInfo?.fileType === 'pdf'
 
-  // PDFプレビュー生成関数
-  const generatePdfPreview = async (pdfFile: File) => {
-    try {
-      setIsLoading(true)
-      setHasError(false)
-
-      // FileをArrayBufferに変換
-      const arrayBuffer = await pdfFile.arrayBuffer()
-      
-      // PDFドキュメントを読み込み
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise
-      
-      // 最初のページを取得
-      const page = await pdf.getPage(1)
-      
-      // ビューポートを設定（スケール調整）
-      const viewport = page.getViewport({ scale: 2.0 })
-      
-      // Canvasを作成
-      const canvas = document.createElement('canvas')
-      const context = canvas.getContext('2d')
-      
-      if (!context) {
-        throw new Error('Canvas context could not be created')
-      }
-      
-      canvas.height = viewport.height
-      canvas.width = viewport.width
-      
-      // ページをCanvasにレンダリング
-      await page.render({
-        canvasContext: context,
-        viewport: viewport
-      }).promise
-      
-      // CanvasをDataURLに変換
-      const dataUrl = canvas.toDataURL('image/png')
-      setImageSrc(dataUrl)
-      setIsLoading(false)
-      
-    } catch (error) {
-      console.error('PDF preview generation failed:', error)
-      setHasError(true)
-      setIsLoading(false)
-    }
+  // PDFファイル名を表示する関数
+  const getPdfDisplayName = (fileName: string) => {
+    return fileName.length > 15 ? fileName.substring(0, 15) + '...' : fileName
   }
 
   useEffect(() => {
     const loadFileInfo = async () => {
       if (file) {
         if (isPdf) {
-          // PDFの場合はPDF.jsを使ってプレビューを生成
-          await generatePdfPreview(file)
+          // PDFの場合はアイコンとファイル名を表示（プレビュー無し）
+          setIsLoading(false)
         } else {
           // 画像の場合は従来通り
           const url = URL.createObjectURL(file)
@@ -366,12 +321,27 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({
           left: '50%',
           transform: 'translate(-50%, -50%)',
           color: '#dc2626',
-          fontSize: size === 'small' ? '1.5rem' : size === 'medium' ? '2rem' : '3rem',
-          textAlign: 'center'
+          textAlign: 'center',
+          padding: '8px'
         }}>
-          📄<br/>
-          {size !== 'small' && (
-            <span style={{ fontSize: '0.6rem', color: '#6b7280' }}>PDF</span>
+          <div style={{ fontSize: size === 'small' ? '1.5rem' : size === 'medium' ? '2rem' : '3rem' }}>
+            📄
+          </div>
+          {size !== 'small' && file?.name && (
+            <div style={{ 
+              fontSize: '0.55rem', 
+              color: '#6b7280',
+              marginTop: '4px',
+              wordBreak: 'break-all',
+              lineHeight: '1.1'
+            }}>
+              {getPdfDisplayName(file.name)}
+            </div>
+          )}
+          {size !== 'small' && !file?.name && (
+            <div style={{ fontSize: '0.6rem', color: '#6b7280', marginTop: '2px' }}>
+              PDF
+            </div>
           )}
         </div>
       ) : imageSrc ? (
