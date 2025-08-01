@@ -5,26 +5,22 @@ from fastapi.responses import FileResponse
 import os
 import json
 import uuid
-# base64 は不要（Vision API WEB_DETECTIONを使用）
 import re
 import logging
-# requests は不要（httpxを使用）
 from datetime import datetime
 from typing import Dict, List, Optional
-from io import BytesIO
+from io import BytesIO, StringIO
 from dotenv import load_dotenv
 from PIL import Image
-# serpapi は不要（Vision API WEB_DETECTIONを使用）
 import httpx
 from bs4 import BeautifulSoup
 from google.cloud import vision
 import google.generativeai as genai
 import hashlib
 import csv
-from io import StringIO
 from urllib.parse import urlparse
 from fastapi.responses import Response
-import logging
+
 logger = logging.getLogger(__name__)
 
 # PDF処理用ライブラリ
@@ -579,7 +575,7 @@ def search_web_for_image(image_content: bytes) -> list[str]:
         logger.info(f"  - 完全一致画像数: {full_matching_count}件")
         logger.info(f"  - 部分一致画像数: {partial_matching_count}件（高品質のみ使用）")
         logger.info(f"  - マッチ画像含むページ数: {pages_count}件")
-        
+
         # 結果が少ない場合の詳細情報
         if pages_count == 0 and full_matching_count == 0 and partial_matching_count == 0:
             logger.warning("⚠️ Vision API: 全てのマッチタイプで結果0件")
@@ -639,7 +635,7 @@ def search_web_for_image(image_content: bytes) -> list[str]:
         # 重複除去とフィルタリング
         logger.info("🔧 URL品質フィルタリング開始...")
         logger.info(f"🔍 フィルタリング前の総URL数: {len(all_urls)}件")
-        
+
         filtered_urls = []
         seen = set()
         duplicate_count = 0
@@ -671,7 +667,7 @@ def search_web_for_image(image_content: bytes) -> list[str]:
             # 最大25件に制限（両API併用により増加）
             if len(filtered_urls) >= 25:
                 break
-        
+
         logger.info(f"🧹 フィルタリング統計: 重複除去={duplicate_count}件, 信頼性除外={unreliable_count}件, 無効除外={invalid_count}件")
 
         logger.info(f"🌐 最終的に選別されたURL: {len(filtered_urls)}件")
@@ -1418,15 +1414,15 @@ def judge_content_with_gemini(content: str, url: str = "") -> dict:
             }
         elif content.startswith("TWITTER_IMAGE_UNKNOWN:"):
             logger.info("🐦 Twitter画像URL（内容不明）の特別処理")
-            
+
             # 画像URLから情報を推測
             image_url = content.replace("TWITTER_IMAGE_UNKNOWN:", "")
-            
+
             # ファイル名パターンから内容推測
             import re
             if image_url:
                 filename = image_url.split('/')[-1].replace('.jpg', '').replace('.jpeg', '').replace('.png', '')
-                
+
                 # 公式アカウント風のパターン（大文字+数字の組み合わせ）
                 if re.search(r'^[A-Z][a-z]+.*[A-Z].*[0-9]', filename) or len(filename) > 20:
                     return {
@@ -1436,7 +1432,7 @@ def judge_content_with_gemini(content: str, url: str = "") -> dict:
                 # 一般的なTwitter画像
                 else:
                     return {
-                        "judgment": "○", 
+                        "judgment": "○",
                         "reason": "Twitter投稿画像（SNS投稿）"
                     }
             else:
@@ -1480,7 +1476,13 @@ def judge_content_with_gemini(content: str, url: str = "") -> dict:
         # 公式だが内容確認が必要なドメイン
         check_required_domains = [
             'amazon.co.jp', 'books.rakuten.co.jp', 'twitter.com', 'x.com',
-            'facebook.com', 'instagram.com'
+            'facebook.com'
+        ]
+        
+        # SNSドメイン（基本的に安全として扱う）
+        sns_domains = [
+            'instagram.com', 'www.instagram.com',
+            'threads.net', 'www.threads.net'
         ]
 
         # ドメインチェック
@@ -1489,6 +1491,15 @@ def judge_content_with_gemini(content: str, url: str = "") -> dict:
         # 完全安全ドメインの場合は即座に安全判定
         if current_domain in official_domains:
             return {"judgment": "○", "reason": "公式サイト"}
+        
+        # SNSドメインの場合は安全判定
+        if current_domain in sns_domains:
+            if 'instagram.com' in current_domain:
+                return {"judgment": "○", "reason": "Instagramの投稿"}
+            elif 'threads.net' in current_domain:
+                return {"judgment": "○", "reason": "Threadsの投稿"}
+            else:
+                return {"judgment": "○", "reason": "SNS投稿"}
 
         prohibited_keywords = [
             '無料ダウンロード','全巻無料','PDF','raw','漫画バンク','海賊版','無断転載',
@@ -3276,11 +3287,11 @@ async def get_file_info(file_id: str):
         )
 
     record = upload_records[file_id]
-    
+
     # ファイルの物理的存在をチェック
     file_path = record.get("file_path", "")
     file_exists = os.path.exists(file_path) if file_path else False
-    
+
     return {
         "file_id": file_id,
         "filename": record.get("original_filename", "不明"),
