@@ -2418,6 +2418,106 @@ async def get_analysis_history():
             }
         )
 
+@app.delete("/api/history/{history_id}")
+async def delete_analysis_history(history_id: str):
+    """
+    指定された履歴IDの検査履歴を削除する
+    """
+    try:
+        # 指定されたhistory_idの履歴を検索
+        history_to_delete = None
+        for i, entry in enumerate(analysis_history):
+            if entry.get("history_id") == history_id:
+                history_to_delete = analysis_history.pop(i)
+                break
+        
+        if not history_to_delete:
+            raise HTTPException(
+                status_code=404,
+                detail={
+                    "error": "history_not_found",
+                    "message": "指定された履歴が見つかりません"
+                }
+            )
+        
+        # 履歴ファイルを更新
+        save_history()
+        
+        logger.info(f"🗑️ 履歴削除完了: {history_id}")
+        
+        return {
+            "success": True,
+            "message": "履歴を削除しました",
+            "deleted_history_id": history_id,
+            "deleted_filename": history_to_delete.get("original_filename", "不明")
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ 履歴削除エラー: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "history_deletion_failed",
+                "message": f"履歴の削除に失敗しました: {str(e)}"
+            }
+        )
+
+@app.get("/api/history/details/{history_id}")
+async def get_history_details(history_id: str):
+    """
+    指定された履歴IDの詳細（検出されたURLと判定結果）を取得する
+    """
+    try:
+        # 指定されたhistory_idの履歴を検索
+        target_history = None
+        for entry in analysis_history:
+            if entry.get("history_id") == history_id:
+                target_history = entry
+                break
+        
+        if not target_history:
+            raise HTTPException(
+                status_code=404,
+                detail={
+                    "error": "history_not_found",
+                    "message": "指定された履歴が見つかりません"
+                }
+            )
+        
+        # 詳細情報を整形
+        results = target_history.get("results", [])
+        
+        return {
+            "success": True,
+            "history_id": history_id,
+            "image_id": target_history.get("image_id"),
+            "original_filename": target_history.get("original_filename"),
+            "analysis_date": target_history.get("analysis_date"),
+            "found_urls_count": target_history.get("found_urls_count", 0),
+            "processed_results_count": target_history.get("processed_results_count", 0),
+            "results": results,
+            "summary": {
+                "safe_count": len([r for r in results if r.get("judgment") == "○"]),
+                "suspicious_count": len([r for r in results if r.get("judgment") == "×"]),
+                "warning_count": len([r for r in results if r.get("judgment") == "！"]),
+                "unknown_count": len([r for r in results if r.get("judgment") == "？"])
+            }
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ 履歴詳細取得エラー: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail={
+                "error": "history_details_retrieval_failed",
+                "message": f"履歴詳細の取得に失敗しました: {str(e)}"
+            }
+        )
+
 @app.get("/api/history/diff/{image_id}")
 async def get_analysis_diff(image_id: str):
     """
