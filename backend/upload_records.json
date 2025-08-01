@@ -995,5 +995,50 @@
     "found_urls_count": 0,
     "processed_results_count": 0,
     "image_hash": "bf8587b688b6b380589e2687871e40586412016200eb980dc88a3c9da18b475a"
+  },
+  "8eabb5b7-c2d7-45da-9c75-326bfa5020ac": {
+    "id": "8eabb5b7-c2d7-45da-9c75-326bfa5020ac",
+    "original_filename": "1281679705_l.jpg",
+    "saved_filename": "8eabb5b7-c2d7-45da-9c75-326bfa5020ac.jpg",
+    "file_path": "uploads/8eabb5b7-c2d7-45da-9c75-326bfa5020ac.jpg",
+    "content_type": "image/jpeg",
+    "file_size": 58631,
+    "upload_time": "2025-08-01T16:02:01.819308",
+    "status": "uploaded",
+    "analysis_status": "completed",
+    "analysis_time": "2025-08-01T16:02:11.538963",
+    "found_urls_count": 0,
+    "processed_results_count": 0,
+    "image_hash": "bf8587b688b6b380589e2687871e40586412016200eb980dc88a3c9da18b475a"
+  },
+  "a1ee1125-d6bf-47a1-96af-f51aee1c100e": {
+    "id": "a1ee1125-d6bf-47a1-96af-f51aee1c100e",
+    "original_filename": "1281679705_l.jpg",
+    "saved_filename": "a1ee1125-d6bf-47a1-96af-f51aee1c100e.jpg",
+    "file_path": "uploads/a1ee1125-d6bf-47a1-96af-f51aee1c100e.jpg",
+    "content_type": "image/jpeg",
+    "file_size": 58631,
+    "upload_time": "2025-08-01T16:10:24.697296",
+    "status": "uploaded",
+    "analysis_status": "completed",
+    "analysis_time": "2025-08-01T16:11:25.130524",
+    "found_urls_count": 3,
+    "processed_results_count": 3,
+    "image_hash": "bf8587b688b6b380589e2687871e40586412016200eb980dc88a3c9da18b475a"
+  },
+  "71e2b986-3040-4924-8860-2777e0f7d5bb": {
+    "id": "71e2b986-3040-4924-8860-2777e0f7d5bb",
+    "original_filename": "more_sana.jpg",
+    "saved_filename": "71e2b986-3040-4924-8860-2777e0f7d5bb.jpg",
+    "file_path": "uploads/71e2b986-3040-4924-8860-2777e0f7d5bb.jpg",
+    "content_type": "image/jpeg",
+    "file_size": 82743,
+    "upload_time": "2025-08-01T16:15:35.906808",
+    "status": "uploaded",
+    "analysis_status": "completed",
+    "analysis_time": "2025-08-01T16:17:23.303177",
+    "found_urls_count": 10,
+    "processed_results_count": 10,
+    "image_hash": "cd620b02e9af45f51ab58eadd315f9740b84561cb699272cf5e8e45a5e3c3594"
   }
 }

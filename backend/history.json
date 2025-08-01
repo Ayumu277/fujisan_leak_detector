@@ -300,5 +300,105 @@
     "found_urls_count": 0,
     "processed_results_count": 0,
     "results": []
+  },
+  {
+    "history_id": "3b1195f0-2126-4cde-a362-e32e87a1443a",
+    "image_id": "8eabb5b7-c2d7-45da-9c75-326bfa5020ac",
+    "image_hash": "bf8587b688b6b380589e2687871e40586412016200eb980dc88a3c9da18b475a",
+    "original_filename": "1281679705_l.jpg",
+    "analysis_date": "2025-08-01T16:02:11.540199",
+    "analysis_timestamp": 1754031731,
+    "found_urls_count": 0,
+    "processed_results_count": 0,
+    "results": []
+  },
+  {
+    "history_id": "68e1c2e6-f94a-40a2-b55c-f627d417cc32",
+    "image_id": "a1ee1125-d6bf-47a1-96af-f51aee1c100e",
+    "image_hash": "bf8587b688b6b380589e2687871e40586412016200eb980dc88a3c9da18b475a",
+    "original_filename": "1281679705_l.jpg",
+    "analysis_date": "2025-08-01T16:11:25.131624",
+    "analysis_timestamp": 1754032285,
+    "found_urls_count": 3,
+    "processed_results_count": 3,
+    "results": [
+      {
+        "url": "https://www.merriam-webster.com/dictionary/sophisticated",
+        "judgment": "○",
+        "reason": "著名な辞書サイトの内容のため"
+      },
+      {
+        "url": "https://dictionary.cambridge.org/us/dictionary/english/sophisticated",
+        "judgment": "○",
+        "reason": "正規辞書サイトの特徴。海賊版示唆なし。"
+      },
+      {
+        "url": "https://kfcdominica.com/?f=81722119625200&channel=54d964&from=shop.php%3Fid%3D1196252-2001%26name%3D%E3%80%90%E4%B8%AD%E5%8F%A4%E3%80%91%E3%83%97%E3%83%AC%E3%82%BC%E3%83%B3V-Style%E3%83%93%E3%82%B8%E3%83%8D%E3%82%B9%E7%B7%A8%E3%80%8D",
+        "judgment": "？",
+        "reason": "分析に失敗しました"
+      }
+    ]
+  },
+  {
+    "history_id": "6e43c56c-42e4-4abe-9338-5865be2b5e17",
+    "image_id": "71e2b986-3040-4924-8860-2777e0f7d5bb",
+    "image_hash": "cd620b02e9af45f51ab58eadd315f9740b84561cb699272cf5e8e45a5e3c3594",
+    "original_filename": "more_sana.jpg",
+    "analysis_date": "2025-08-01T16:17:23.304009",
+    "analysis_timestamp": 1754032643,
+    "found_urls_count": 10,
+    "processed_results_count": 10,
+    "results": [
+      {
+        "url": "https://shop.delivered.co.kr/products/more-japan-magazine-2024-spring-cover-twice-sana",
+        "judgment": "○",
+        "reason": "雑誌名と販売関連情報のみで、違法性の示唆なし。"
+      },
+      {
+        "url": "https://www.reddit.com/r/twice/comments/1aucyfn/240219_japan_twitter_update_magazine_information/",
+        "judgment": "○",
+        "reason": "正規プラットフォームのコミュニティ紹介であり違法示唆なし。"
+      },
+      {
+        "url": "https://www.ebay.co.uk/itm/296179218530",
+        "judgment": "？",
+        "reason": "分析に失敗しました"
+      },
+      {
+        "url": "https://www.ubuy.mr/en/productjp/IRKVXSMCW-more-spring-2024-sana-twice",
+        "judgment": "○",
+        "reason": "正規ECサイトの商品販売ページと判断。"
+      },
+      {
+        "url": "https://www.deliveredh.shop/product/more-japan-magazine-2024-spring-cover-twice-sana",
+        "judgment": "？",
+        "reason": "情報不足のため判断不能"
+      },
+      {
+        "url": "https://www.ubuy.co.bw/productjp/IRKVXSMCW-more-spring-2024-sana-twice",
+        "judgment": "○",
+        "reason": "オンラインストアUbuyでの商品購入情報のため"
+      },
+      {
+        "url": "https://www.instagram.com/p/C3hCXJpLAOv/",
+        "judgment": "？",
+        "reason": "情報不足のため判断不能"
+      },
+      {
+        "url": "https://pbs.twimg.com/media/GGqwkkXX0AAKvhd?format=jpg&name=4096x4096",
+        "judgment": "？",
+        "reason": "Twitter画像ですが投稿内容を特定できませんでした"
+      },
+      {
+        "url": "https://pbs.twimg.com/media/GJWhjZ6XYAAlwfY?format=jpg&name=4096x4096",
+        "judgment": "？",
+        "reason": "Twitter画像ですが投稿内容を特定できませんでした"
+      },
+      {
+        "url": "https://pbs.twimg.com/media/GGqw1EvasAAhQ32.jpg:large",
+        "judgment": "？",
+        "reason": "Twitter画像ですが投稿内容を特定できませんでした"
+      }
+    ]
   }
 ]

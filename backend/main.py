@@ -278,7 +278,7 @@ vision_client = vision.ImageAnnotatorClient()
 
 # Geminiモデルをグローバルで初期化
 if GEMINI_API_KEY:
-    gemini_model = genai.GenerativeModel('gemini-1.5-flash')
+    gemini_model = genai.GenerativeModel('gemini-2.5-flash')
     logger.info("✅ Gemini モデル初期化完了")
 else:
     gemini_model = None
@@ -528,28 +528,48 @@ def search_with_serpapi(image_url: str) -> list[str]:
     logger.info("🔍 SerpAPI画像逆検索開始")
 
     try:
-        # SerpAPIで画像検索を実行
+        # SerpAPIで画像逆検索を実行
         search = GoogleSearch({
-            "engine": "google_images",
-            "q": image_url,
+            "engine": "google_reverse_image",
+            "image_url": image_url,
             "api_key": SERPAPI_KEY,
-            "tbs": "simg",  # 類似画像検索
             "num": 20,      # 最大20件取得
             "safe": "off"   # セーフサーチ無効
         })
 
         results = search.get_dict()
 
-        if "images_results" not in results:
+        # デバッグ用：レスポンス構造をログ出力
+        logger.info(f"🔍 SerpAPI レスポンスキー: {list(results.keys())}")
+
+        # 複数の可能なキーをチェック
+        image_results = None
+        if "image_results" in results:
+            image_results = results["image_results"]
+        elif "images_results" in results:
+            image_results = results["images_results"]
+        elif "inline_images" in results:
+            image_results = results["inline_images"]
+        elif "related_searches" in results:
+            image_results = results["related_searches"]
+
+        if not image_results:
             logger.warning("⚠️ SerpAPI: 画像検索結果が見つかりません")
+            logger.warning(f"📋 利用可能なキー: {list(results.keys())}")
             return []
 
         urls = []
-        for result in results["images_results"][:15]:  # 上位15件
-            if "link" in result:
-                urls.append(result["link"])
-            elif "original" in result:
-                urls.append(result["original"])
+        for result in image_results[:15]:  # 上位15件
+            # 複数の可能なURLフィールドをチェック
+            url = None
+            if isinstance(result, dict):
+                url = (result.get("link") or
+                      result.get("original") or
+                      result.get("source") or
+                      result.get("url"))
+
+            if url and isinstance(url, str):
+                urls.append(url)
 
         logger.info(f"✅ SerpAPI検索完了: {len(urls)}件のURLを発見")
         return urls
