@@ -1,9 +1,12 @@
-# Gunicorn configuration for Render deployment
+# Gunicorn configuration for Render deployment (ASGI対応)
 import os
 
 # Renderは環境変数PORTでポートを指定
 port = os.environ.get("PORT", "8000")
 bind = f"0.0.0.0:{port}"
+
+# FastAPI (ASGI) 対応のワーカークラス
+worker_class = "uvicorn.workers.UvicornWorker"
 
 # より安全な設定でスタート
 workers = 1  # 最初は1ワーカーで
