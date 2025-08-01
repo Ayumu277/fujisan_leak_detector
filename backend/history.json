@@ -551,5 +551,84 @@
         "reason": "情報が極端に少ない"
       }
     ]
+  },
+  {
+    "history_id": "c0ecbaaa-92ac-4e30-853e-ce541949932d",
+    "image_id": "126e37ff-1fe0-4292-86fe-7197571f644f",
+    "image_hash": "d9dffb14bd7d894c834b2485ac0cb0d1f31a736211150b7e206e16a0ac7988ac",
+    "original_filename": "00025.pdf",
+    "analysis_date": "2025-08-01T17:44:09.067915",
+    "analysis_timestamp": 1754037849,
+    "found_urls_count": 5,
+    "processed_results_count": 5,
+    "results": [
+      {
+        "url": "https://www.instagram.com/p/CzdQi8rP53F/",
+        "judgment": "？",
+        "reason": "情報不足"
+      },
+      {
+        "url": "https://www.instagram.com/p/C16HjtPJvcs/",
+        "judgment": "○",
+        "reason": "出版社公式"
+      },
+      {
+        "url": "https://www.instagram.com/p/CJ7umRpMnJq/",
+        "judgment": "？",
+        "reason": "情報不足"
+      },
+      {
+        "url": "https://www.instagram.com/p/CZGuQ28s4kT/",
+        "judgment": "○",
+        "reason": "出版社公式"
+      },
+      {
+        "url": "https://dmagazine.docomo.ne.jp/article/2e7a0a6488b23aab7378f79c9fa1698d58458a87b1ef2c0ff2139cfaa04cca40/3bec5e610931ce16f674cd5de7be15a23b1ab00d4e3351957925c844e3d3928f/",
+        "judgment": "○",
+        "reason": "合法サービス紹介ページ"
+      }
+    ]
+  },
+  {
+    "history_id": "a2f06653-04f5-4f89-938c-e14ce0ed1b06",
+    "image_id": "9aef216a-7190-4b30-bdce-ac2bd7d36e12",
+    "image_hash": "8ef4bdf1a64082fc6170be5ae832b4f4d7c28fee092d0c1d4f17cfd563678fbc",
+    "original_filename": "00026.pdf",
+    "analysis_date": "2025-08-01T17:44:55.582117",
+    "analysis_timestamp": 1754037895,
+    "found_urls_count": 6,
+    "processed_results_count": 6,
+    "results": [
+      {
+        "url": "https://dmagazine.docomo.ne.jp/article/2e7a0a6488b23aab7378f79c9fa1698d58458a87b1ef2c0ff2139cfaa04cca40/3bec5e610931ce16f674cd5de7be15a23b1ab00d4e3351957925c844e3d3928f/",
+        "judgment": "○",
+        "reason": "サービス公式"
+      },
+      {
+        "url": "https://en.wikipedia.org/wiki/Japanese_idol",
+        "judgment": "○",
+        "reason": "百科事典情報"
+      },
+      {
+        "url": "https://www.tokyoweekender.com/entertainment/music/idol-free-after-being-made-to-say-goodnight/",
+        "judgment": "○",
+        "reason": "ニュース記事"
+      },
+      {
+        "url": "https://www.instagram.com/p/C16HjtPJvcs/",
+        "judgment": "？",
+        "reason": "情報が極端に少ない"
+      },
+      {
+        "url": "https://www.instagram.com/p/CzdQi8rP53F/",
+        "judgment": "？",
+        "reason": "情報不足"
+      },
+      {
+        "url": "https://www.instagram.com/p/CJ7umRpMnJq/",
+        "judgment": "？",
+        "reason": "情報が極端に少ない"
+      }
+    ]
   }
 ]

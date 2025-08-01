@@ -120,10 +120,21 @@ if missing_keys:
 else:
     print("✓ 必要なAPI_KEYが正常に設定されています")
 
-# CORS設定
+# CORS設定 - 本番環境対応
+allowed_origins = [
+    "http://localhost:3000", 
+    "http://localhost:5173", 
+    "http://localhost:5174",
+    "https://fujisan-leak-detector.onrender.com",  # Render フロントエンド URL（後で更新）
+]
+
+# 環境変数でCORSオリジンを追加可能
+if cors_origins := os.getenv("CORS_ORIGINS"):
+    allowed_origins.extend(cors_origins.split(","))
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173", "http://localhost:5174"],  # フロントエンドのURL
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

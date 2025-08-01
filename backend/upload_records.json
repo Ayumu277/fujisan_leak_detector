@@ -1086,5 +1086,39 @@
     "found_urls_count": 4,
     "processed_results_count": 4,
     "image_hash": "b70a58a9b3250e633b10b9f17435b498d00344a10ce63edb6caa082b64c09989"
+  },
+  "126e37ff-1fe0-4292-86fe-7197571f644f": {
+    "id": "126e37ff-1fe0-4292-86fe-7197571f644f",
+    "original_filename": "00025.pdf",
+    "saved_filename": "126e37ff-1fe0-4292-86fe-7197571f644f.pdf",
+    "file_path": "uploads/126e37ff-1fe0-4292-86fe-7197571f644f.pdf",
+    "content_type": "application/pdf",
+    "file_size": 2120451,
+    "upload_time": "2025-08-01T17:43:09.696553",
+    "status": "uploaded",
+    "batch_upload": true,
+    "file_type": "pdf",
+    "analysis_status": "completed",
+    "analysis_time": "2025-08-01T17:44:09.067886",
+    "found_urls_count": 5,
+    "processed_results_count": 5,
+    "image_hash": "d9dffb14bd7d894c834b2485ac0cb0d1f31a736211150b7e206e16a0ac7988ac"
+  },
+  "9aef216a-7190-4b30-bdce-ac2bd7d36e12": {
+    "id": "9aef216a-7190-4b30-bdce-ac2bd7d36e12",
+    "original_filename": "00026.pdf",
+    "saved_filename": "9aef216a-7190-4b30-bdce-ac2bd7d36e12.pdf",
+    "file_path": "uploads/9aef216a-7190-4b30-bdce-ac2bd7d36e12.pdf",
+    "content_type": "application/pdf",
+    "file_size": 1365287,
+    "upload_time": "2025-08-01T17:43:09.947782",
+    "status": "uploaded",
+    "batch_upload": true,
+    "file_type": "pdf",
+    "analysis_status": "completed",
+    "analysis_time": "2025-08-01T17:44:55.582093",
+    "found_urls_count": 6,
+    "processed_results_count": 6,
+    "image_hash": "8ef4bdf1a64082fc6170be5ae832b4f4d7c28fee092d0c1d4f17cfd563678fbc"
   }
 }

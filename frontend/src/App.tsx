@@ -150,7 +150,8 @@ interface BatchJobStatus {
   error?: string
 }
 
-const API_BASE = 'http://localhost:8000'
+// 環境変数でAPIベースURLを設定（本番/開発環境対応）
+const API_BASE = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000'
 
 // 画像プレビューコンポーネント
 interface ImagePreviewProps {
