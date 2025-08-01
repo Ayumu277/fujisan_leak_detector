@@ -180,20 +180,29 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({
     large: { width: '200px', height: '200px' }
   }
 
+  // PDFかどうかを判定
+  const isPdf = file?.type === 'application/pdf' ||
+                (file?.name && file.name.toLowerCase().endsWith('.pdf'))
+
   useEffect(() => {
     if (file) {
-      // File オブジェクトから画像URL作成
-      const url = URL.createObjectURL(file)
-      setImageSrc(url)
-      setIsLoading(false)
+      if (isPdf) {
+        // PDFの場合はプレビューを作成しない
+        setIsLoading(false)
+      } else {
+        // 画像の場合は従来通り
+        const url = URL.createObjectURL(file)
+        setImageSrc(url)
+        setIsLoading(false)
 
-      return () => URL.revokeObjectURL(url)
+        return () => URL.revokeObjectURL(url)
+      }
     } else if (fileId) {
-      // API から画像取得
+      // API から画像取得（PDFかどうかはfileIdからは判定できないので従来通り）
       setImageSrc(`${API_BASE}/image/${fileId}`)
       setIsLoading(false)
     }
-  }, [file, fileId])
+  }, [file, fileId, isPdf])
 
   const handleImageLoad = () => {
     setIsLoading(false)
@@ -271,6 +280,21 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({
           ❌<br/>
           <span style={{ fontSize: '0.6rem' }}>エラー</span>
         </div>
+      ) : isPdf ? (
+        <div style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          transform: 'translate(-50%, -50%)',
+          color: '#dc2626',
+          fontSize: size === 'small' ? '1.5rem' : size === 'medium' ? '2rem' : '3rem',
+          textAlign: 'center'
+        }}>
+          📄<br/>
+          {size !== 'small' && (
+            <span style={{ fontSize: '0.6rem', color: '#6b7280' }}>PDF</span>
+          )}
+        </div>
       ) : imageSrc ? (
         <img
           src={imageSrc}
@@ -325,8 +349,8 @@ function App() {
       setSelectedFile(null)
       setIsBatchMode(true)
     }
-    setError(null)
-  }
+      setError(null)
+    }
 
   // ドラッグ&ドロップファイル選択
   const handleFileDrop = (event: React.DragEvent<HTMLDivElement>) => {
@@ -341,15 +365,15 @@ function App() {
     }
 
     const validFiles = Array.from(files).filter(file => {
-      const isValid = file.type.startsWith('image/')
+      const isValid = file.type.startsWith('image/') || file.type === 'application/pdf'
       if (!isValid) {
-        showErrorToast(`${file.name} は画像ファイルではありません`)
+        showErrorToast(`${file.name} は画像またはPDFファイルではありません`)
       }
       return isValid
     })
 
     if (validFiles.length === 0) {
-      setError('有効な画像ファイルがありません')
+      setError('有効な画像またはPDFファイルがありません')
       return
     }
 
@@ -429,8 +453,8 @@ function App() {
 
       // 完了後少し待ってからステップ移行
       setTimeout(() => {
-        setUploadData(response.data)
-        setCurrentStep('analyze')
+      setUploadData(response.data)
+      setCurrentStep('analyze')
         setUploadProgress(0)
       }, 500)
 
@@ -439,7 +463,7 @@ function App() {
       setUploadProgress(0)
     } finally {
       setTimeout(() => {
-        setLoading(false)
+      setLoading(false)
       }, 500)
     }
   }
@@ -820,7 +844,7 @@ function App() {
     setTimeout(() => setShowToast(null), 3000)
   }
 
-    // リセット機能
+  // リセット機能
   const handleReset = () => {
     // シングルファイル関連
     setSelectedFile(null)
@@ -846,7 +870,7 @@ function App() {
 
 
 
-        return (
+    return (
     <div style={{
       minHeight: '100vh',
       background: 'linear-gradient(135deg, #f3f4f6 0%, #ffffff 100%)',
@@ -1016,7 +1040,7 @@ function App() {
         </div>
       )}
 
-        {/* Step 1: ファイルアップロード */}
+      {/* Step 1: ファイルアップロード */}
         <div style={{
           backgroundColor: 'white',
           borderRadius: '20px',
@@ -1054,12 +1078,12 @@ function App() {
             onDragOver={(e) => e.preventDefault()}
             onDragEnter={(e) => e.preventDefault()}
           >
-            <input
-              type="file"
-              accept="image/*"
+          <input
+            type="file"
+            accept="image/*,.pdf"
               multiple
-              onChange={handleFileSelect}
-              disabled={loading}
+            onChange={handleFileSelect}
+            disabled={loading}
               style={{
                 position: 'absolute',
                 top: 0,
@@ -1174,21 +1198,21 @@ function App() {
                 <h4 style={{ margin: 0, color: '#1f2937', fontSize: '1rem' }}>
                   📋 選択されたファイル ({selectedFiles.length}/10)
                 </h4>
-                <button
+          <button
                   onClick={clearAllFiles}
-                  style={{
+            style={{
                     padding: '6px 12px',
                     backgroundColor: '#ef4444',
-                    color: 'white',
-                    border: 'none',
+              color: 'white',
+              border: 'none',
                     borderRadius: '8px',
                     fontSize: '0.8rem',
                     cursor: 'pointer'
-                  }}
-                >
+            }}
+          >
                   全削除
-                </button>
-              </div>
+          </button>
+        </div>
 
                             <div style={{
                 display: 'grid',
@@ -1320,8 +1344,8 @@ function App() {
           </div>
 
           {/* アップロード完了表示 */}
-          {uploadData && (
-            <div style={{
+        {uploadData && (
+          <div style={{
               backgroundColor: '#dcfce7',
               color: '#166534',
               padding: '15px 20px',
@@ -1383,11 +1407,11 @@ function App() {
                   </details>
                 </div>
               )}
-            </div>
-          )}
-        </div>
+          </div>
+        )}
+      </div>
 
-        {/* Step 2: 画像分析実行 */}
+      {/* Step 2: 画像分析実行 */}
         {(uploadData || batchUploadData) && (
           <div style={{
             backgroundColor: 'white',
@@ -1514,14 +1538,14 @@ function App() {
             )}
 
             <div style={{ textAlign: 'center' }}>
-              <button
+          <button
                 onClick={isBatchMode ? handleBatchAnalyze : handleAnalyze}
-                disabled={loading}
-                style={{
+            disabled={loading}
+            style={{
                   padding: '15px 40px',
                   backgroundColor: loading ? '#9ca3af' : '#10b981',
-                  color: 'white',
-                  border: 'none',
+              color: 'white',
+              border: 'none',
                   borderRadius: '25px',
                   cursor: loading ? 'not-allowed' : 'pointer',
                   fontSize: '1.1rem',
@@ -1548,10 +1572,10 @@ function App() {
                 ) : (
                   isBatchMode ? <>🚀 バッチ分析実行</> : <>🚀 分析実行</>
                 )}
-              </button>
+          </button>
             </div>
-          </div>
-        )}
+        </div>
+      )}
 
         {/* 履歴表示トグル */}
         <div style={{ marginBottom: '30px', textAlign: 'center' }}>
@@ -1603,7 +1627,7 @@ function App() {
               <p style={{ color: '#9ca3af', margin: 0 }}>画像を分析すると履歴が表示されます。</p>
             </div>
           ) : (
-            <div>
+        <div>
               <div style={{
                 backgroundColor: 'white',
                 borderRadius: '15px',
@@ -2144,14 +2168,14 @@ function App() {
 
           {/* サマリー（シングルファイルモードのみ） */}
           {analysisResults && (
-            <div style={{
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              color: 'white',
-              padding: '20px',
-              borderRadius: '15px',
-              marginBottom: '30px',
-              boxShadow: '0 8px 32px rgba(31, 38, 135, 0.37)'
-            }}>
+          <div style={{
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            color: 'white',
+            padding: '20px',
+            borderRadius: '15px',
+            marginBottom: '30px',
+            boxShadow: '0 8px 32px rgba(31, 38, 135, 0.37)'
+          }}>
               <div style={{
                 display: 'flex',
                 alignItems: 'center',
@@ -2182,26 +2206,26 @@ function App() {
                     </p>
                   )}
 
-                  <div style={{ display: 'flex', gap: '20px' }}>
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: '24px', fontWeight: 'bold' }}>{analysisResults.found_urls_count || 0}</div>
+              <div style={{ display: 'flex', gap: '20px' }}>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '24px', fontWeight: 'bold' }}>{analysisResults.found_urls_count || 0}</div>
                       <div style={{ fontSize: '12px', opacity: 0.8 }}>発見URL</div>
-                    </div>
-                    <div style={{ textAlign: 'center' }}>
-                      <div style={{ fontSize: '24px', fontWeight: 'bold' }}>{analysisResults.processed_results_count || 0}</div>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <div style={{ fontSize: '24px', fontWeight: 'bold' }}>{analysisResults.processed_results_count || 0}</div>
                       <div style={{ fontSize: '12px', opacity: 0.8 }}>分析完了</div>
-                    </div>
-                  </div>
                 </div>
               </div>
+            </div>
+          </div>
             </div>
           )}
 
           {/* シングルファイル結果表示 */}
           {analysisResults && (
             <div>
-              {/* 結果が0件の場合 */}
-              {analysisResults.analysis_status === 'completed_no_results' && (
+          {/* 結果が0件の場合 */}
+          {analysisResults.analysis_status === 'completed_no_results' && (
             <div style={{
               textAlign: 'center',
               padding: '40px',
@@ -2557,8 +2581,8 @@ function App() {
               🔄 新しい画像を分析
             </button>
           </div>
-            </div>
-          )}
+        </div>
+      )}
         </div>
       )}
 

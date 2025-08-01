@@ -1,5 +1,5 @@
 {
-    "python.defaultInterpreterPath": "./backend/venv/bin/python",
+    "python.defaultInterpreterPath": "${workspaceFolder}/backend/venv/bin/python",
     "python.terminal.activateEnvironment": true,
     "python.terminal.activateEnvInCurrentTerminal": true,
     "python.analysis.extraPaths": [

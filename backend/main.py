@@ -24,6 +24,23 @@ import csv
 from io import StringIO
 from urllib.parse import urlparse
 from fastapi.responses import Response
+import logging
+logger = logging.getLogger(__name__)
+
+# PDF処理用ライブラリ
+try:
+    import fitz  # PyMuPDF
+    PDF_SUPPORT = True
+    logger.info("✅ PDF処理機能が利用可能です (PyMuPDF)")
+except ImportError:
+    try:
+        from pdf2image import convert_from_bytes
+        import PyPDF2
+        PDF_SUPPORT = True
+        logger.info("✅ PDF処理機能が利用可能です (pdf2image + PyPDF2)")
+    except ImportError:
+        PDF_SUPPORT = False
+        logger.warning("⚠️ PDF処理ライブラリが見つかりません。pip install PyMuPDF または pip install pdf2image PyPDF2 を実行してください")
 try:
     from serpapi import GoogleSearch  # type: ignore
 except ImportError:
@@ -284,10 +301,112 @@ else:
     gemini_model = None
     logger.warning("⚠️ Gemini モデルを初期化できませんでした")
 
-def validate_image_file(file: UploadFile) -> bool:
-    """アップロードされたファイルが有効な画像かどうかを検証"""
+def validate_file(file: UploadFile) -> bool:
+    """アップロードされたファイルが有効な画像またはPDFかどうかを検証"""
     allowed_types = ["image/jpeg", "image/png", "image/jpg", "image/gif", "image/webp"]
+
+    # PDF対応
+    if PDF_SUPPORT:
+        allowed_types.extend(["application/pdf"])
+
     return file.content_type in allowed_types
+
+# 後方互換性のため
+def validate_image_file(file: UploadFile) -> bool:
+    """後方互換性のため残している（非推奨）"""
+    return validate_file(file)
+
+def convert_pdf_to_images(pdf_content: bytes) -> List[bytes]:
+    """
+    PDFファイルを画像のリストに変換する
+    各ページを個別の画像として返す
+    """
+    images = []
+
+    try:
+        # 方法1: PyMuPDF (fitz) を使用
+        if 'fitz' in globals():
+            logger.info("🔄 PyMuPDF でPDFを画像に変換中...")
+            pdf_document = fitz.open(stream=pdf_content, filetype="pdf")
+
+            for page_num in range(pdf_document.page_count):
+                page = pdf_document[page_num]
+                # 高品質でPDFページを画像に変換 (PyMuPDF 1.26.3対応)
+                pix = page.get_pixmap(dpi=200)  # DPIで品質指定
+                img_data = pix.tobytes("png")
+                images.append(img_data)
+                logger.info(f"📄 ページ {page_num + 1} を画像に変換完了")
+
+            pdf_document.close()
+            return images
+
+    except Exception as e:
+        logger.warning(f"⚠️ PyMuPDF変換失敗: {e}")
+
+    try:
+        # 方法2: pdf2image を使用（フォールバック）
+        if 'convert_from_bytes' in globals():
+            logger.info("🔄 pdf2image でPDFを画像に変換中...")
+            pil_images = convert_from_bytes(pdf_content, dpi=200)
+
+            for i, pil_image in enumerate(pil_images):
+                img_buffer = BytesIO()
+                pil_image.save(img_buffer, format='PNG')
+                images.append(img_buffer.getvalue())
+                logger.info(f"📄 ページ {i + 1} を画像に変換完了")
+
+            return images
+
+    except Exception as e:
+        logger.warning(f"⚠️ pdf2image変換失敗: {e}")
+
+    logger.error("❌ PDFを画像に変換できませんでした")
+    return []
+
+def extract_pdf_text(pdf_content: bytes) -> str:
+    """
+    PDFからテキストを抽出する（補助情報として使用）
+    """
+    try:
+        # 方法1: PyMuPDF (fitz) を使用
+        if 'fitz' in globals():
+            logger.info("🔄 PyMuPDF でテキスト抽出中...")
+            pdf_document = fitz.open(stream=pdf_content, filetype="pdf")
+            text = ""
+
+            for page_num in range(pdf_document.page_count):
+                page = pdf_document[page_num]
+                page_text = page.get_text()
+                text += f"[ページ {page_num + 1}]\n{page_text}\n\n"
+
+            pdf_document.close()
+            return text.strip()
+
+    except Exception as e:
+        logger.warning(f"⚠️ PyMuPDF テキスト抽出失敗: {e}")
+
+    try:
+        # 方法2: PyPDF2 を使用（フォールバック）
+        if 'PyPDF2' in globals():
+            logger.info("🔄 PyPDF2 でテキスト抽出中...")
+            pdf_reader = PyPDF2.PdfReader(BytesIO(pdf_content))
+            text = ""
+
+            for page_num, page in enumerate(pdf_reader.pages):
+                page_text = page.extract_text()
+                text += f"[ページ {page_num + 1}]\n{page_text}\n\n"
+
+            return text.strip()
+
+    except Exception as e:
+        logger.warning(f"⚠️ PyPDF2 テキスト抽出失敗: {e}")
+
+    return ""
+
+def is_pdf_file(content_type: str, filename: str = "") -> bool:
+    """ファイルがPDFかどうかを判定"""
+    return (content_type == "application/pdf" or
+            bool(filename and filename.lower().endswith('.pdf')))
 
 # Base64エンコード関数は削除（不要）
 
@@ -802,10 +921,10 @@ def is_trusted_news_domain(url: str) -> bool:
         logger.warning(f"⚠️ ドメイン信頼性チェック失敗 {url}: {e}")
         return False
 
-def convert_twitter_image_to_tweet(url: str) -> str | None:
+def convert_twitter_image_to_tweet_url(url: str) -> dict | None:
     """
-    Twitter画像URL（pbs.twimg.com）から元ツイートの内容を取得を試みる
-    pbs.twimg.com画像URLからツイートIDを推定し、X APIで内容取得
+    Twitter画像URL（pbs.twimg.com）から元ツイートのURLと内容を取得を試みる
+    pbs.twimg.com画像URLからツイートIDを推定し、元のツイートURLを返す
     """
     try:
         from urllib.parse import urlparse
@@ -817,77 +936,355 @@ def convert_twitter_image_to_tweet(url: str) -> str | None:
 
             # X APIまたはSerpAPIが利用可能な場合、ツイート検索を試行
             if X_BEARER_TOKEN or (SERPAPI_KEY and GoogleSearch):
-                tweet_content = get_x_tweet_content_by_image(url)
-                if tweet_content:
-                    return tweet_content
+                tweet_result = get_x_tweet_url_and_content_by_image(url)
+                if tweet_result:
+                    return tweet_result
 
                 # 検索で見つからなかった場合でも、Geminiに画像の性質を伝える
                 logger.info("🐦 ツイート内容は特定できませんでしたが、Twitter画像として処理")
-                return f"TWITTER_IMAGE_UNKNOWN:{url}"
+                return {
+                    "tweet_url": None,
+                    "content": f"TWITTER_IMAGE_UNKNOWN:{url}"
+                }
 
             # API利用不可の場合は従来の処理
-            return f"TWITTER_IMAGE:{url}"
+            return {
+                "tweet_url": None,
+                "content": f"TWITTER_IMAGE:{url}"
+            }
 
         return None
     except Exception as e:
         logger.warning(f"⚠️ Twitter URL変換失敗 {url}: {e}")
         return None
 
-def get_x_tweet_content_by_image(image_url: str) -> str | None:
+def get_x_tweet_url_and_content_by_image(image_url: str) -> dict | None:
     """
-    画像URLからツイート内容を探索する
-    X API v2とSerpAPIを組み合わせてツイートを特定
+    画像URLからツイートURLと内容を探索する（高度版）
+    Google Vision API + X API v2 + SerpAPIを組み合わせてツイートを特定
+    戻り値: {"tweet_url": "https://x.com/...", "content": "ツイート内容"}
     """
     try:
-        logger.info(f"🐦 画像URL経由でツイート検索: {image_url}")
+        logger.info(f"🐦 画像URL経由でツイートURL検索: {image_url}")
 
-        # 方法1: SerpAPIでTwitter内検索
+        # 方法1: Google Vision APIのWEB_DETECTIONを使用
+        if vision_client:
+            try:
+                logger.info("🔍 Google Vision APIでWEB_DETECTION実行中...")
+
+                # 画像をダウンロード
+                import httpx
+                with httpx.Client(timeout=10.0) as client:
+                    response = client.get(image_url)
+                    if response.status_code == 200:
+                        image_content = response.content
+
+                        # Vision API実行
+                        from google.cloud import vision
+                        image = vision.Image(content=image_content)
+                        response = vision_client.web_detection(image=image)  # type: ignore
+
+                        # 関連ページから X/Twitter URLを探索
+                        if response.web_detection.pages_with_matching_images:
+                            for page in response.web_detection.pages_with_matching_images[:15]:
+                                if page.url and any(domain in page.url for domain in ['x.com', 'twitter.com']):
+                                    logger.info(f"🐦 Vision APIでツイートURL発見: {page.url}")
+                                    tweet_content = get_x_tweet_content(page.url)
+                                    if tweet_content:
+                                        return {
+                                            "tweet_url": page.url,
+                                            "content": tweet_content
+                                        }
+
+                        # より詳細な関連エンティティもチェック
+                        if response.web_detection.web_entities:
+                            for entity in response.web_detection.web_entities[:10]:
+                                if entity.description:
+                                    # エンティティの説明からTwitter関連キーワードを検索
+                                    description = entity.description.lower()
+                                    if any(keyword in description for keyword in ['twitter', 'tweet', 'x.com']):
+                                        logger.info(f"🔍 関連エンティティ発見: {entity.description}")
+
+                                        # このエンティティを使ってさらに検索
+                                        if SERPAPI_KEY and GoogleSearch:
+                                            search = GoogleSearch({
+                                                "engine": "google",
+                                                "q": f'site:x.com OR site:twitter.com "{entity.description}"',
+                                                "api_key": SERPAPI_KEY,
+                                                "num": 10
+                                            })
+                                            entity_results = search.get_dict()
+                                            if "organic_results" in entity_results:
+                                                for result in entity_results["organic_results"][:3]:
+                                                    if "link" in result and any(domain in result["link"] for domain in ['x.com', 'twitter.com']):
+                                                        logger.info(f"🐦 エンティティ検索でツイートURL発見: {result['link']}")
+                                                        tweet_content = get_x_tweet_content(result["link"])
+                                                        if tweet_content:
+                                                            return {
+                                                                "tweet_url": result["link"],
+                                                                "content": tweet_content
+                                                            }
+
+            except Exception as vision_error:
+                logger.warning(f"⚠️ Vision API検索エラー: {vision_error}")
+
+        # 方法2: 画像ファイル名からSnowflake IDを抽出してツイートIDを推定
+        import re
+        filename_match = re.search(r'/media/([^?]+)', image_url)
+        if filename_match:
+            filename = filename_match.group(1).split('.')[0]  # 拡張子を除去
+            logger.info(f"🔍 画像ファイル名: {filename}")
+
+            # Base64URLデコードを試行してSnowflake IDを取得
+            try:
+                import base64
+                from datetime import datetime
+
+                # Twitterの画像ファイル名は通常Base64URLエンコードされたSnowflake ID
+                decoded_bytes = base64.urlsafe_b64decode(filename + '==')  # パディング追加
+                snowflake_id = int.from_bytes(decoded_bytes, byteorder='big')
+
+                # Snowflake IDからタイムスタンプを計算（Twitter Epoch: 2010-11-04 01:42:54 UTC）
+                twitter_epoch = 1288834974657  # Twitter epoch in milliseconds
+                timestamp_ms = (snowflake_id >> 22) + twitter_epoch
+                tweet_datetime = datetime.fromtimestamp(timestamp_ms / 1000)
+
+                logger.info(f"📅 推定投稿日時: {tweet_datetime}")
+
+                # この情報を使ってより精密な検索を実行
+                if SERPAPI_KEY and GoogleSearch:
+                    date_str = tweet_datetime.strftime("%Y-%m-%d")
+                    search = GoogleSearch({
+                        "engine": "google",
+                        "q": f'site:x.com OR site:twitter.com "{filename}" after:{date_str}',
+                        "api_key": SERPAPI_KEY,
+                        "num": 15
+                    })
+
+                    date_results = search.get_dict()
+                    if "organic_results" in date_results:
+                        for result in date_results["organic_results"][:5]:
+                            if "link" in result and any(domain in result["link"] for domain in ['x.com', 'twitter.com']):
+                                logger.info(f"🐦 日付検索でツイートURL発見: {result['link']}")
+                                tweet_content = get_x_tweet_content(result["link"])
+                                if tweet_content:
+                                    return {
+                                        "tweet_url": result["link"],
+                                        "content": tweet_content
+                                    }
+
+            except Exception as decode_error:
+                logger.warning(f"⚠️ Snowflake ID デコード失敗: {decode_error}")
+
+        # 方法3: SerpAPIでリバース画像検索（改良版）
         if SERPAPI_KEY and GoogleSearch:
-            logger.info("🔍 SerpAPIでTwitter検索実行中...")
+            logger.info("🔍 SerpAPIでリバース画像検索実行中...")
+            search = GoogleSearch({
+                "engine": "google_reverse_image",
+                "image_url": image_url,
+                "api_key": SERPAPI_KEY,
+                "tbs": "simg",
+                "num": 30  # より多くの結果を取得
+            })
+
+            results = search.get_dict()
+            logger.debug(f"🔍 SerpAPI結果: {results}")
+
+            # より幅広い検索結果をチェック
+            for key in ['images_results', 'inline_images', 'related_searches']:
+                if key in results:
+                    for result in results[key][:15]:
+                        if isinstance(result, dict) and "link" in result:
+                            link = result["link"]
+                            if any(domain in link for domain in ['x.com', 'twitter.com']):
+                                logger.info(f"🐦 リバース検索でツイートURL発見: {link}")
+                                tweet_content = get_x_tweet_content(link)
+                                if tweet_content:
+                                    return {
+                                        "tweet_url": link,
+                                        "content": tweet_content
+                                    }
+
+        # 方法4: 通常のGoogle検索でTwitter内を検索
+        if SERPAPI_KEY and GoogleSearch:
+            logger.info("🔍 SerpAPIでTwitter内検索実行中...")
             search = GoogleSearch({
                 "engine": "google",
-                "q": f"site:twitter.com {image_url}",
+                "q": f"site:x.com OR site:twitter.com {image_url}",
                 "api_key": SERPAPI_KEY,
-                "num": 10
+                "num": 15
             })
 
             results = search.get_dict()
 
             if "organic_results" in results:
-                for result in results["organic_results"][:5]:
-                    if "link" in result and "twitter.com" in result["link"]:
-                        logger.info(f"🐦 ツイートURL発見: {result['link']}")
-                        # ツイートURLが見つかった場合、内容を取得
+                for result in results["organic_results"][:8]:
+                    if "link" in result and any(domain in result["link"] for domain in ['x.com', 'twitter.com']):
+                        logger.info(f"🐦 サイト内検索でツイートURL発見: {result['link']}")
                         tweet_content = get_x_tweet_content(result["link"])
                         if tweet_content:
-                            return tweet_content
+                            return {
+                                "tweet_url": result["link"],
+                                "content": tweet_content
+                            }
 
-        # 方法2: 画像URLからツイートIDを推定（部分的）
-        if X_BEARER_TOKEN:
-            logger.info("🔍 X APIで直接検索試行中...")
-            # pbs.twimg.com URLから可能な限りメタデータを抽出
-            # 実際のツイートIDを特定することは困難だが、可能性のあるIDパターンを検索
+        logger.warning("⚠️ 画像からツイートURLを特定できませんでした")
+        return None
 
-            # この部分は技術的に制限があるため、一般的なエラーハンドリングを行う
-            logger.warning("⚠️ 画像URLからの直接ツイート特定は技術的に困難")
+    except Exception as e:
+        logger.error(f"❌ 画像経由ツイートURL検索エラー: {str(e)}")
+        return None
 
-        # 方法3: より汎用的なリバース検索
+def get_x_tweet_content_by_image(image_url: str) -> str | None:
+    """
+    画像URLからツイート内容を探索する（高度版）
+    Google Vision API + X API v2 + SerpAPIを組み合わせてツイートを特定
+    """
+    try:
+        logger.info(f"🐦 画像URL経由でツイート検索: {image_url}")
+
+        # 方法1: Google Vision APIのWEB_DETECTIONを使用
+        if vision_client:
+            try:
+                logger.info("🔍 Google Vision APIでWEB_DETECTION実行中...")
+
+                # 画像をダウンロード
+                import httpx
+                with httpx.Client(timeout=10.0) as client:
+                    response = client.get(image_url)
+                    if response.status_code == 200:
+                        image_content = response.content
+
+                        # Vision API実行
+                        from google.cloud import vision
+                        image = vision.Image(content=image_content)
+                        response = vision_client.web_detection(image=image)  # type: ignore
+
+                        # 関連ページから X/Twitter URLを探索
+                        if response.web_detection.pages_with_matching_images:
+                            for page in response.web_detection.pages_with_matching_images[:15]:
+                                if page.url and any(domain in page.url for domain in ['x.com', 'twitter.com']):
+                                    logger.info(f"🐦 Vision APIでツイートURL発見: {page.url}")
+                                    tweet_content = get_x_tweet_content(page.url)
+                                    if tweet_content:
+                                        return tweet_content
+
+                        # より詳細な関連エンティティもチェック
+                        if response.web_detection.web_entities:
+                            for entity in response.web_detection.web_entities[:10]:
+                                if entity.description:
+                                    # エンティティの説明からTwitter関連キーワードを検索
+                                    description = entity.description.lower()
+                                    if any(keyword in description for keyword in ['twitter', 'tweet', 'x.com']):
+                                        logger.info(f"🔍 関連エンティティ発見: {entity.description}")
+
+                                        # このエンティティを使ってさらに検索
+                                        if SERPAPI_KEY and GoogleSearch:
+                                            search = GoogleSearch({
+                                                "engine": "google",
+                                                "q": f'site:x.com OR site:twitter.com "{entity.description}"',
+                                                "api_key": SERPAPI_KEY,
+                                                "num": 10
+                                            })
+                                            entity_results = search.get_dict()
+                                            if "organic_results" in entity_results:
+                                                for result in entity_results["organic_results"][:3]:
+                                                    if "link" in result and any(domain in result["link"] for domain in ['x.com', 'twitter.com']):
+                                                        logger.info(f"🐦 エンティティ検索でツイートURL発見: {result['link']}")
+                                                        tweet_content = get_x_tweet_content(result["link"])
+                                                        if tweet_content:
+                                                            return tweet_content
+
+            except Exception as vision_error:
+                logger.warning(f"⚠️ Vision API検索エラー: {vision_error}")
+
+        # 方法2: 画像ファイル名からSnowflake IDを抽出してツイートIDを推定
+        import re
+        filename_match = re.search(r'/media/([^?]+)', image_url)
+        if filename_match:
+            filename = filename_match.group(1).split('.')[0]  # 拡張子を除去
+            logger.info(f"🔍 画像ファイル名: {filename}")
+
+            # Base64URLデコードを試行してSnowflake IDを取得
+            try:
+                import base64
+                from datetime import datetime
+
+                # Twitterの画像ファイル名は通常Base64URLエンコードされたSnowflake ID
+                decoded_bytes = base64.urlsafe_b64decode(filename + '==')  # パディング追加
+                snowflake_id = int.from_bytes(decoded_bytes, byteorder='big')
+
+                # Snowflake IDからタイムスタンプを計算（Twitter Epoch: 2010-11-04 01:42:54 UTC）
+                twitter_epoch = 1288834974657  # Twitter epoch in milliseconds
+                timestamp_ms = (snowflake_id >> 22) + twitter_epoch
+                tweet_datetime = datetime.fromtimestamp(timestamp_ms / 1000)
+
+                logger.info(f"📅 推定投稿日時: {tweet_datetime}")
+
+                # この情報を使ってより精密な検索を実行
+                if SERPAPI_KEY and GoogleSearch:
+                    date_str = tweet_datetime.strftime("%Y-%m-%d")
+                    search = GoogleSearch({
+                        "engine": "google",
+                        "q": f'site:x.com OR site:twitter.com "{filename}" after:{date_str}',
+                        "api_key": SERPAPI_KEY,
+                        "num": 15
+                    })
+
+                    date_results = search.get_dict()
+                    if "organic_results" in date_results:
+                        for result in date_results["organic_results"][:5]:
+                            if "link" in result and any(domain in result["link"] for domain in ['x.com', 'twitter.com']):
+                                logger.info(f"🐦 日付検索でツイートURL発見: {result['link']}")
+                                tweet_content = get_x_tweet_content(result["link"])
+                                if tweet_content:
+                                    return tweet_content
+
+            except Exception as decode_error:
+                logger.warning(f"⚠️ Snowflake ID デコード失敗: {decode_error}")
+
+        # 方法3: SerpAPIでリバース画像検索（改良版）
         if SERPAPI_KEY and GoogleSearch:
-            logger.info("🔍 汎用画像検索でTwitter関連情報探索中...")
+            logger.info("🔍 SerpAPIでリバース画像検索実行中...")
             search = GoogleSearch({
-                "engine": "google_images",
-                "q": image_url,
+                "engine": "google_reverse_image",
+                "image_url": image_url,
                 "api_key": SERPAPI_KEY,
                 "tbs": "simg",
-                "num": 20
+                "num": 30  # より多くの結果を取得
+            })
+
+            results = search.get_dict()
+            logger.debug(f"🔍 SerpAPI結果: {results}")
+
+            # より幅広い検索結果をチェック
+            for key in ['images_results', 'inline_images', 'related_searches']:
+                if key in results:
+                    for result in results[key][:15]:
+                        if isinstance(result, dict) and "link" in result:
+                            link = result["link"]
+                            if any(domain in link for domain in ['x.com', 'twitter.com']):
+                                logger.info(f"🐦 リバース検索でツイートURL発見: {link}")
+                                tweet_content = get_x_tweet_content(link)
+                                if tweet_content:
+                                    return tweet_content
+
+        # 方法4: 通常のGoogle検索でTwitter内を検索
+        if SERPAPI_KEY and GoogleSearch:
+            logger.info("🔍 SerpAPIでTwitter内検索実行中...")
+            search = GoogleSearch({
+                "engine": "google",
+                "q": f"site:x.com OR site:twitter.com {image_url}",
+                "api_key": SERPAPI_KEY,
+                "num": 15
             })
 
             results = search.get_dict()
 
-            if "images_results" in results:
-                for result in results["images_results"][:10]:
-                    if "link" in result and "twitter.com" in result["link"]:
-                        logger.info(f"🐦 リバース検索でツイートURL発見: {result['link']}")
+            if "organic_results" in results:
+                for result in results["organic_results"][:8]:
+                    if "link" in result and any(domain in result["link"] for domain in ['x.com', 'twitter.com']):
+                        logger.info(f"🐦 サイト内検索でツイートURL発見: {result['link']}")
                         tweet_content = get_x_tweet_content(result["link"])
                         if tweet_content:
                             return tweet_content
@@ -927,21 +1324,116 @@ def judge_content_with_gemini(content: str) -> dict:
             logger.info("🐦 X API経由で取得したツイート内容を分析")
             # 実際のツイート内容があるので、通常の判定を継続
 
-        prompt = f"""
-以下のWebページの内容を分析し、著作権的に問題がある海賊版サイトか、
-それとも正規のサイトかを判断してください。
+        # ---------- 高精度判定用 Gemini プロンプト ----------
+        # 完全に安全な公式ドメイン（コンテンツチェック不要）
+        official_domains = [
+            'www.kadokawa.co.jp', 'www.shogakukan.co.jp', 'www.shueisha.co.jp',
+            'www.kodansha.co.jp', 'www.nhk.or.jp', 'www.asahi.com', 'www.yomiuri.co.jp',
+            'www.sankei.com', 'www.nikkei.com', 'mainichi.jp', 'news.yahoo.co.jp',
+            'shop.delivered.co.kr', 'www.deliveredh.shop', 'books.rakuten.co.jp',
+            'honto.jp', 'www.kinokuniya.co.jp'
+        ]
 
-【Webページの内容】
-{content[:2000]}
+        # 公式だが内容確認が必要なドメイン
+        check_required_domains = [
+            'amazon.co.jp', 'books.rakuten.co.jp', 'twitter.com', 'x.com',
+            'facebook.com', 'instagram.com'
+        ]
 
-【判断基準】
-- 正規サイト: 出版社、著者、公式書店、書評、ニュース記事など。
-- 海賊版サイト: 全文掲載、無料ダウンロード、違法コピーを示唆する文言など。
+        # ドメインチェック
+        current_domain = urlparse(url).netloc if 'url' in locals() else 'N/A'
 
-【回答形式】
-以下のフォーマットで回答してください。
-判定：[○、×、？ のいずれか]
-理由：[判断の根拠を20字以内で簡潔に。判断不能な場合は「情報不足のため判断不能」と記載]
+        # 完全安全ドメインの場合は即座に安全判定
+        if current_domain in official_domains:
+            return {"judgment": "○", "reason": "公式サイト"}
+
+        prohibited_keywords = [
+            '無料ダウンロード','全巻無料','PDF','raw','漫画バンク','海賊版','無断転載',
+            'read online free','download full','crack','leak'
+        ]
+
+        # few-shot examples (日本語)
+        fewshot = """
+### 例1
+URL: https://www.kadokawa.co.jp/book/123456/
+本文抜粋: 本商品はKADOKAWA公式オンラインで購入できます。
+→ 判定: ○ / 理由: 出版社公式
+
+### 例2
+URL: https://pirated-site.example.com/onepiece-all-volumes.pdf
+本文抜粋: ワンピース全巻をPDFで無料ダウンロード！
+→ 判定: × / 理由: 無料全巻DL
+
+### 例3
+URL: https://blog.example.com/my-review
+本文抜粋: 作品の感想と購入リンクのみ掲載。
+→ 判定: ○ / 理由: レビュー記事
+
+### 例4
+URL: https://unknownsite.xyz/abc
+本文抜粋: (本文がほとんど無い / 画像のみ)
+→ 判定: ？ / 理由: 情報不足
+        """
+
+        # 要注意ドメインの場合は特別なプロンプトを使用
+        if current_domain in check_required_domains:
+            prompt = f"""
+あなたはプロのコンテンツ監視エンジニアです。
+このURLは信頼できるドメイン（{current_domain}）ですが、ユーザー投稿や出品物に
+海賊版コンテンツが含まれている可能性があるため、内容の詳細チェックが必要です。
+
+以下の情報を参考に判定してください：
+URL: {url if 'url' in locals() else 'N/A'}
+コンテンツ抜粋:
+{content[:3000]}
+
+特に以下の点に注意してチェック:
+1. SNSの場合: 海賊版へのリンク共有、違法DLの告知
+2. ECサイトの場合: 非正規品、デジタルコンテンツの無断転載
+3. 投稿内容に禁止キーワードが含まれるか: {', '.join(prohibited_keywords)}
+
+出力は必ず1行で `判定:● 理由:△△` の形式のみ。理由は20字以内。
+"""
+        else:
+            # 通常の判定プロンプト
+            prompt = f"""
+あなたはプロのコンテンツ監視エンジニアです。以下の情報を参考に、
+Webページが『海賊版（×）』『安全（○）』『判断不能（？）』『エラー（！）』のどれかを判定してください。
+
+入力情報:
+URL: {url if 'url' in locals() else 'N/A'}
+ドメイン: {current_domain}
+コンテンツ抜粋:
+{content[:3000]}
+
+判定基準:
+1. 以下は即座に海賊版判定:
+   - 全文掲載・PDF直リンク
+   - raw/MOBI/EPUB共有
+   - 禁止キーワード: {', '.join(prohibited_keywords)}
+
+2. 以下は安全と判定:
+   - 公式ECサイト（商品ページのみ）
+   - 出版社公式
+   - 書評・レビュー（引用が適切な範囲）
+   - ニュース記事
+
+3. 以下は判断不能（？）:
+   - 情報が極端に少ない
+   - 画像のみ
+   - アクセス制限で本文取得不可
+
+4. 以下はエラー（！）:
+   - 処理エラー
+   - タイムアウト
+   - 無効なレスポンス
+
+出力は必ず1行で `判定:● 理由:△△` の形式のみ。理由は20字以内。
+
+{fewshot}
+---
+出力例: `判定:○ 理由:出版社公式`
+---
         """
 
         response = gemini_model.generate_content(prompt)
@@ -954,16 +1446,26 @@ def judge_content_with_gemini(content: str) -> dict:
         judgment = "？"
         reason = "応答解析失敗"
 
-        for line in lines:
-            line = line.strip()
-            if '判定：' in line or '判定:' in line:
-                judgment_part = line.split('：')[1] if '：' in line else line.split(':')[1]
-                judgment = judgment_part.replace('[','').replace(']','').strip()
-                if judgment not in ['○', '×', '？']:
-                    judgment = "？"
-            elif '理由：' in line or '理由:' in line:
-                reason_part = line.split('：')[1] if '：' in line else line.split(':')[1]
-                reason = reason_part.replace('[','').replace(']','').strip()
+        # 新しい解析ロジック：一行形式 "判定:○ 理由:△△" に対応
+        import re
+
+        # パターン1: 一行形式 "判定:○ 理由:△△"
+        match = re.search(r'判定[:：]([○×？！])\s*理由[:：](.+)', result_text)
+        if match:
+            judgment = match.group(1).strip()
+            reason = match.group(2).strip()
+        else:
+            # パターン2: 複数行形式（従来）
+            for line in lines:
+                line = line.strip()
+                if '判定：' in line or '判定:' in line:
+                    judgment_part = line.split('：')[1] if '：' in line else line.split(':')[1]
+                    judgment = judgment_part.replace('[','').replace(']','').strip()
+                    if judgment not in ['○', '×', '？', '！']:
+                        judgment = "？"
+                elif '理由：' in line or '理由:' in line:
+                    reason_part = line.split('：')[1] if '：' in line else line.split(':')[1]
+                    reason = reason_part.replace('[','').replace(']','').strip()
 
         logger.info(f"✅ Gemini判定完了: {judgment} - {reason}")
         return {"judgment": judgment, "reason": reason}
@@ -1003,14 +1505,24 @@ def analyze_url_efficiently(url: str) -> Optional[Dict]:
         }
 
     # 2. Twitter画像URLの特別処理
-    twitter_content = convert_twitter_image_to_tweet(url)
-    if twitter_content:
-        judgment_result = judge_content_with_gemini(twitter_content)
-        return {
-            "url": url,
-            "judgment": judgment_result["judgment"],
-            "reason": judgment_result["reason"]
-        }
+    twitter_result = convert_twitter_image_to_tweet_url(url)
+    if twitter_result:
+        if twitter_result["tweet_url"]:
+            # 元のツイートURLが特定できた場合、そのURLで結果を返す
+            judgment_result = judge_content_with_gemini(twitter_result["content"])
+            return {
+                "url": twitter_result["tweet_url"],  # 元のツイートURLを使用
+                "judgment": judgment_result["judgment"],
+                "reason": judgment_result["reason"]
+            }
+        else:
+            # ツイートURLが特定できなかった場合は従来通り
+            judgment_result = judge_content_with_gemini(twitter_result["content"])
+            return {
+                "url": url,
+                "judgment": judgment_result["judgment"],
+                "reason": judgment_result["reason"]
+            }
 
     # 3. 通常のスクレイピング→Gemini判定
     scraped_content = scrape_page_content(url)
@@ -1111,14 +1623,18 @@ async def upload_image(file: UploadFile = File(...)):
 
     try:
         # ファイル検証
-        if not validate_image_file(file):
+        if not validate_file(file):
+            allowed_types = ["image/jpeg", "image/png", "image/jpg", "image/gif", "image/webp"]
+            if PDF_SUPPORT:
+                allowed_types.append("application/pdf")
+
             logger.error(f"❌ 無効なファイル形式: {file.content_type}")
             raise HTTPException(
                 status_code=400,
                 detail={
                     "error": "invalid_file_format",
-                    "message": "無効なファイル形式です。JPEG、PNG、GIF、WebP形式の画像をアップロードしてください。",
-                    "allowed_types": ["image/jpeg", "image/png", "image/jpg", "image/gif", "image/webp"],
+                    "message": "無効なファイル形式です。JPEG、PNG、GIF、WebP、PDF形式のファイルをアップロードしてください。" if PDF_SUPPORT else "無効なファイル形式です。JPEG、PNG、GIF、WebP形式の画像をアップロードしてください。",
+                    "allowed_types": allowed_types,
                     "received_type": file.content_type
                 }
             )
@@ -1142,21 +1658,53 @@ async def upload_image(file: UploadFile = File(...)):
                 }
             )
 
-        try:
-            # 画像の有効性を確認（バイトデータから）
-            image = Image.open(BytesIO(content))
-            image.verify()
-            logger.info("✅ 画像有効性検証OK")
-        except Exception as e:
-            logger.error(f"❌ 画像検証失敗: {str(e)}")
-            raise HTTPException(
-                status_code=400,
-                detail={
-                    "error": "corrupted_image",
-                    "message": "破損した画像ファイルです。有効な画像をアップロードしてください。",
-                    "validation_error": str(e)
-                }
-            )
+        # ファイル種別による検証
+        is_pdf = is_pdf_file(file.content_type, file.filename or "")
+
+        if is_pdf:
+            # PDF検証
+            if not PDF_SUPPORT:
+                raise HTTPException(
+                    status_code=400,
+                    detail={
+                        "error": "pdf_not_supported",
+                        "message": "PDF処理ライブラリがインストールされていません。",
+                        "install_instruction": "pip install PyMuPDF または pip install pdf2image PyPDF2"
+                    }
+                )
+
+            try:
+                # PDFの有効性を確認
+                test_images = convert_pdf_to_images(content)
+                if not test_images:
+                    raise Exception("PDFから画像を抽出できませんでした")
+                logger.info(f"✅ PDF有効性検証OK ({len(test_images)}ページ)")
+            except Exception as e:
+                logger.error(f"❌ PDF検証失敗: {str(e)}")
+                raise HTTPException(
+                    status_code=400,
+                    detail={
+                        "error": "corrupted_pdf",
+                        "message": "破損したPDFファイルです。有効なPDFをアップロードしてください。",
+                        "validation_error": str(e)
+                    }
+                )
+        else:
+            # 画像検証
+            try:
+                image = Image.open(BytesIO(content))
+                image.verify()
+                logger.info("✅ 画像有効性検証OK")
+            except Exception as e:
+                logger.error(f"❌ 画像検証失敗: {str(e)}")
+                raise HTTPException(
+                    status_code=400,
+                    detail={
+                        "error": "corrupted_image",
+                        "message": "破損した画像ファイルです。有効な画像をアップロードしてください。",
+                        "validation_error": str(e)
+                    }
+                )
 
         # 一意のファイル名を生成
         file_id = str(uuid.uuid4())
@@ -1191,7 +1739,8 @@ async def upload_image(file: UploadFile = File(...)):
             "content_type": file.content_type,
             "file_size": len(content),
             "upload_time": datetime.now().isoformat(),
-            "status": "uploaded"
+            "status": "uploaded",
+            "file_type": "pdf" if is_pdf else "image"
         }
 
         upload_records[file_id] = upload_record
@@ -1321,32 +1870,63 @@ async def analyze_image(image_id: str):
         )
 
     record = upload_records[image_id]
-    image_path = record["file_path"]
+    file_path = record["file_path"]
+    file_type = record.get("file_type", "image")
 
-    logger.info(f"📁 検索対象画像: {image_path}")
+    logger.info(f"📁 検索対象ファイル: {file_path} (type: {file_type})")
 
     try:
-        # 画像ファイルを開いてコンテンツを読み込む
-        with open(image_path, 'rb') as image_file:
-            image_content = image_file.read()
+        # ファイルを開いてコンテンツを読み込む
+        with open(file_path, 'rb') as file:
+            file_content = file.read()
 
-        logger.info(f"📸 画像ファイル読み込み完了: {len(image_content)} bytes")
+        logger.info(f"📸 ファイル読み込み完了: {len(file_content)} bytes")
 
-        # 画像ハッシュを計算
-        image_hash = calculate_image_hash(image_content)
-        logger.info(f"🔑 画像ハッシュ計算完了: {image_hash[:16]}...")
+        # ファイル種別に応じて処理を分岐
+        if file_type == "pdf":
+            # PDFの場合：各ページを画像に変換して処理
+            logger.info("📄 PDF処理開始...")
 
-        # Google Vision API WEB_DETECTIONでURL検索
-        logger.info("🌐 Google Vision API WEB_DETECTION実行中...")
-        url_list = search_web_for_image(image_content)
+            pdf_images = convert_pdf_to_images(file_content)
+            if not pdf_images:
+                raise Exception("PDFから画像を抽出できませんでした")
 
-        logger.info(f"✅ Web検索完了: {len(url_list)}件のURLを発見")
+            logger.info(f"📄 PDF処理完了: {len(pdf_images)}ページを抽出")
+
+            # 各ページの画像ハッシュを計算（最初のページをメインハッシュとする）
+            image_hash = calculate_image_hash(pdf_images[0])
+            logger.info(f"🔑 画像ハッシュ計算完了（ページ1）: {image_hash[:16]}...")
+
+            # 各ページを個別に分析
+            all_url_lists = []
+            for i, page_image_content in enumerate(pdf_images):
+                logger.info(f"🌐 ページ {i+1} の Google Vision API WEB_DETECTION実行中...")
+                page_urls = search_web_for_image(page_image_content)
+                all_url_lists.extend(page_urls)
+                logger.info(f"✅ ページ {i+1} Web検索完了: {len(page_urls)}件のURLを発見")
+
+            # 重複URLを除去
+            url_list = list(dict.fromkeys(all_url_lists))  # 順序を保持しつつ重複除去
+            logger.info(f"📋 全ページ統合結果: {len(url_list)}件の一意なURLを発見")
+
+        else:
+            # 画像の場合：従来の処理
+            image_content = file_content
+
+            # 画像ハッシュを計算
+            image_hash = calculate_image_hash(image_content)
+            logger.info(f"🔑 画像ハッシュ計算完了: {image_hash[:16]}...")
+
+            # Google Vision API WEB_DETECTIONでURL検索
+            logger.info("🌐 Google Vision API WEB_DETECTION実行中...")
+            url_list = search_web_for_image(image_content)
+            logger.info(f"✅ Web検索完了: {len(url_list)}件のURLを発見")
 
         # 各URLを効率的に分析（ニュースサイトは事前○判定、Twitterは特別処理）
         processed_results = []
 
-        for i, url in enumerate(url_list[:10]):  # 最大10件を処理
-            logger.info(f"🔄 URL処理中 ({i+1}/{min(len(url_list), 10)}): {url}")
+        for i, url in enumerate(url_list[:15]):  # PDFの場合は最大15件に拡張
+            logger.info(f"🔄 URL処理中 ({i+1}/{min(len(url_list), 15)}): {url}")
 
             # 効率的な分析実行
             result = analyze_url_efficiently(url)
@@ -2066,7 +2646,7 @@ async def batch_upload_images(files: List[UploadFile] = File(...)):
             logger.info(f"📁 ファイル処理中 ({i+1}/{len(files)}): {file.filename}")
 
             # ファイル検証
-            if not validate_image_file(file):
+            if not validate_file(file):
                 errors.append({
                     "filename": file.filename,
                     "error": "invalid_file_format",
@@ -2097,17 +2677,43 @@ async def batch_upload_images(files: List[UploadFile] = File(...)):
                 })
                 continue
 
-            # 画像の有効性確認
-            try:
-                image = Image.open(BytesIO(content))
-                image.verify()
-            except Exception as e:
-                errors.append({
-                    "filename": file.filename,
-                    "error": "corrupted_image",
-                    "message": f"破損した画像ファイル: {str(e)}"
-                })
-                continue
+            # ファイル種別による検証
+            is_pdf = is_pdf_file(file.content_type, file.filename or "")
+
+            if is_pdf:
+                # PDF検証
+                if not PDF_SUPPORT:
+                    errors.append({
+                        "filename": file.filename,
+                        "error": "pdf_not_supported",
+                        "message": "PDF処理ライブラリがインストールされていません"
+                    })
+                    continue
+
+                try:
+                    # PDFの有効性を確認
+                    test_images = convert_pdf_to_images(content)
+                    if not test_images:
+                        raise Exception("PDFから画像を抽出できませんでした")
+                except Exception as e:
+                    errors.append({
+                        "filename": file.filename,
+                        "error": "corrupted_pdf",
+                        "message": f"破損したPDFファイル: {str(e)}"
+                    })
+                    continue
+            else:
+                # 画像検証
+                try:
+                    image = Image.open(BytesIO(content))
+                    image.verify()
+                except Exception as e:
+                    errors.append({
+                        "filename": file.filename,
+                        "error": "corrupted_image",
+                        "message": f"破損した画像ファイル: {str(e)}"
+                    })
+                    continue
 
             # ファイル保存
             file_id = str(uuid.uuid4())
@@ -2128,7 +2734,8 @@ async def batch_upload_images(files: List[UploadFile] = File(...)):
                 "file_size": file_size,
                 "upload_time": datetime.now().isoformat(),
                 "status": "uploaded",
-                "batch_upload": True
+                "batch_upload": True,
+                "file_type": "pdf" if is_pdf else "image"
             }
 
             upload_records[file_id] = upload_record
@@ -2240,20 +2847,52 @@ def process_batch_search(batch_id: str, file_ids: List[str]):
                     continue
 
                 record = upload_records[file_id]
-                image_path = record["file_path"]
+                file_path = record["file_path"]
+                file_type = record.get("file_type", "image")
 
-                # 画像ファイル読み込み
-                with open(image_path, 'rb') as image_file:
-                    image_content = image_file.read()
-
-                # 画像ハッシュ計算
-                image_hash = calculate_image_hash(image_content)
+                # ファイル読み込み
+                with open(file_path, 'rb') as file:
+                    file_content = file.read()
 
                 # プログレス更新
-                batch_jobs[batch_id]["files"][i]["progress"] = 20
+                batch_jobs[batch_id]["files"][i]["progress"] = 10
 
-                # Web検索実行
-                url_list = search_web_for_image(image_content)
+                # ファイル種別に応じて処理を分岐
+                if file_type == "pdf":
+                    # PDFの場合：各ページを画像に変換して処理
+                    pdf_images = convert_pdf_to_images(file_content)
+                    if not pdf_images:
+                        raise Exception("PDFから画像を抽出できませんでした")
+
+                    # 各ページの画像ハッシュを計算（最初のページをメインハッシュとする）
+                    image_hash = calculate_image_hash(pdf_images[0])
+
+                    # プログレス更新
+                    batch_jobs[batch_id]["files"][i]["progress"] = 25
+
+                    # 各ページを個別に分析
+                    all_url_lists = []
+                    for page_i, page_image_content in enumerate(pdf_images):
+                        page_urls = search_web_for_image(page_image_content)
+                        all_url_lists.extend(page_urls)
+
+                        # ページごとのプログレス更新
+                        page_progress = 25 + (page_i + 1) * 35 // len(pdf_images)
+                        batch_jobs[batch_id]["files"][i]["progress"] = min(page_progress, 60)
+
+                    # 重複URLを除去
+                    url_list = list(dict.fromkeys(all_url_lists))
+
+                else:
+                    # 画像の場合：従来の処理
+                    image_content = file_content
+                    image_hash = calculate_image_hash(image_content)
+
+                    # プログレス更新
+                    batch_jobs[batch_id]["files"][i]["progress"] = 20
+
+                    # Web検索実行
+                    url_list = search_web_for_image(image_content)
 
                 # プログレス更新
                 batch_jobs[batch_id]["files"][i]["progress"] = 60

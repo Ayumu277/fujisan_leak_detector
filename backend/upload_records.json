@@ -1040,5 +1040,51 @@
     "found_urls_count": 10,
     "processed_results_count": 10,
     "image_hash": "cd620b02e9af45f51ab58eadd315f9740b84561cb699272cf5e8e45a5e3c3594"
+  },
+  "9f82e28d-2bb0-4c65-ba9c-583b149005ed": {
+    "id": "9f82e28d-2bb0-4c65-ba9c-583b149005ed",
+    "original_filename": "more_sana.jpg",
+    "saved_filename": "9f82e28d-2bb0-4c65-ba9c-583b149005ed.jpg",
+    "file_path": "uploads/9f82e28d-2bb0-4c65-ba9c-583b149005ed.jpg",
+    "content_type": "image/jpeg",
+    "file_size": 82743,
+    "upload_time": "2025-08-01T16:40:24.036331",
+    "status": "uploaded",
+    "analysis_status": "completed",
+    "analysis_time": "2025-08-01T16:42:17.571391",
+    "found_urls_count": 9,
+    "processed_results_count": 9,
+    "image_hash": "cd620b02e9af45f51ab58eadd315f9740b84561cb699272cf5e8e45a5e3c3594"
+  },
+  "b8179dbd-a00a-411d-be72-df43981253b0": {
+    "id": "b8179dbd-a00a-411d-be72-df43981253b0",
+    "original_filename": "more_sana.jpg",
+    "saved_filename": "b8179dbd-a00a-411d-be72-df43981253b0.jpg",
+    "file_path": "uploads/b8179dbd-a00a-411d-be72-df43981253b0.jpg",
+    "content_type": "image/jpeg",
+    "file_size": 82743,
+    "upload_time": "2025-08-01T17:00:21.219544",
+    "status": "uploaded",
+    "analysis_status": "completed",
+    "analysis_time": "2025-08-01T17:02:43.043156",
+    "found_urls_count": 10,
+    "processed_results_count": 10,
+    "image_hash": "cd620b02e9af45f51ab58eadd315f9740b84561cb699272cf5e8e45a5e3c3594"
+  },
+  "0b1c87dc-f666-4e0a-8ec0-6cadec64d3a6": {
+    "id": "0b1c87dc-f666-4e0a-8ec0-6cadec64d3a6",
+    "original_filename": "00022.pdf",
+    "saved_filename": "0b1c87dc-f666-4e0a-8ec0-6cadec64d3a6.pdf",
+    "file_path": "uploads/0b1c87dc-f666-4e0a-8ec0-6cadec64d3a6.pdf",
+    "content_type": "application/pdf",
+    "file_size": 6769766,
+    "upload_time": "2025-08-01T17:37:53.908216",
+    "status": "uploaded",
+    "file_type": "pdf",
+    "analysis_status": "completed",
+    "analysis_time": "2025-08-01T17:39:03.830690",
+    "found_urls_count": 4,
+    "processed_results_count": 4,
+    "image_hash": "b70a58a9b3250e633b10b9f17435b498d00344a10ce63edb6caa082b64c09989"
   }
 }

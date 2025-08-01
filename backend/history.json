@@ -400,5 +400,156 @@
         "reason": "Twitter画像ですが投稿内容を特定できませんでした"
       }
     ]
+  },
+  {
+    "history_id": "265ecd81-d1dc-4182-ba4b-9babc7bb69a8",
+    "image_id": "9f82e28d-2bb0-4c65-ba9c-583b149005ed",
+    "image_hash": "cd620b02e9af45f51ab58eadd315f9740b84561cb699272cf5e8e45a5e3c3594",
+    "original_filename": "more_sana.jpg",
+    "analysis_date": "2025-08-01T16:42:17.573125",
+    "analysis_timestamp": 1754034137,
+    "found_urls_count": 9,
+    "processed_results_count": 9,
+    "results": [
+      {
+        "url": "https://shop.delivered.co.kr/products/more-japan-magazine-2024-spring-cover-twice-sana",
+        "judgment": "？",
+        "reason": "応答解析失敗"
+      },
+      {
+        "url": "https://shop.delivered.co.kr/collections/vendors?q=twice",
+        "judgment": "？",
+        "reason": "応答解析失敗"
+      },
+      {
+        "url": "https://www.deliveredh.shop/product/more-japan-magazine-2024-spring-cover-twice-sana",
+        "judgment": "？",
+        "reason": "応答解析失敗"
+      },
+      {
+        "url": "https://www.ubuy.mr/en/productjp/IRKVXSMCW-more-spring-2024-sana-twice",
+        "judgment": "？",
+        "reason": "応答解析失敗"
+      },
+      {
+        "url": "https://www.reddit.com/r/twice/comments/1aucyfn/240219_japan_twitter_update_magazine_information/",
+        "judgment": "？",
+        "reason": "応答解析失敗"
+      },
+      {
+        "url": "https://www.ubuy.co.bw/productjp/IRKVXSMCW-more-spring-2024-sana-twice",
+        "judgment": "？",
+        "reason": "応答解析失敗"
+      },
+      {
+        "url": "https://pbs.twimg.com/media/GGqwkkXX0AAKvhd?format=jpg&name=4096x4096",
+        "judgment": "？",
+        "reason": "Twitter画像ですが投稿内容を特定できませんでした"
+      },
+      {
+        "url": "https://pbs.twimg.com/media/GJWhjZ6XYAAlwfY?format=jpg&name=4096x4096",
+        "judgment": "？",
+        "reason": "Twitter画像ですが投稿内容を特定できませんでした"
+      },
+      {
+        "url": "https://pbs.twimg.com/media/GGqw1EvasAAhQ32.jpg:large",
+        "judgment": "？",
+        "reason": "Twitter画像ですが投稿内容を特定できませんでした"
+      }
+    ]
+  },
+  {
+    "history_id": "a54b1d9b-c327-42d1-b005-b15b6cfd1db7",
+    "image_id": "b8179dbd-a00a-411d-be72-df43981253b0",
+    "image_hash": "cd620b02e9af45f51ab58eadd315f9740b84561cb699272cf5e8e45a5e3c3594",
+    "original_filename": "more_sana.jpg",
+    "analysis_date": "2025-08-01T17:02:43.045286",
+    "analysis_timestamp": 1754035363,
+    "found_urls_count": 10,
+    "processed_results_count": 10,
+    "results": [
+      {
+        "url": "https://shop.delivered.co.kr/products/more-japan-magazine-2024-spring-cover-twice-sana",
+        "judgment": "○",
+        "reason": "公式ECサイト"
+      },
+      {
+        "url": "https://www.ebay.co.uk/itm/296179218530",
+        "judgment": "？",
+        "reason": "分析に失敗しました"
+      },
+      {
+        "url": "https://www.ubuy.mr/en/productjp/IRKVXSMCW-more-spring-2024-sana-twice",
+        "judgment": "○",
+        "reason": "ECサイトの商品ページ"
+      },
+      {
+        "url": "https://www.deliveredh.shop/product/more-japan-magazine-2024-spring-cover-twice-sana",
+        "judgment": "○",
+        "reason": "ECサイトの商品ページ"
+      },
+      {
+        "url": "https://www.reddit.com/r/twice/comments/1aucyfn/240219_japan_twitter_update_magazine_information/",
+        "judgment": "○",
+        "reason": "一般的なSNSサイト"
+      },
+      {
+        "url": "https://www.ubuy.co.bw/productjp/IRKVXSMCW-more-spring-2024-sana-twice",
+        "judgment": "○",
+        "reason": "ECサイトの商品ページ"
+      },
+      {
+        "url": "https://www.instagram.com/p/C3hCXJpLAOv/",
+        "judgment": "？",
+        "reason": "情報不足"
+      },
+      {
+        "url": "https://pbs.twimg.com/media/GGqwkkXX0AAKvhd?format=jpg&name=4096x4096",
+        "judgment": "○",
+        "reason": "著作権侵害なし"
+      },
+      {
+        "url": "https://pbs.twimg.com/media/GJWhjZ6XYAAlwfY?format=jpg&name=4096x4096",
+        "judgment": "？",
+        "reason": "Twitter画像ですが投稿内容を特定できませんでした"
+      },
+      {
+        "url": "https://pbs.twimg.com/media/GGqw1EvasAAhQ32.jpg:large",
+        "judgment": "？",
+        "reason": "Twitter画像ですが投稿内容を特定できませんでした"
+      }
+    ]
+  },
+  {
+    "history_id": "e6235c08-2ba8-46ca-ac63-7b367e6a0ca3",
+    "image_id": "0b1c87dc-f666-4e0a-8ec0-6cadec64d3a6",
+    "image_hash": "b70a58a9b3250e633b10b9f17435b498d00344a10ce63edb6caa082b64c09989",
+    "original_filename": "00022.pdf",
+    "analysis_date": "2025-08-01T17:39:03.833059",
+    "analysis_timestamp": 1754037543,
+    "found_urls_count": 4,
+    "processed_results_count": 4,
+    "results": [
+      {
+        "url": "https://www.instagram.com/p/DAIvlgDzA9j/?hl=en",
+        "judgment": "？",
+        "reason": "情報不足"
+      },
+      {
+        "url": "https://www.instagram.com/p/DL7MXogSpKg/",
+        "judgment": "？",
+        "reason": "情報不足"
+      },
+      {
+        "url": "https://www.threads.com/@precure_paradise/post/DL7o8VDPSbf/%E3%81%AF%E3%81%AA%E3%81%82%E3%81%84%EB%8B%98precure_paradise%EC%9D%98-%EA%B2%8C%EC%8B%9C%EB%AC%BC",
+        "judgment": "？",
+        "reason": "情報不足"
+      },
+      {
+        "url": "https://lookaside.instagram.com/seo/google_widget/crawler/?media_id=3673584311565046280",
+        "judgment": "？",
+        "reason": "情報が極端に少ない"
+      }
+    ]
   }
 ]
