@@ -402,7 +402,7 @@ def convert_pdf_to_images(pdf_content: bytes) -> List[bytes]:
             for page_num in range(pdf_document.page_count):
                 page = pdf_document[page_num]
                 # 高品質でPDFページを画像に変換 (PyMuPDF 1.26.3対応)
-                pix = page.get_pixmap(dpi=200)  # DPIで品質指定
+                pix = page.get_pixmap(dpi=200)  # type: ignore # DPIで品質指定
                 img_data = pix.tobytes("png")
                 images.append(img_data)
                 logger.info(f"📄 ページ {page_num + 1} を画像に変換完了")
@@ -446,7 +446,7 @@ def extract_pdf_text(pdf_content: bytes) -> str:
 
             for page_num in range(pdf_document.page_count):
                 page = pdf_document[page_num]
-                page_text = page.get_text()
+                page_text = page.get_text()  # type: ignore
                 text += f"[ページ {page_num + 1}]\n{page_text}\n\n"
 
             pdf_document.close()
@@ -718,7 +718,7 @@ def search_with_serpapi(image_url: str) -> list[str]:
 
     try:
         # SerpAPIで画像逆検索を実行
-        search = GoogleSearch({
+        search = GoogleSearch({  # type: ignore
             "engine": "google_reverse_image",
             "image_url": image_url,
             "api_key": SERPAPI_KEY,
@@ -1077,7 +1077,7 @@ def get_x_tweet_url_and_content_by_image(image_url: str) -> dict | None:
 
                                         # このエンティティを使ってさらに検索
                                         if SERPAPI_KEY and SerpAPI_available:
-                                            search = GoogleSearch({
+                                            search = GoogleSearch({  # type: ignore
                                                 "engine": "google",
                                                 "q": f'site:x.com OR site:twitter.com "{entity.description}"',
                                                 "api_key": SERPAPI_KEY,
@@ -1124,7 +1124,7 @@ def get_x_tweet_url_and_content_by_image(image_url: str) -> dict | None:
                 # この情報を使ってより精密な検索を実行
                 if SERPAPI_KEY and SerpAPI_available:
                     date_str = tweet_datetime.strftime("%Y-%m-%d")
-                    search = GoogleSearch({
+                    search = GoogleSearch({  # type: ignore
                         "engine": "google",
                         "q": f'site:x.com OR site:twitter.com "{filename}" after:{date_str}',
                         "api_key": SERPAPI_KEY,
@@ -1149,7 +1149,7 @@ def get_x_tweet_url_and_content_by_image(image_url: str) -> dict | None:
         # 方法3: SerpAPIでリバース画像検索（改良版）
         if SERPAPI_KEY and SerpAPI_available:
             logger.info("🔍 SerpAPIでリバース画像検索実行中...")
-            search = GoogleSearch({
+            search = GoogleSearch({  # type: ignore
                 "engine": "google_reverse_image",
                 "image_url": image_url,
                 "api_key": SERPAPI_KEY,
@@ -1178,7 +1178,7 @@ def get_x_tweet_url_and_content_by_image(image_url: str) -> dict | None:
         # 方法4: 通常のGoogle検索でTwitter内を検索
         if SERPAPI_KEY and SerpAPI_available:
             logger.info("🔍 SerpAPIでTwitter内検索実行中...")
-            search = GoogleSearch({
+            search = GoogleSearch({  # type: ignore
                 "engine": "google",
                 "q": f"site:x.com OR site:twitter.com {image_url}",
                 "api_key": SERPAPI_KEY,
@@ -1250,7 +1250,7 @@ def get_x_tweet_content_by_image(image_url: str) -> str | None:
 
                                         # このエンティティを使ってさらに検索
                                         if SERPAPI_KEY and SerpAPI_available:
-                                            search = GoogleSearch({
+                                            search = GoogleSearch({  # type: ignore
                                                 "engine": "google",
                                                 "q": f'site:x.com OR site:twitter.com "{entity.description}"',
                                                 "api_key": SERPAPI_KEY,
@@ -1294,7 +1294,7 @@ def get_x_tweet_content_by_image(image_url: str) -> str | None:
                 # この情報を使ってより精密な検索を実行
                 if SERPAPI_KEY and SerpAPI_available:
                     date_str = tweet_datetime.strftime("%Y-%m-%d")
-                    search = GoogleSearch({
+                    search = GoogleSearch({  # type: ignore
                         "engine": "google",
                         "q": f'site:x.com OR site:twitter.com "{filename}" after:{date_str}',
                         "api_key": SERPAPI_KEY,
@@ -1316,7 +1316,7 @@ def get_x_tweet_content_by_image(image_url: str) -> str | None:
         # 方法3: SerpAPIでリバース画像検索（改良版）
         if SERPAPI_KEY and SerpAPI_available:
             logger.info("🔍 SerpAPIでリバース画像検索実行中...")
-            search = GoogleSearch({
+            search = GoogleSearch({  # type: ignore
                 "engine": "google_reverse_image",
                 "image_url": image_url,
                 "api_key": SERPAPI_KEY,
@@ -1342,7 +1342,7 @@ def get_x_tweet_content_by_image(image_url: str) -> str | None:
         # 方法4: 通常のGoogle検索でTwitter内を検索
         if SERPAPI_KEY and SerpAPI_available:
             logger.info("🔍 SerpAPIでTwitter内検索実行中...")
-            search = GoogleSearch({
+            search = GoogleSearch({  # type: ignore
                 "engine": "google",
                 "q": f"site:x.com OR site:twitter.com {image_url}",
                 "api_key": SERPAPI_KEY,
@@ -1366,7 +1366,7 @@ def get_x_tweet_content_by_image(image_url: str) -> str | None:
         logger.error(f"❌ 画像経由ツイート検索エラー: {str(e)}")
         return None
 
-def judge_content_with_gemini(content: str) -> dict:
+def judge_content_with_gemini(content: str, url: str = "") -> dict:
     """
     Gemini AIを使ってコンテンツを判定する
     """
@@ -1418,7 +1418,7 @@ def judge_content_with_gemini(content: str) -> dict:
         ]
 
         # ドメインチェック
-        current_domain = urlparse(url).netloc if 'url' in locals() else 'N/A'
+        current_domain = urlparse(url).netloc if url else 'N/A'
 
         # 完全安全ドメインの場合は即座に安全判定
         if current_domain in official_domains:
@@ -1460,7 +1460,7 @@ URL: https://unknownsite.xyz/abc
 海賊版コンテンツが含まれている可能性があるため、内容の詳細チェックが必要です。
 
 以下の情報を参考に判定してください：
-URL: {url if 'url' in locals() else 'N/A'}
+URL: {url if url else 'N/A'}
 コンテンツ抜粋:
 {content[:3000]}
 
@@ -1478,7 +1478,7 @@ URL: {url if 'url' in locals() else 'N/A'}
 Webページが『海賊版（×）』『安全（○）』『判断不能（？）』『エラー（！）』のどれかを判定してください。
 
 入力情報:
-URL: {url if 'url' in locals() else 'N/A'}
+URL: {url if url else 'N/A'}
 ドメイン: {current_domain}
 コンテンツ抜粋:
 {content[:3000]}
@@ -1586,7 +1586,7 @@ def analyze_url_efficiently(url: str) -> Optional[Dict]:
     if twitter_result:
         if twitter_result["tweet_url"]:
             # 元のツイートURLが特定できた場合、そのURLで結果を返す
-            judgment_result = judge_content_with_gemini(twitter_result["content"])
+            judgment_result = judge_content_with_gemini(twitter_result["content"], twitter_result["tweet_url"])
             return {
                 "url": twitter_result["tweet_url"],  # 元のツイートURLを使用
                 "judgment": judgment_result["judgment"],
@@ -1594,7 +1594,7 @@ def analyze_url_efficiently(url: str) -> Optional[Dict]:
             }
         else:
             # ツイートURLが特定できなかった場合は従来通り
-            judgment_result = judge_content_with_gemini(twitter_result["content"])
+            judgment_result = judge_content_with_gemini(twitter_result["content"], url)
             return {
                 "url": url,
                 "judgment": judgment_result["judgment"],
@@ -1607,7 +1607,7 @@ def analyze_url_efficiently(url: str) -> Optional[Dict]:
         logger.info(f"  ❌ スクレイピング失敗: {url}")
         return None
 
-    judgment_result = judge_content_with_gemini(scraped_content)
+    judgment_result = judge_content_with_gemini(scraped_content, url)
     logger.info(f"  ✅ 分析完了: {judgment_result['judgment']} - {judgment_result['reason']}")
 
     return {
@@ -2430,7 +2430,7 @@ async def delete_analysis_history(history_id: str):
             if entry.get("history_id") == history_id:
                 history_to_delete = analysis_history.pop(i)
                 break
-        
+
         if not history_to_delete:
             raise HTTPException(
                 status_code=404,
@@ -2439,19 +2439,19 @@ async def delete_analysis_history(history_id: str):
                     "message": "指定された履歴が見つかりません"
                 }
             )
-        
+
         # 履歴ファイルを更新
         save_history()
-        
+
         logger.info(f"🗑️ 履歴削除完了: {history_id}")
-        
+
         return {
             "success": True,
             "message": "履歴を削除しました",
             "deleted_history_id": history_id,
             "deleted_filename": history_to_delete.get("original_filename", "不明")
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -2476,7 +2476,7 @@ async def get_history_details(history_id: str):
             if entry.get("history_id") == history_id:
                 target_history = entry
                 break
-        
+
         if not target_history:
             raise HTTPException(
                 status_code=404,
@@ -2485,10 +2485,10 @@ async def get_history_details(history_id: str):
                     "message": "指定された履歴が見つかりません"
                 }
             )
-        
+
         # 詳細情報を整形
         results = target_history.get("results", [])
-        
+
         return {
             "success": True,
             "history_id": history_id,
@@ -2505,7 +2505,7 @@ async def get_history_details(history_id: str):
                 "unknown_count": len([r for r in results if r.get("judgment") == "？"])
             }
         }
-        
+
     except HTTPException:
         raise
     except Exception as e:

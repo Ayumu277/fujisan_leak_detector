@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 import './App.css'
 
@@ -771,16 +771,16 @@ function App() {
     try {
       setLoading(true)
       const response = await axios.delete(`${API_BASE}/api/history/${historyId}`)
-      
+
       if (response.data.success) {
         await fetchHistory() // 履歴を再取得
         showSuccessToast('履歴を削除しました')
-        
+
         // 展開中の詳細がある場合は閉じる
         if (expandedHistoryId === historyId) {
           setExpandedHistoryId(null)
         }
-        
+
         // 詳細データもクリア
         const newHistoryDetails = { ...historyDetails }
         delete newHistoryDetails[historyId]
@@ -807,7 +807,7 @@ function App() {
       if (!historyDetails[historyId]) {
         setLoading(true)
         const response = await axios.get(`${API_BASE}/api/history/details/${historyId}`)
-        
+
         if (response.data.success) {
           setHistoryDetails({
             ...historyDetails,
@@ -815,7 +815,7 @@ function App() {
           })
         }
       }
-      
+
       setExpandedHistoryId(historyId)
     } catch (error) {
       console.error('履歴詳細取得エラー:', error)
@@ -976,7 +976,7 @@ function App() {
     setShowToast(null)
     setDiffData(null)
     setUploadProgress(0)
-    
+
     // 履歴詳細関連
     setHistoryDetails({})
     setExpandedHistoryId(null)
@@ -1769,269 +1769,271 @@ function App() {
                   </thead>
                   <tbody>
                     {historyData.history.map((entry, index) => (
-                      <tr key={entry.history_id} style={{
-                        borderBottom: index !== historyData.history.length - 1 ? '1px solid #f1f3f4' : 'none'
-                      }}>
-                        <td style={{ padding: '15px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            <ImagePreview
-                              fileId={entry.image_id}
-                              size="small"
-                              style={{ flexShrink: 0 }}
-                            />
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <div style={{
-                                fontWeight: '500',
-                                fontSize: '14px',
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                whiteSpace: 'nowrap'
-                              }}>
-                                {entry.original_filename}
-                              </div>
-                              <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                                ID: {entry.image_id.substring(0, 8)}...
+                      <React.Fragment key={entry.history_id}>
+                        <tr style={{
+                          borderBottom: index !== historyData.history.length - 1 ? '1px solid #f1f3f4' : 'none'
+                        }}>
+                          <td style={{ padding: '15px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                              <ImagePreview
+                                fileId={entry.image_id}
+                                size="small"
+                                style={{ flexShrink: 0 }}
+                              />
+                              <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{
+                                  fontWeight: '500',
+                                  fontSize: '14px',
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap'
+                                }}>
+                                  {entry.original_filename}
+                                </div>
+                                <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                                  ID: {entry.image_id.substring(0, 8)}...
+                                </div>
                               </div>
                             </div>
-                          </div>
-                        </td>
-                        <td style={{ padding: '15px', textAlign: 'center' }}>
-                          <div style={{ fontSize: '13px' }}>
-                            {new Date(entry.analysis_date).toLocaleDateString('ja-JP')}
-                          </div>
-                          <div style={{ fontSize: '12px', color: '#6b7280' }}>
-                            {new Date(entry.analysis_date).toLocaleTimeString('ja-JP')}
-                          </div>
-                        </td>
-                        <td style={{ padding: '15px', textAlign: 'center' }}>
-                          <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                            {entry.summary.safe_count > 0 && (
-                              <span style={{
-                                backgroundColor: '#d1fae5',
-                                color: '#065f46',
-                                padding: '4px 8px',
-                                borderRadius: '12px',
-                                fontSize: '11px',
-                                fontWeight: '600'
-                              }}>
-                                ✅ {entry.summary.safe_count}
-                              </span>
-                            )}
-                            {entry.summary.suspicious_count > 0 && (
-                              <span style={{
-                                backgroundColor: '#fee2e2',
-                                color: '#991b1b',
-                                padding: '4px 8px',
-                                borderRadius: '12px',
-                                fontSize: '11px',
-                                fontWeight: '600'
-                              }}>
-                                ❌ {entry.summary.suspicious_count}
-                              </span>
-                            )}
-                            {entry.summary.unknown_count > 0 && (
-                              <span style={{
-                                backgroundColor: '#fef3c7',
-                                color: '#92400e',
-                                padding: '4px 8px',
-                                borderRadius: '12px',
-                                fontSize: '11px',
-                                fontWeight: '600'
-                              }}>
-                                ❓ {entry.summary.unknown_count}
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td style={{ padding: '15px', textAlign: 'center' }}>
-                          <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                            <button
-                              onClick={() => handleToggleHistoryDetails(entry.history_id)}
-                              disabled={loading}
-                              style={{
-                                padding: '4px 8px',
-                                backgroundColor: expandedHistoryId === entry.history_id ? '#10b981' : '#6b7280',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '6px',
-                                cursor: loading ? 'not-allowed' : 'pointer',
-                                fontSize: '11px',
-                                fontWeight: '500',
-                                opacity: loading ? 0.6 : 1
-                              }}
-                              onMouseEnter={(e) => {
-                                if (!loading) {
-                                  e.currentTarget.style.backgroundColor = expandedHistoryId === entry.history_id ? '#059669' : '#4b5563';
-                                }
-                              }}
-                              onMouseLeave={(e) => {
-                                if (!loading) {
-                                  e.currentTarget.style.backgroundColor = expandedHistoryId === entry.history_id ? '#10b981' : '#6b7280';
-                                }
-                              }}
-                            >
-                              🔍 {expandedHistoryId === entry.history_id ? '詳細を隠す' : 'リンク確認'}
-                            </button>
-                            <button
-                              onClick={() => handleReanalyze(entry.image_id)}
-                              disabled={loading}
-                              style={{
-                                padding: '4px 8px',
-                                backgroundColor: '#3b82f6',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '6px',
-                                cursor: loading ? 'not-allowed' : 'pointer',
-                                fontSize: '11px',
-                                fontWeight: '500',
-                                opacity: loading ? 0.6 : 1
-                              }}
-                              onMouseEnter={(e) => {
-                                if (!loading) e.currentTarget.style.backgroundColor = '#2563eb';
-                              }}
-                              onMouseLeave={(e) => {
-                                if (!loading) e.currentTarget.style.backgroundColor = '#3b82f6';
-                              }}
-                            >
-                              🔄 再検査
-                            </button>
-                            <button
-                              onClick={() => handleDeleteHistory(entry.history_id, entry.original_filename)}
-                              disabled={loading}
-                              style={{
-                                padding: '4px 8px',
-                                backgroundColor: '#ef4444',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '6px',
-                                cursor: loading ? 'not-allowed' : 'pointer',
-                                fontSize: '11px',
-                                fontWeight: '500',
-                                opacity: loading ? 0.6 : 1
-                              }}
-                              onMouseEnter={(e) => {
-                                if (!loading) e.currentTarget.style.backgroundColor = '#dc2626';
-                              }}
-                              onMouseLeave={(e) => {
-                                if (!loading) e.currentTarget.style.backgroundColor = '#ef4444';
-                              }}
-                            >
-                              🗑️ 削除
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                      {/* 詳細表示（展開時） */}
-                      {expandedHistoryId === entry.history_id && historyDetails[entry.history_id] && (
-                        <tr>
-                          <td colSpan={4} style={{ padding: '0', backgroundColor: '#f8fafc' }}>
-                            <div style={{ padding: '20px', borderTop: '1px solid #e2e8f0' }}>
-                              <div style={{ marginBottom: '16px' }}>
-                                <h4 style={{ margin: '0 0 12px 0', color: '#374151', fontSize: '16px', fontWeight: '600' }}>
-                                  🔍 検出されたリンク詳細
-                                </h4>
-                                <div style={{ fontSize: '14px', color: '#6b7280', marginBottom: '16px' }}>
-                                  検出数: {historyDetails[entry.history_id].found_urls_count}件 | 
-                                  処理済み: {historyDetails[entry.history_id].processed_results_count}件
-                                </div>
-                              </div>
-                              
-                              {historyDetails[entry.history_id].results && historyDetails[entry.history_id].results.length > 0 ? (
-                                (() => {
-                                  // 判定結果別にグループ化
-                                  const results = historyDetails[entry.history_id].results
-                                  const safeResults = results.filter((r: any) => r.judgment === '○')
-                                  const dangerResults = results.filter((r: any) => r.judgment === '×')
-                                  const warningResults = results.filter((r: any) => r.judgment === '！')
-                                  const unknownResults = results.filter((r: any) => r.judgment === '？')
-
-                                  const renderResultSection = (title: string, sectionResults: any[], bgColor: string, textColor: string, icon: string) => {
-                                    if (sectionResults.length === 0) return null
-                                    
-                                    return (
-                                      <div key={title} style={{ marginBottom: '16px' }}>
-                                        <div style={{
-                                          display: 'flex',
-                                          alignItems: 'center',
-                                          gap: '8px',
-                                          marginBottom: '8px',
-                                          padding: '6px 10px',
-                                          backgroundColor: bgColor,
-                                          borderRadius: '6px',
-                                          color: textColor,
-                                          fontWeight: '600',
-                                          fontSize: '13px'
-                                        }}>
-                                          <span style={{ fontSize: '14px' }}>{icon}</span>
-                                          {title} ({sectionResults.length}件)
-                                        </div>
-                                        
-                                        <div style={{
-                                          display: 'grid',
-                                          gridTemplateColumns: '1fr',
-                                          gap: '6px'
-                                        }}>
-                                          {sectionResults.map((result: any, index: number) => (
-                                            <div key={index} style={{
-                                              backgroundColor: 'white',
-                                              border: '1px solid #e5e7eb',
-                                              borderRadius: '6px',
-                                              padding: '10px',
-                                              borderLeft: `3px solid ${
-                                                result.judgment === '○' ? '#10b981' :
-                                                result.judgment === '×' ? '#ef4444' :
-                                                result.judgment === '！' ? '#f59e0b' : '#6b7280'
-                                              }`
-                                            }}>
-                                              <div style={{
-                                                fontSize: '12px',
-                                                fontWeight: '500',
-                                                marginBottom: '4px',
-                                                color: '#1f2937',
-                                                wordBreak: 'break-all'
-                                              }}>
-                                                <a href={result.url} target="_blank" rel="noopener noreferrer"
-                                                   style={{ color: '#3b82f6', textDecoration: 'none' }}>
-                                                  {result.url}
-                                                </a>
-                                              </div>
-                                              <div style={{
-                                                fontSize: '11px',
-                                                color: '#6b7280',
-                                                lineHeight: '1.4'
-                                              }}>
-                                                {result.reason}
-                                              </div>
-                                            </div>
-                                          ))}
-                                        </div>
-                                      </div>
-                                    )
-                                  }
-
-                                  return (
-                                    <div>
-                                      {renderResultSection('出版社公式', safeResults, '#dcfce7', '#166534', '○')}
-                                      {renderResultSection('要注意サイト', warningResults, '#fef3c7', '#92400e', '！')}
-                                      {renderResultSection('情報不足', unknownResults, '#f3f4f6', '#6b7280', '？')}
-                                      {renderResultSection('危険サイト', dangerResults, '#fef2f2', '#dc2626', '×')}
-                                    </div>
-                                  )
-                                })()
-                              ) : (
-                                <div style={{
-                                  textAlign: 'center',
-                                  padding: '20px',
-                                  color: '#9ca3af',
-                                  fontSize: '14px'
+                          </td>
+                          <td style={{ padding: '15px', textAlign: 'center' }}>
+                            <div style={{ fontSize: '13px' }}>
+                              {new Date(entry.analysis_date).toLocaleDateString('ja-JP')}
+                            </div>
+                            <div style={{ fontSize: '12px', color: '#6b7280' }}>
+                              {new Date(entry.analysis_date).toLocaleTimeString('ja-JP')}
+                            </div>
+                          </td>
+                          <td style={{ padding: '15px', textAlign: 'center' }}>
+                            <div style={{ display: 'flex', gap: '8px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                              {entry.summary.safe_count > 0 && (
+                                <span style={{
+                                  backgroundColor: '#d1fae5',
+                                  color: '#065f46',
+                                  padding: '4px 8px',
+                                  borderRadius: '12px',
+                                  fontSize: '11px',
+                                  fontWeight: '600'
                                 }}>
-                                  この検査では検出結果がありませんでした
-                                </div>
+                                  ✅ {entry.summary.safe_count}
+                                </span>
+                              )}
+                              {entry.summary.suspicious_count > 0 && (
+                                <span style={{
+                                  backgroundColor: '#fee2e2',
+                                  color: '#991b1b',
+                                  padding: '4px 8px',
+                                  borderRadius: '12px',
+                                  fontSize: '11px',
+                                  fontWeight: '600'
+                                }}>
+                                  ❌ {entry.summary.suspicious_count}
+                                </span>
+                              )}
+                              {entry.summary.unknown_count > 0 && (
+                                <span style={{
+                                  backgroundColor: '#fef3c7',
+                                  color: '#92400e',
+                                  padding: '4px 8px',
+                                  borderRadius: '12px',
+                                  fontSize: '11px',
+                                  fontWeight: '600'
+                                }}>
+                                  ❓ {entry.summary.unknown_count}
+                                </span>
                               )}
                             </div>
                           </td>
+                          <td style={{ padding: '15px', textAlign: 'center' }}>
+                            <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                              <button
+                                onClick={() => handleToggleHistoryDetails(entry.history_id)}
+                                disabled={loading}
+                                style={{
+                                  padding: '4px 8px',
+                                  backgroundColor: expandedHistoryId === entry.history_id ? '#10b981' : '#6b7280',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '6px',
+                                  cursor: loading ? 'not-allowed' : 'pointer',
+                                  fontSize: '11px',
+                                  fontWeight: '500',
+                                  opacity: loading ? 0.6 : 1
+                                }}
+                                onMouseEnter={(e) => {
+                                  if (!loading) {
+                                    e.currentTarget.style.backgroundColor = expandedHistoryId === entry.history_id ? '#059669' : '#4b5563';
+                                  }
+                                }}
+                                onMouseLeave={(e) => {
+                                  if (!loading) {
+                                    e.currentTarget.style.backgroundColor = expandedHistoryId === entry.history_id ? '#10b981' : '#6b7280';
+                                  }
+                                }}
+                              >
+                                🔍 {expandedHistoryId === entry.history_id ? '詳細を隠す' : 'リンク確認'}
+                              </button>
+                              <button
+                                onClick={() => handleReanalyze(entry.image_id)}
+                                disabled={loading}
+                                style={{
+                                  padding: '4px 8px',
+                                  backgroundColor: '#3b82f6',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '6px',
+                                  cursor: loading ? 'not-allowed' : 'pointer',
+                                  fontSize: '11px',
+                                  fontWeight: '500',
+                                  opacity: loading ? 0.6 : 1
+                                }}
+                                onMouseEnter={(e) => {
+                                  if (!loading) e.currentTarget.style.backgroundColor = '#2563eb';
+                                }}
+                                onMouseLeave={(e) => {
+                                  if (!loading) e.currentTarget.style.backgroundColor = '#3b82f6';
+                                }}
+                              >
+                                🔄 再検査
+                              </button>
+                              <button
+                                onClick={() => handleDeleteHistory(entry.history_id, entry.original_filename)}
+                                disabled={loading}
+                                style={{
+                                  padding: '4px 8px',
+                                  backgroundColor: '#ef4444',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '6px',
+                                  cursor: loading ? 'not-allowed' : 'pointer',
+                                  fontSize: '11px',
+                                  fontWeight: '500',
+                                  opacity: loading ? 0.6 : 1
+                                }}
+                                onMouseEnter={(e) => {
+                                  if (!loading) e.currentTarget.style.backgroundColor = '#dc2626';
+                                }}
+                                onMouseLeave={(e) => {
+                                  if (!loading) e.currentTarget.style.backgroundColor = '#ef4444';
+                                }}
+                              >
+                                🗑️ 削除
+                              </button>
+                            </div>
+                          </td>
                         </tr>
-                      )}
+                        {/* 詳細表示（展開時） */}
+                        {expandedHistoryId === entry.history_id && historyDetails[entry.history_id] && (
+                          <tr>
+                            <td colSpan={4} style={{ padding: '0', backgroundColor: '#f8fafc' }}>
+                              <div style={{ padding: '20px', borderTop: '1px solid #e2e8f0' }}>
+                                <div style={{ marginBottom: '16px' }}>
+                                  <h4 style={{ margin: '0 0 12px 0', color: '#374151', fontSize: '16px', fontWeight: '600' }}>
+                                    🔍 検出されたリンク詳細
+                                  </h4>
+                                  <div style={{ fontSize: '14px', color: '#6b7280', marginBottom: '16px' }}>
+                                    検出数: {historyDetails[entry.history_id].found_urls_count}件 |
+                                    処理済み: {historyDetails[entry.history_id].processed_results_count}件
+                                  </div>
+                                </div>
+
+                                {historyDetails[entry.history_id].results && historyDetails[entry.history_id].results.length > 0 ? (
+                                  (() => {
+                                    // 判定結果別にグループ化
+                                    const results = historyDetails[entry.history_id].results
+                                    const safeResults = results.filter((r: any) => r.judgment === '○')
+                                    const dangerResults = results.filter((r: any) => r.judgment === '×')
+                                    const warningResults = results.filter((r: any) => r.judgment === '！')
+                                    const unknownResults = results.filter((r: any) => r.judgment === '？')
+
+                                    const renderResultSection = (title: string, sectionResults: any[], bgColor: string, textColor: string, icon: string) => {
+                                      if (sectionResults.length === 0) return null
+
+                                      return (
+                                        <div key={title} style={{ marginBottom: '16px' }}>
+                                          <div style={{
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            gap: '8px',
+                                            marginBottom: '8px',
+                                            padding: '6px 10px',
+                                            backgroundColor: bgColor,
+                                            borderRadius: '6px',
+                                            color: textColor,
+                                            fontWeight: '600',
+                                            fontSize: '13px'
+                                          }}>
+                                            <span style={{ fontSize: '14px' }}>{icon}</span>
+                                            {title} ({sectionResults.length}件)
+                                          </div>
+
+                                          <div style={{
+                                            display: 'grid',
+                                            gridTemplateColumns: '1fr',
+                                            gap: '6px'
+                                          }}>
+                                            {sectionResults.map((result: any, index: number) => (
+                                              <div key={index} style={{
+                                                backgroundColor: 'white',
+                                                border: '1px solid #e5e7eb',
+                                                borderRadius: '6px',
+                                                padding: '10px',
+                                                borderLeft: `3px solid ${
+                                                  result.judgment === '○' ? '#10b981' :
+                                                  result.judgment === '×' ? '#ef4444' :
+                                                  result.judgment === '！' ? '#f59e0b' : '#6b7280'
+                                                }`
+                                              }}>
+                                                <div style={{
+                                                  fontSize: '12px',
+                                                  fontWeight: '500',
+                                                  marginBottom: '4px',
+                                                  color: '#1f2937',
+                                                  wordBreak: 'break-all'
+                                                }}>
+                                                  <a href={result.url} target="_blank" rel="noopener noreferrer"
+                                                     style={{ color: '#3b82f6', textDecoration: 'none' }}>
+                                                    {result.url}
+                                                  </a>
+                                                </div>
+                                                <div style={{
+                                                  fontSize: '11px',
+                                                  color: '#6b7280',
+                                                  lineHeight: '1.4'
+                                                }}>
+                                                  {result.reason}
+                                                </div>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
+                                      )
+                                    }
+
+                                    return (
+                                      <div>
+                                        {renderResultSection('出版社公式', safeResults, '#dcfce7', '#166534', '○')}
+                                        {renderResultSection('要注意サイト', warningResults, '#fef3c7', '#92400e', '！')}
+                                        {renderResultSection('情報不足', unknownResults, '#f3f4f6', '#6b7280', '？')}
+                                        {renderResultSection('危険サイト', dangerResults, '#fef2f2', '#dc2626', '×')}
+                                      </div>
+                                    )
+                                  })()
+                                ) : (
+                                  <div style={{
+                                    textAlign: 'center',
+                                    padding: '20px',
+                                    color: '#9ca3af',
+                                    fontSize: '14px'
+                                  }}>
+                                    この検査では検出結果がありませんでした
+                                  </div>
+                                )}
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
                     ))}
                   </tbody>
                 </table>
