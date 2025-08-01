@@ -3073,6 +3073,28 @@ async def get_image(file_id: str):
         filename=record.get("original_filename", f"image{ext}")
     )
 
+@app.get("/file-info/{file_id}")
+async def get_file_info(file_id: str):
+    """
+    ファイルの情報（ファイル名、タイプ等）を取得する
+    """
+    if file_id not in upload_records:
+        raise HTTPException(
+            status_code=404,
+            detail="指定されたファイルが見つかりません"
+        )
+    
+    record = upload_records[file_id]
+    
+    return {
+        "file_id": file_id,
+        "filename": record.get("original_filename", "不明"),
+        "fileType": record.get("file_type", "image"),
+        "fileSize": record.get("file_size", 0),
+        "uploadTime": record.get("upload_time", ""),
+        "analysisStatus": record.get("analysis_status", "pending")
+    }
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -174,6 +174,7 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({
   const [imageSrc, setImageSrc] = useState<string>('')
   const [isLoading, setIsLoading] = useState(true)
   const [hasError, setHasError] = useState(false)
+  const [fileInfo, setFileInfo] = useState<{filename?: string, fileType?: string} | null>(null)
 
   const sizeConfig = {
     small: { width: '60px', height: '60px' },
@@ -181,29 +182,52 @@ const ImagePreview: React.FC<ImagePreviewProps> = ({
     large: { width: '200px', height: '200px' }
   }
 
-  // PDFかどうかを判定
+  // PDFかどうかを判定（fileまたはfileIdから）
   const isPdf = file?.type === 'application/pdf' ||
-                (file?.name && file.name.toLowerCase().endsWith('.pdf'))
+                (file?.name && file.name.toLowerCase().endsWith('.pdf')) ||
+                (fileInfo?.filename && fileInfo.filename.toLowerCase().endsWith('.pdf')) ||
+                fileInfo?.fileType === 'pdf'
 
   useEffect(() => {
-    if (file) {
-      if (isPdf) {
-        // PDFの場合はプレビューを作成しない
-        setIsLoading(false)
-      } else {
-        // 画像の場合は従来通り
-        const url = URL.createObjectURL(file)
-        setImageSrc(url)
-        setIsLoading(false)
+    const loadFileInfo = async () => {
+      if (file) {
+        if (isPdf) {
+          // PDFの場合はプレビューを作成しない
+          setIsLoading(false)
+        } else {
+          // 画像の場合は従来通り
+          const url = URL.createObjectURL(file)
+          setImageSrc(url)
+          setIsLoading(false)
 
-        return () => URL.revokeObjectURL(url)
+          return () => URL.revokeObjectURL(url)
+        }
+      } else if (fileId) {
+        // fileIdからファイル情報を取得
+        try {
+          const response = await axios.get(`${API_BASE}/file-info/${fileId}`)
+          const info = response.data
+          setFileInfo(info)
+          
+          // PDFの場合は画像取得を試行しない
+          if (info.fileType === 'pdf' || (info.filename && info.filename.toLowerCase().endsWith('.pdf'))) {
+            setIsLoading(false)
+          } else {
+            // 画像の場合はAPI から画像取得
+            setImageSrc(`${API_BASE}/image/${fileId}`)
+            setIsLoading(false)
+          }
+        } catch (error) {
+          console.warn('ファイル情報取得失敗、画像として処理:', error)
+          // フォールバック：画像として処理
+          setImageSrc(`${API_BASE}/image/${fileId}`)
+          setIsLoading(false)
+        }
       }
-    } else if (fileId) {
-      // API から画像取得（PDFかどうかはfileIdからは判定できないので従来通り）
-      setImageSrc(`${API_BASE}/image/${fileId}`)
-      setIsLoading(false)
     }
-  }, [file, fileId, isPdf])
+
+    loadFileInfo()
+  }, [file, fileId])
 
   const handleImageLoad = () => {
     setIsLoading(false)
@@ -1116,7 +1140,7 @@ function App() {
               </div>
 
               <div style={{ color: '#9ca3af', fontSize: '0.9rem' }}>
-                対応形式: JPEG, PNG, GIF, WebP (各10MB、合計50MB、最大10ファイル)
+                対応形式: PDF, JPEG, PNG, GIF, WebP (各10MB、合計50MB、最大10ファイル)
               </div>
 
               {isBatchMode && (
@@ -2081,76 +2105,89 @@ function App() {
                       </div>
                     </div>
 
-                                        {batchResults[activeTab].results && batchResults[activeTab].results!.length > 0 ? (
-                      <div>
+                    {batchResults[activeTab].results && batchResults[activeTab].results!.length > 0 ? (
+                      (() => {
+                        // 判定結果別にグループ化
+                        const results = batchResults[activeTab].results!
+                        const safeResults = results.filter(r => r.judgment === '○')
+                        const dangerResults = results.filter(r => r.judgment === '×')
+                        const warningResults = results.filter(r => r.judgment === '！')
+                        const unknownResults = results.filter(r => r.judgment === '？')
 
-                        <div style={{
-                          display: 'grid',
-                          gridTemplateColumns: '1fr',
-                          gap: '10px'
-                        }}>
-                          {batchResults[activeTab].results!.map((result, index) => (
-                            <div key={index} style={{
-                              backgroundColor: 'white',
-                              border: '1px solid #e5e7eb',
-                              borderRadius: '10px',
-                              padding: '15px',
-                              boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)'
-                            }}>
+                        const renderResultSection = (title: string, sectionResults: any[], bgColor: string, textColor: string, icon: string) => {
+                          if (sectionResults.length === 0) return null
+                          
+                          return (
+                            <div key={title} style={{ marginBottom: '24px' }}>
                               <div style={{
                                 display: 'flex',
-                                alignItems: 'flex-start',
-                                gap: '15px'
+                                alignItems: 'center',
+                                gap: '8px',
+                                marginBottom: '12px',
+                                padding: '8px 12px',
+                                backgroundColor: bgColor,
+                                borderRadius: '8px',
+                                color: textColor,
+                                fontWeight: '600',
+                                fontSize: '0.9rem'
                               }}>
-                                <div style={{
-                                  flexShrink: 0,
-                                  width: '60px',
-                                  height: '40px',
-                                  borderRadius: '20px',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center',
-                                  fontSize: '1.2rem',
-                                  fontWeight: 'bold',
-                                  backgroundColor:
-                                    result.judgment === '○' ? '#dcfce7' :
-                                    result.judgment === '×' ? '#fef2f2' :
-                                    result.judgment === '！' ? '#fef3c7' : '#f3f4f6',
-                                  color:
-                                    result.judgment === '○' ? '#166534' :
-                                    result.judgment === '×' ? '#dc2626' :
-                                    result.judgment === '！' ? '#92400e' : '#6b7280'
-                                }}>
-                                  {result.judgment}
-                                </div>
-
-                                <div style={{ flex: 1 }}>
-                                  <div style={{
-                                    fontSize: '0.9rem',
-                                    fontWeight: '600',
-                                    marginBottom: '8px',
-                                    color: '#1f2937',
-                                    wordBreak: 'break-all'
+                                <span style={{ fontSize: '1.2rem' }}>{icon}</span>
+                                {title} ({sectionResults.length}件)
+                              </div>
+                              
+                              <div style={{
+                                display: 'grid',
+                                gridTemplateColumns: '1fr',
+                                gap: '8px'
+                              }}>
+                                {sectionResults.map((result, index) => (
+                                  <div key={index} style={{
+                                    backgroundColor: 'white',
+                                    border: '1px solid #e5e7eb',
+                                    borderRadius: '8px',
+                                    padding: '12px',
+                                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+                                    borderLeft: `4px solid ${
+                                      result.judgment === '○' ? '#10b981' :
+                                      result.judgment === '×' ? '#ef4444' :
+                                      result.judgment === '！' ? '#f59e0b' : '#6b7280'
+                                    }`
                                   }}>
-                                    <a href={result.url} target="_blank" rel="noopener noreferrer"
-                                       style={{ color: '#3b82f6', textDecoration: 'none' }}>
-                                      {result.url}
-                                    </a>
+                                    <div style={{
+                                      fontSize: '0.85rem',
+                                      fontWeight: '500',
+                                      marginBottom: '6px',
+                                      color: '#1f2937',
+                                      wordBreak: 'break-all'
+                                    }}>
+                                      <a href={result.url} target="_blank" rel="noopener noreferrer"
+                                         style={{ color: '#3b82f6', textDecoration: 'none' }}>
+                                        {result.url}
+                                      </a>
+                                    </div>
+                                    <div style={{
+                                      fontSize: '0.75rem',
+                                      color: '#6b7280',
+                                      lineHeight: '1.4'
+                                    }}>
+                                      {result.reason}
+                                    </div>
                                   </div>
-
-                                  <div style={{
-                                    fontSize: '0.8rem',
-                                    color: '#6b7280',
-                                    lineHeight: '1.4'
-                                  }}>
-                                    {result.reason}
-                                  </div>
-                                </div>
+                                ))}
                               </div>
                             </div>
-                          ))}
-                        </div>
-                      </div>
+                          )
+                        }
+
+                        return (
+                          <div>
+                            {renderResultSection('出版社公式', safeResults, '#dcfce7', '#166534', '○')}
+                            {renderResultSection('要注意サイト', warningResults, '#fef3c7', '#92400e', '！')}
+                            {renderResultSection('情報不足', unknownResults, '#f3f4f6', '#6b7280', '？')}
+                            {renderResultSection('危険サイト', dangerResults, '#fef2f2', '#dc2626', '×')}
+                          </div>
+                        )
+                      })()
                     ) : (
                       <div style={{
                         textAlign: 'center',
