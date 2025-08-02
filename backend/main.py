@@ -600,15 +600,7 @@ def search_web_for_image(image_content: bytes) -> list[str]:
 
         vision_urls = []
 
-        # Vision APIからURL収集
-        if web_detection.pages_with_matching_images:
-            logger.info("🎯 マッチページからURL抽出中...")
-            for page in web_detection.pages_with_matching_images:
-                if page.url and page.url.startswith(('http://', 'https://')):
-                    score = getattr(page, 'score', 1.0)
-                    if score >= 0.1 or score == 0.0:
-                        vision_urls.append(page.url)
-                        logger.info(f"  ✅ ページ追加 (score: {score:.2f}): {page.url}")
+        # Vision APIからURL収集（マッチページは除外、完全一致・部分一致のみ）
 
         if web_detection.full_matching_images:
             logger.info("🎯 完全一致画像からURL抽出中...")
@@ -1496,15 +1488,10 @@ def judge_content_with_gemini(content: str, url: str = "") -> dict:
             'www.tower.jp', 'tower.jp', 'books.shufunotomo.co.jp', 'books.bunka.co.jp'
         ]
 
-        # 公式だが内容確認が必要なドメイン
+        # 公式だが内容確認が必要なドメイン（SNSも含む）
         check_required_domains = [
             'amazon.co.jp', 'books.rakuten.co.jp', 'twitter.com', 'x.com',
-            'facebook.com'
-        ]
-
-        # SNSドメイン（基本的に安全として扱う）
-        sns_domains = [
-            'instagram.com', 'www.instagram.com',
+            'facebook.com', 'instagram.com', 'www.instagram.com',
             'threads.net', 'www.threads.net'
         ]
 
@@ -1515,14 +1502,7 @@ def judge_content_with_gemini(content: str, url: str = "") -> dict:
         if current_domain in official_domains:
             return {"judgment": "○", "reason": "公式サイト"}
 
-        # SNSドメインの場合は安全判定
-        if current_domain in sns_domains:
-            if 'instagram.com' in current_domain:
-                return {"judgment": "○", "reason": "Instagramの投稿"}
-            elif 'threads.net' in current_domain:
-                return {"judgment": "○", "reason": "Threadsの投稿"}
-            else:
-                return {"judgment": "○", "reason": "SNS投稿"}
+        # SNSドメインの即時○分類は削除 - すべてコンテンツ確認を行う
 
         prohibited_keywords = [
             '無料ダウンロード','全巻無料','PDF','raw','漫画バンク','海賊版','無断転載',
@@ -1565,9 +1545,12 @@ URL: {url if url else 'N/A'}
 {content[:3000]}
 
 特に以下の点に注意してチェック:
-1. SNSの場合: 海賊版へのリンク共有、違法DLの告知
+1. SNSの場合: 海賊版へのリンク共有、違法DL告知、無断転載投稿
 2. ECサイトの場合: 非正規品、デジタルコンテンツの無断転載
-3. 投稿内容に禁止キーワードが含まれるか: {', '.join(prohibited_keywords)}
+3. Instagram/Threadsの場合: 無断転載投稿、海賊版サイトへの誘導
+4. 投稿内容に禁止キーワードが含まれるか: {', '.join(prohibited_keywords)}
+
+**重要**: SNSでも無断転載や悪用の可能性があるため厳格に判定してください。
 
 出力は必ず1行で `判定:● 理由:△△` の形式のみ。理由は20字以内。
 """
