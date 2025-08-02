@@ -609,12 +609,8 @@ def search_web_for_image(image_content: bytes) -> list[str]:
                     vision_urls.append(img.url)
                     logger.info(f"  ✅ 完全一致画像追加: {img.url}")
 
-        if web_detection.partial_matching_images and len(vision_urls) < 5:
-            logger.info("🎯 高品質部分一致からURL補完中...")
-            for i, img in enumerate(web_detection.partial_matching_images[:5]):
-                if img.url and img.url.startswith(('http://', 'https://')):
-                    vision_urls.append(img.url)
-                    logger.info(f"  ✅ 部分一致補完追加: {img.url}")
+        # 部分一致は除外 - 完全一致のみ使用
+        logger.info("🎯 部分一致はスキップ（完全一致のみ使用）")
 
         all_urls.extend(vision_urls)
         logger.info(f"✅ Vision API: {len(vision_urls)}件のURL取得")
@@ -966,36 +962,42 @@ def is_trusted_news_domain(url: str) -> bool:
 
                 # 信頼できるニュース・出版・公式サイトドメイン
         trusted_domains = [
-            'news.yahoo.co.jp',
-            'www3.nhk.or.jp',
-            'mainichi.jp',
-            'www.asahi.com',
-            'www.yomiuri.co.jp',
-            'www.sankei.com',
-            'www.nikkei.com',
-            'toyokeizai.net',
-            'diamond.jp',
-            'gendai.media',
-            'bunshun.jp',
-            'shinchosha.co.jp',
-            'kadokawa.co.jp',
-            'www.shogakukan.co.jp',
-            'www.amazon.co.jp',
-            'books.rakuten.co.jp',
-            'honto.jp',
-            'www.kinokuniya.co.jp',
-            'www.tsutaya.co.jp',
-            'natalie.mu',
-            'www.oricon.co.jp',
-            'more.hpplus.jp',
-            'www.vogue.co.jp',
-            'www.elle.com',
-            'www.cosmopolitan.com',
-            'mi-mollet.com',
-            'www.25ans.jp',
-            'cancam.jp',
-            'ray-web.jp',
-            'www.biteki.com'
+            # 主要メディア・新聞
+            'news.yahoo.co.jp', 'www.nhk.or.jp', 'nhk.or.jp', 'www3.nhk.or.jp',
+            'mainichi.jp', 'www.mainichi.jp', 'www.asahi.com', 'asahi.com',
+            'www.yomiuri.co.jp', 'yomiuri.co.jp', 'www.sankei.com', 'sankei.com',
+            'www.nikkei.com', 'nikkei.com', 'www.jiji.com', 'jiji.com',
+            'www.kyodo.co.jp', 'kyodo.co.jp', 'www.tokyo-np.co.jp', 'tokyo-np.co.jp',
+
+            # 経済・ビジネス
+            'toyokeizai.net', 'www.toyokeizai.net', 'diamond.jp', 'www.diamond.jp',
+            'gendai.media', 'www.gendai.media', 'president.jp', 'www.president.jp',
+
+            # 出版・メディア
+            'bunshun.jp', 'www.bunshun.jp', 'shinchosha.co.jp', 'www.shinchosha.co.jp',
+            'kadokawa.co.jp', 'www.kadokawa.co.jp', 'www.shogakukan.co.jp', 'shogakukan.co.jp',
+            'www.shueisha.co.jp', 'shueisha.co.jp', 'www.kodansha.co.jp', 'kodansha.co.jp',
+
+            # IT・テック
+            'www.itmedia.co.jp', 'itmedia.co.jp', 'www.impress.co.jp', 'impress.co.jp',
+            'ascii.jp', 'www.ascii.jp', 'internet.watch.impress.co.jp', 'gigazine.net',
+            'www.gigazine.net', 'techcrunch.com', 'jp.techcrunch.com',
+
+            # ゲーム・エンタメ
+            'www.4gamer.net', '4gamer.net', 'www.famitsu.com', 'famitsu.com',
+            'www.dengeki.com', 'dengeki.com', 'natalie.mu', 'www.natalie.mu',
+            'comic-natalie.natalie.mu', 'music-natalie.natalie.mu', 'game-natalie.natalie.mu',
+            'www.oricon.co.jp', 'oricon.co.jp', 'www.animeanime.jp', 'animeanime.jp',
+
+            # 書店・EC
+            'www.amazon.co.jp', 'amazon.co.jp', 'books.rakuten.co.jp', 'rakuten.co.jp',
+            'honto.jp', 'www.honto.jp', 'www.kinokuniya.co.jp', 'kinokuniya.co.jp',
+            'www.tsutaya.co.jp', 'tsutaya.co.jp', 'www.yodobashi.com', 'yodobashi.com',
+
+            # ライフスタイル・ファッション
+            'more.hpplus.jp', 'www.vogue.co.jp', 'vogue.co.jp', 'www.elle.com', 'elle.com',
+            'www.cosmopolitan.com', 'cosmopolitan.com', 'mi-mollet.com', 'www.25ans.jp',
+            'cancam.jp', 'www.cancam.jp', 'ray-web.jp', 'www.biteki.com', 'biteki.com'
         ]
 
         # 完全一致チェック
@@ -1474,18 +1476,49 @@ def judge_content_with_gemini(content: str, url: str = "") -> dict:
         # ---------- 高精度判定用 Gemini プロンプト ----------
         # 完全に安全な公式ドメイン（コンテンツチェック不要）
         official_domains = [
-            # 出版社
-            'www.kadokawa.co.jp', 'www.shogakukan.co.jp', 'www.shueisha.co.jp',
-            'www.kodansha.co.jp',
-            # メディア
-            'www.nhk.or.jp', 'www.asahi.com', 'www.yomiuri.co.jp',
-            'www.sankei.com', 'www.nikkei.com', 'mainichi.jp', 'news.yahoo.co.jp',
-            # 書店・EC
-            'shop.delivered.co.kr', 'www.deliveredh.shop', 'books.rakuten.co.jp',
-            'honto.jp', 'www.kinokuniya.co.jp', '7net.omni7.jp', 'www.7net.omni7.jp',
-            'www.hmv.co.jp', 'hmv.co.jp', 'www.tsutaya.co.jp', 'tsutaya.co.jp',
-            'www.yodobashi.com', 'yodobashi.com', 'www.biccamera.com', 'biccamera.com',
-            'www.tower.jp', 'tower.jp', 'books.shufunotomo.co.jp', 'books.bunka.co.jp'
+            # 大手出版社
+            'www.kadokawa.co.jp', 'kadokawa.co.jp', 'www.shogakukan.co.jp', 'shogakukan.co.jp',
+            'www.shueisha.co.jp', 'shueisha.co.jp', 'www.kodansha.co.jp', 'kodansha.co.jp',
+            'www.hakusensha.co.jp', 'hakusensha.co.jp', 'www.akitashoten.co.jp', 'akitashoten.co.jp',
+            'www.shodensha.co.jp', 'shodensha.co.jp', 'www.futabasha.co.jp', 'futabasha.co.jp',
+            'www.ohzora.co.jp', 'ohzora.co.jp', 'www.mag-garden.co.jp', 'mag-garden.co.jp',
+            'www.gentosha.co.jp', 'gentosha.co.jp', 'www.houbunsha.co.jp', 'houbunsha.co.jp',
+            'www.ichijinsha.co.jp', 'ichijinsha.co.jp', 'www.takeshobo.co.jp', 'takeshobo.co.jp',
+
+            # 主要新聞・メディア
+            'www.nhk.or.jp', 'nhk.or.jp', 'www3.nhk.or.jp', 'www.asahi.com', 'asahi.com',
+            'www.yomiuri.co.jp', 'yomiuri.co.jp', 'www.sankei.com', 'sankei.com',
+            'www.nikkei.com', 'nikkei.com', 'mainichi.jp', 'www.mainichi.jp',
+            'news.yahoo.co.jp', 'www.jiji.com', 'jiji.com', 'www.kyodo.co.jp', 'kyodo.co.jp',
+            'www.tokyo-np.co.jp', 'tokyo-np.co.jp', 'www.chunichi.co.jp', 'chunichi.co.jp',
+
+            # IT・ゲーム・エンタメメディア
+            'www.itmedia.co.jp', 'itmedia.co.jp', 'www.impress.co.jp', 'impress.co.jp',
+            'www.4gamer.net', '4gamer.net', 'www.famitsu.com', 'famitsu.com',
+            'www.dengeki.com', 'dengeki.com', 'www.watch.impress.co.jp', 'watch.impress.co.jp',
+            'av.watch.impress.co.jp', 'game.watch.impress.co.jp', 'pc.watch.impress.co.jp',
+            'www.gamespark.jp', 'gamespark.jp', 'www.inside-games.jp', 'inside-games.jp',
+            'www.animeanime.jp', 'animeanime.jp', 'natalie.mu', 'www.natalie.mu',
+            'comic-natalie.natalie.mu', 'music-natalie.natalie.mu', 'game-natalie.natalie.mu',
+
+            # 書店・EC・配信
+            'honto.jp', 'www.honto.jp', 'www.kinokuniya.co.jp', 'kinokuniya.co.jp',
+            '7net.omni7.jp', 'www.7net.omni7.jp', 'www.hmv.co.jp', 'hmv.co.jp',
+            'www.tsutaya.co.jp', 'tsutaya.co.jp', 'www.yodobashi.com', 'yodobashi.com',
+            'www.biccamera.com', 'biccamera.com', 'www.tower.jp', 'tower.jp',
+            'books.shufunotomo.co.jp', 'books.bunka.co.jp', 'www.ebookjapan.jp', 'ebookjapan.jp',
+            'booklive.jp', 'www.booklive.jp', 'www.cmoa.jp', 'cmoa.jp',
+            'www.bookwalker.jp', 'bookwalker.jp', 'comic.k-manga.jp', 'piccoma.com',
+
+            # ゲーム・アニメ公式
+            'www.nintendo.co.jp', 'nintendo.co.jp', 'www.playstation.com', 'playstation.com',
+            'www.xbox.com', 'xbox.com', 'store.steampowered.com', 'steamcommunity.com',
+            'www.crunchyroll.com', 'crunchyroll.com', 'www.funimation.com', 'funimation.com',
+            'abema.tv', 'www.abema.tv', 'www.netflix.com', 'netflix.com',
+
+            # 政府・公共機関
+            'www.gov.go.jp', 'www.mext.go.jp', 'www.bunka.go.jp', 'www.soumu.go.jp',
+            'www.meti.go.jp', 'www.jpo.go.jp', 'www.caa.go.jp', 'www.kantei.go.jp'
         ]
 
         # 公式だが内容確認が必要なドメイン（SNSも含む）
@@ -1699,6 +1732,102 @@ def analyze_url_efficiently(url: str) -> Optional[Dict]:
         "reason": judgment_result["reason"]
     }
 
+def extract_instagram_content(url: str) -> str | None:
+    """
+    InstagramのURLからメタデータを抽出
+    無料のメタデータ解析を使用
+    """
+    try:
+        import re
+        logger.info(f"📸 Instagram専用解析: {url}")
+
+        with httpx.Client(timeout=10.0, follow_redirects=True) as client:
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+            response = client.get(url, headers=headers)
+            response.raise_for_status()
+
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        # メタデータから情報を抽出
+        title = ""
+        description = ""
+
+        # og:title
+        og_title = soup.find('meta', property='og:title')
+        if og_title:
+            title = og_title.get('content', '')
+
+        # og:description
+        og_desc = soup.find('meta', property='og:description')
+        if og_desc:
+            description = og_desc.get('content', '')
+
+        # twitter:description
+        if not description:
+            twitter_desc = soup.find('meta', name='twitter:description')
+            if twitter_desc:
+                description = twitter_desc.get('content', '')
+
+        # JSONデータからの抽出試行
+        json_scripts = soup.find_all('script', type='application/ld+json')
+        for script in json_scripts:
+            try:
+                import json
+                data = json.loads(script.string)
+                if isinstance(data, dict) and 'caption' in data:
+                    description = data['caption']
+                    break
+            except:
+                continue
+
+        content = f"Instagram投稿\nタイトル: {title}\n説明: {description}"
+        logger.info(f"📸 Instagram解析完了: {len(content)} chars")
+        return content
+
+    except Exception as e:
+        logger.warning(f"⚠️ Instagram解析失敗: {e}")
+        return f"Instagram投稿: {url} (詳細取得失敗)"
+
+def extract_threads_content(url: str) -> str | None:
+    """
+    ThreadsのURLからメタデータを抽出
+    """
+    try:
+        logger.info(f"🧵 Threads専用解析: {url}")
+
+        with httpx.Client(timeout=10.0, follow_redirects=True) as client:
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            }
+            response = client.get(url, headers=headers)
+            response.raise_for_status()
+
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        # メタデータから情報を抽出
+        title = ""
+        description = ""
+
+        # og:title
+        og_title = soup.find('meta', property='og:title')
+        if og_title:
+            title = og_title.get('content', '')
+
+        # og:description
+        og_desc = soup.find('meta', property='og:description')
+        if og_desc:
+            description = og_desc.get('content', '')
+
+        content = f"Threads投稿\nタイトル: {title}\n説明: {description}"
+        logger.info(f"🧵 Threads解析完了: {len(content)} chars")
+        return content
+
+    except Exception as e:
+        logger.warning(f"⚠️ Threads解析失敗: {e}")
+        return f"Threads投稿: {url} (詳細取得失敗)"
+
 def scrape_page_content(url: str) -> str | None:
     # 1. 拡張子とドメインで簡易フィルタリング
     image_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp']
@@ -1715,6 +1844,14 @@ def scrape_page_content(url: str) -> str | None:
     if 'pbs.twimg.com' in url:
         logger.info(f"🐦 Twitter画像URL検出のためスクレイピングスキップ: {url}")
         return None
+
+    # Instagram専用処理
+    if 'instagram.com' in url:
+        return extract_instagram_content(url)
+
+    # Threads専用処理
+    if 'threads.net' in url:
+        return extract_threads_content(url)
 
     logger.info(f"🌐 スクレイピング開始: {url}")
     try:
