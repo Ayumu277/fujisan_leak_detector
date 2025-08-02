@@ -609,8 +609,20 @@ def search_web_for_image(image_content: bytes) -> list[str]:
                     vision_urls.append(img.url)
                     logger.info(f"  ✅ 完全一致画像追加: {img.url}")
 
-        # 部分一致は除外 - 完全一致のみ使用
-        logger.info("🎯 部分一致はスキップ（完全一致のみ使用）")
+        # 高品質な部分一致のみ追加（スコア0.8以上）
+        if web_detection.partial_matching_images and len(vision_urls) < 3:
+            logger.info("🎯 高品質部分一致からURL補完中（スコア0.8以上のみ）...")
+            for i, img in enumerate(web_detection.partial_matching_images[:3]):
+                if img.url and img.url.startswith(('http://', 'https://')):
+                    # スコアチェック（0.8以上の高品質のみ）
+                    score = getattr(img, 'score', 0.0)
+                    if score >= 0.8 or (score == 0.0 and i < 1):  # スコア不明の場合は最初の1つのみ
+                        vision_urls.append(img.url)
+                        logger.info(f"  ✅ 高品質部分一致追加 (score: {score:.2f}): {img.url}")
+                    else:
+                        logger.info(f"  ❌ スコア不足でスキップ (score: {score:.2f}): {img.url}")
+        else:
+            logger.info("🎯 部分一致: 完全一致が十分または利用可能な部分一致なし")
 
         all_urls.extend(vision_urls)
         logger.info(f"✅ Vision API: {len(vision_urls)}件のURL取得")
