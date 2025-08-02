@@ -560,8 +560,21 @@ def search_web_for_image(image_content: bytes) -> list[str]:
     try:
         # 1. Google Vision API WEB_DETECTION
         logger.info("📊 【Phase 1】Google Vision API WEB_DETECTION")
+
+        # Vision APIクライアントが初期化されているかチェック
+        if not vision_client:
+            logger.error("❌ Google Vision APIクライアントが初期化されていません")
+            logger.error("   設定確認: GOOGLE_APPLICATION_CREDENTIALS または GOOGLE_APPLICATION_CREDENTIALS_JSON")
+            return []
+
         image = vision.Image(content=image_content)
         response = vision_client.web_detection(image=image)  # type: ignore
+
+        # レスポンスが正常か確認
+        if not response:
+            logger.error("❌ Vision API レスポンスが空です")
+            return []
+
         web_detection = response.web_detection
 
         # デバッグ用: 各マッチタイプの件数をログ出力
@@ -1082,6 +1095,11 @@ def get_x_tweet_url_and_content_by_image(image_url: str) -> dict | None:
                         image = vision.Image(content=image_content)
                         response = vision_client.web_detection(image=image)  # type: ignore
 
+                        # レスポンス確認
+                        if not response or not response.web_detection:
+                            logger.warning("⚠️ Vision APIレスポンスが無効")
+                            return None
+
                         # 関連ページから X/Twitter URLを探索
                         if response.web_detection.pages_with_matching_images:
                             for page in response.web_detection.pages_with_matching_images[:15]:
@@ -1257,6 +1275,11 @@ def get_x_tweet_content_by_image(image_url: str) -> str | None:
                         from google.cloud import vision
                         image = vision.Image(content=image_content)
                         response = vision_client.web_detection(image=image)  # type: ignore
+
+                        # レスポンス確認
+                        if not response or not response.web_detection:
+                            logger.warning("⚠️ Vision APIレスポンスが無効")
+                            return None
 
                         # 関連ページから X/Twitter URLを探索
                         if response.web_detection.pages_with_matching_images:
@@ -1478,7 +1501,7 @@ def judge_content_with_gemini(content: str, url: str = "") -> dict:
             'amazon.co.jp', 'books.rakuten.co.jp', 'twitter.com', 'x.com',
             'facebook.com'
         ]
-        
+
         # SNSドメイン（基本的に安全として扱う）
         sns_domains = [
             'instagram.com', 'www.instagram.com',
@@ -1491,7 +1514,7 @@ def judge_content_with_gemini(content: str, url: str = "") -> dict:
         # 完全安全ドメインの場合は即座に安全判定
         if current_domain in official_domains:
             return {"judgment": "○", "reason": "公式サイト"}
-        
+
         # SNSドメインの場合は安全判定
         if current_domain in sns_domains:
             if 'instagram.com' in current_domain:

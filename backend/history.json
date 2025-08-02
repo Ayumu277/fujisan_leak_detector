@@ -630,5 +630,49 @@
         "reason": "情報が極端に少ない"
       }
     ]
+  },
+  {
+    "history_id": "78933fd5-28a0-467d-9b05-1a4334eec81b",
+    "image_id": "20b76679-9fed-46bd-911a-3c90236a3994",
+    "image_hash": "fb6e18d9f302e82010a0c7a3039331c962988cfbc76d665babf1621fd45aa637",
+    "original_filename": "00024.pdf",
+    "analysis_date": "2025-08-02T20:59:33.806131",
+    "analysis_timestamp": 1754135973,
+    "found_urls_count": 0,
+    "processed_results_count": 0,
+    "results": []
+  },
+  {
+    "history_id": "03436bdb-a4d5-4c9a-91f6-207b39a1c145",
+    "image_id": "20b76679-9fed-46bd-911a-3c90236a3994",
+    "image_hash": "fb6e18d9f302e82010a0c7a3039331c962988cfbc76d665babf1621fd45aa637",
+    "original_filename": "00024.pdf",
+    "analysis_date": "2025-08-02T20:59:46.442904",
+    "analysis_timestamp": 1754135986,
+    "found_urls_count": 0,
+    "processed_results_count": 0,
+    "results": []
+  },
+  {
+    "history_id": "fdfd005d-209b-49fd-b51c-44f10f6ff5d4",
+    "image_id": "5e046827-f480-473e-b313-299c0710e124",
+    "image_hash": "b70a58a9b3250e633b10b9f17435b498d00344a10ce63edb6caa082b64c09989",
+    "original_filename": "00022.pdf",
+    "analysis_date": "2025-08-02T21:09:33.823764",
+    "analysis_timestamp": 1754136573,
+    "found_urls_count": 0,
+    "processed_results_count": 0,
+    "results": []
+  },
+  {
+    "history_id": "cc9aed4a-9a9b-4ac2-b4a7-c5ff8b69e477",
+    "image_id": "5e046827-f480-473e-b313-299c0710e124",
+    "image_hash": "b70a58a9b3250e633b10b9f17435b498d00344a10ce63edb6caa082b64c09989",
+    "original_filename": "00022.pdf",
+    "analysis_date": "2025-08-02T21:09:37.280023",
+    "analysis_timestamp": 1754136577,
+    "found_urls_count": 0,
+    "processed_results_count": 0,
+    "results": []
   }
 ]
