@@ -1778,7 +1778,7 @@ def extract_instagram_content(url: str) -> str | None:
 
         # twitter:description
         if not description:
-            twitter_desc = soup.find('meta', name='twitter:description')
+            twitter_desc = soup.find('meta', attrs={'name': 'twitter:description'})
             if twitter_desc:
                 description = twitter_desc.get('content', '')
 
@@ -1799,8 +1799,7 @@ def extract_instagram_content(url: str) -> str | None:
         return content
 
     except Exception as e:
-        logger.warning(f"⚠️ Instagram解析失敗: {e}")
-        return f"Instagram投稿: {url} (詳細取得失敗)"
+        return f"Instagram投稿: {url}"
 
 def extract_threads_content(url: str) -> str | None:
     """
@@ -1837,8 +1836,7 @@ def extract_threads_content(url: str) -> str | None:
         return content
 
     except Exception as e:
-        logger.warning(f"⚠️ Threads解析失敗: {e}")
-        return f"Threads投稿: {url} (詳細取得失敗)"
+        return f"Threads投稿: {url}"
 
 def scrape_page_content(url: str) -> str | None:
     # 1. 拡張子とドメインで簡易フィルタリング
@@ -3262,6 +3260,7 @@ def process_batch_search(batch_id: str, file_ids: List[str]):
             batch_jobs[batch_id]["files"][i]["progress"] = 0
 
             logger.info(f"🔄 バッチ検索処理中 ({i+1}/{len(file_ids)}): {file_id}")
+            logger.info(f"📊 バッチ進捗: {i+1}/{len(file_ids)} ({((i+1)/len(file_ids)*100):.1f}%)")
 
             try:
                 # 既存の分析ロジックを使用
@@ -3351,6 +3350,7 @@ def process_batch_search(batch_id: str, file_ids: List[str]):
                 batch_jobs[batch_id]["files"][i]["results_count"] = len(processed_results)
 
                 logger.info(f"✅ バッチ検索完了 ({i+1}/{len(file_ids)}): {file_id}")
+                logger.info(f"📊 ファイル {i+1} の結果: URL発見={len(url_list)}件, 分析完了={len(processed_results)}件")
 
             except Exception as e:
                 logger.error(f"❌ バッチ検索エラー {file_id}: {str(e)}")
