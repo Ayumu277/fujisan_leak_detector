@@ -15,6 +15,28 @@ interface AnalysisResult {
   url: string
   judgment: '○' | '×' | '？' | '！'
   reason: string
+  search_method?: string
+  search_source?: string
+  confidence?: string
+  related_images?: string[]  // 元記事に関連する画像URLリスト
+  parent_page?: string       // 関連画像の親ページURL
+}
+
+interface RawUrl {
+  url: string
+  search_method: string
+  search_source: string
+  confidence: string
+  related_images?: string[]  // 元記事に関連する画像URLリスト
+  parent_page?: string       // 関連画像の親ページURL
+}
+
+interface SearchSummary {
+  total_found: number
+  total_processed: number
+  search_methods: {
+    [key: string]: number
+  }
 }
 
 interface ResultsResponse {
@@ -25,6 +47,8 @@ interface ResultsResponse {
   found_urls_count?: number
   processed_results_count?: number
   results?: AnalysisResult[]
+  raw_urls?: RawUrl[]
+  search_summary?: SearchSummary
   original_filename?: string
   analysis_time?: string
 }
@@ -364,6 +388,8 @@ function App() {
   const [batchUploadData, setBatchUploadData] = useState<BatchUploadResponse | null>(null)
   const [batchJobStatus, setBatchJobStatus] = useState<BatchJobStatus | null>(null)
   const [activeTab, setActiveTab] = useState<string>('overview')
+  const [activeSearchMethodTab, setActiveSearchMethodTab] = useState<string>('all')
+  const [historySearchMethodTab, setHistorySearchMethodTab] = useState<{[historyId: string]: string}>({})
   const [isBatchMode, setIsBatchMode] = useState(false)
 
   // 共通
@@ -817,6 +843,12 @@ function App() {
       }
 
       setExpandedHistoryId(historyId)
+
+      // 履歴詳細のタブ状態を初期化
+      setHistorySearchMethodTab(prev => ({
+        ...prev,
+        [historyId]: 'all'
+      }))
     } catch (error) {
       console.error('履歴詳細取得エラー:', error)
       showErrorToast('詳細の取得に失敗しました')
@@ -1939,17 +1971,87 @@ function App() {
 
                                 {historyDetails[entry.history_id].results && historyDetails[entry.history_id].results.length > 0 ? (
                                   (() => {
-                                    // 判定結果別にグループ化
                                     const results = historyDetails[entry.history_id].results
-                                    const safeResults = results.filter((r: any) => r.judgment === '○')
-                                    const dangerResults = results.filter((r: any) => r.judgment === '×')
-                                    const warningResults = results.filter((r: any) => r.judgment === '！')
-                                    const unknownResults = results.filter((r: any) => r.judgment === '？')
+                                    // const rawUrls = historyDetails[entry.history_id].raw_urls || []
+                                    const searchSummary = historyDetails[entry.history_id].search_summary || { search_methods: {} }
+                                    const currentHistoryTab = historySearchMethodTab[entry.history_id] || 'all'
 
-                                    const renderResultSection = (title: string, sectionResults: any[], bgColor: string, textColor: string, icon: string) => {
-                                      if (sectionResults.length === 0) return null
+                                    // 検索方法別にグループ化
+                                    const searchMethodGroups = {
+                                      'all': results,
+                                      '完全一致': results.filter((r: any) => r.search_method === '完全一致'),
+                                      '部分一致': results.filter((r: any) => r.search_method === '部分一致'),
 
-                                      return (
+          '逆引き検索': results.filter((r: any) => r.search_method && r.search_method.includes('逆引き検索')),
+        '画像のみURL': results.filter((r: any) => r.search_method && r.search_method.includes('画像のみURL'))
+                                    }
+
+                                    const currentResults = searchMethodGroups[currentHistoryTab as keyof typeof searchMethodGroups] || []
+
+                                    // 判定結果別にグループ化
+                                    const safeResults = currentResults.filter((r: any) => r.judgment === '○')
+                                    const dangerResults = currentResults.filter((r: any) => r.judgment === '×')
+                                    const warningResults = currentResults.filter((r: any) => r.judgment === '！')
+                                    const unknownResults = currentResults.filter((r: any) => r.judgment === '？')
+
+                                    return (
+                                      <div>
+                                        {/* 検索方法別タブ（履歴用） */}
+                                        <div style={{
+                                          display: 'flex',
+                                          gap: '4px',
+                                          marginBottom: '20px',
+                                          borderBottom: '1px solid #e5e7eb',
+                                          paddingBottom: '8px'
+                                        }}>
+                                          {[
+                                            { key: 'all', label: '全て', count: results.length },
+                                            { key: '完全一致', label: '完全一致', count: (searchSummary.search_methods as any)['完全一致'] || 0 },
+                                            { key: '部分一致', label: '部分一致', count: (searchSummary.search_methods as any)['部分一致'] || 0 },
+
+      { key: '逆引き検索', label: '逆引き検索', count: (searchSummary.search_methods as any)['逆引き検索'] || 0 },
+      { key: '画像のみURL', label: '画像のみURL', count: (searchSummary.search_methods as any)['画像のみURL'] || 0 }
+                                          ].map(tab => (
+                                            <button
+                                              key={tab.key}
+                                              onClick={() => setHistorySearchMethodTab(prev => ({
+                                                ...prev,
+                                                [entry.history_id]: tab.key
+                                              }))}
+                                              style={{
+                                                padding: '4px 8px',
+                                                borderRadius: '6px',
+                                                border: 'none',
+                                                backgroundColor: currentHistoryTab === tab.key ? '#3b82f6' : '#f3f4f6',
+                                                color: currentHistoryTab === tab.key ? 'white' : '#6b7280',
+                                                fontWeight: '500',
+                                                fontSize: '12px',
+                                                cursor: 'pointer',
+                                                transition: 'all 0.2s ease'
+                                              }}
+                                              onMouseEnter={(e) => {
+                                                if (currentHistoryTab !== tab.key) {
+                                                  e.currentTarget.style.backgroundColor = '#e5e7eb'
+                                                }
+                                              }}
+                                              onMouseLeave={(e) => {
+                                                if (currentHistoryTab !== tab.key) {
+                                                  e.currentTarget.style.backgroundColor = '#f3f4f6'
+                                                }
+                                              }}
+                                            >
+                                              {tab.label} ({tab.count})
+                                            </button>
+                                          ))}
+                                        </div>
+
+                                        {/* 結果表示 */}
+                                        <div>
+                                          {(() => {
+                                            const renderResultSection = (title: string, sectionResults: any[], bgColor: string, textColor: string, icon: string) => {
+                                              if (sectionResults.length === 0) return null
+
+                                              return (
                                         <div key={title} style={{ marginBottom: '16px' }}>
                                           <div style={{
                                             display: 'flex',
@@ -2010,12 +2112,16 @@ function App() {
                                       )
                                     }
 
-                                    return (
-                                      <div>
-                                        {renderResultSection('出版社公式', safeResults, '#dcfce7', '#166534', '○')}
-                                        {renderResultSection('要注意サイト', warningResults, '#fef3c7', '#92400e', '！')}
-                                        {renderResultSection('情報不足', unknownResults, '#f3f4f6', '#6b7280', '？')}
-                                        {renderResultSection('危険サイト', dangerResults, '#fef2f2', '#dc2626', '×')}
+                                            return (
+                                              <div>
+                                                {renderResultSection('出版社公式', safeResults, '#dcfce7', '#166534', '○')}
+                                                {renderResultSection('要注意サイト', warningResults, '#fef3c7', '#92400e', '！')}
+                                                {renderResultSection('情報不足', unknownResults, '#f3f4f6', '#6b7280', '？')}
+                                                {renderResultSection('危険サイト', dangerResults, '#fef2f2', '#dc2626', '×')}
+                                              </div>
+                                            )
+                                          })()}
+                                        </div>
                                       </div>
                                     )
                                   })()
@@ -2158,7 +2264,10 @@ function App() {
                   paddingBottom: '10px'
                 }}>
                   <button
-                    onClick={() => setActiveTab('overview')}
+                                                onClick={() => {
+                              setActiveTab('overview')
+                              setActiveSearchMethodTab('all')
+                            }}
                     style={{
                       padding: '8px 16px',
                       backgroundColor: activeTab === 'overview' ? '#3b82f6' : '#f3f4f6',
@@ -2178,7 +2287,10 @@ function App() {
                   {Object.entries(batchResults).map(([fileId, result]) => (
                     <button
                       key={fileId}
-                      onClick={() => setActiveTab(fileId)}
+                                                      onClick={() => {
+                                  setActiveTab(fileId)
+                                  setActiveSearchMethodTab('all')
+                                }}
                       style={{
                         padding: '8px 16px',
                         backgroundColor: activeTab === fileId ? '#10b981' : '#f3f4f6',
@@ -2228,7 +2340,10 @@ function App() {
                             cursor: 'pointer',
                             transition: 'all 0.3s ease'
                           }}
-                          onClick={() => setActiveTab(fileId)}
+                                                          onClick={() => {
+                                  setActiveTab(fileId)
+                                  setActiveSearchMethodTab('all')
+                                }}
                           onMouseEnter={(e) => {
                             e.currentTarget.style.transform = 'translateY(-2px)'
                             e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)'
@@ -2361,84 +2476,259 @@ function App() {
 
                     {batchResults[activeTab].results && batchResults[activeTab].results!.length > 0 ? (
                       (() => {
-                        // 判定結果別にグループ化
                         const results = batchResults[activeTab].results!
-                        const safeResults = results.filter(r => r.judgment === '○')
-                        const dangerResults = results.filter(r => r.judgment === '×')
-                        const warningResults = results.filter(r => r.judgment === '！')
-                        const unknownResults = results.filter(r => r.judgment === '？')
+                        // const rawUrls = batchResults[activeTab].raw_urls || []
+                        const searchSummary = batchResults[activeTab].search_summary || { search_methods: {} }
 
-                        const renderResultSection = (title: string, sectionResults: any[], bgColor: string, textColor: string, icon: string) => {
-                          if (sectionResults.length === 0) return null
+                        // 検索方法別にグループ化
+                        const searchMethodGroups = {
+                          'all': results,
+                          '完全一致': results.filter(r => r.search_method === '完全一致'),
+                          '部分一致': results.filter(r => r.search_method === '部分一致'),
 
-                          return (
-                            <div key={title} style={{ marginBottom: '24px' }}>
-                              <div style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                marginBottom: '12px',
-                                padding: '8px 12px',
-                                backgroundColor: bgColor,
-                                borderRadius: '8px',
-                                color: textColor,
-                                fontWeight: '600',
-                                fontSize: '0.9rem'
-                              }}>
-                                <span style={{ fontSize: '1.2rem' }}>{icon}</span>
-                                {title} ({sectionResults.length}件)
-                              </div>
+          '逆引き検索': results.filter(r => r.search_method && r.search_method.includes('逆引き検索')),
+        '画像のみURL': results.filter(r => r.search_method && r.search_method.includes('画像のみURL'))
+                        }
 
-                              <div style={{
-                                display: 'grid',
-                                gridTemplateColumns: '1fr',
-                                gap: '8px'
-                              }}>
-                                {sectionResults.map((result, index) => (
-                                  <div key={index} style={{
-                                    backgroundColor: 'white',
-                                    border: '1px solid #e5e7eb',
-                                    borderRadius: '8px',
-                                    padding: '12px',
-                                    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
-                                    borderLeft: `4px solid ${
-                                      result.judgment === '○' ? '#10b981' :
-                                      result.judgment === '×' ? '#ef4444' :
-                                      result.judgment === '！' ? '#f59e0b' : '#6b7280'
-                                    }`
-                                  }}>
-                                    <div style={{
-                                      fontSize: '0.85rem',
-                                      fontWeight: '500',
-                                      marginBottom: '6px',
-                                      color: '#1f2937',
-                                      wordBreak: 'break-all'
-                                    }}>
-                                      <a href={result.url} target="_blank" rel="noopener noreferrer"
-                                         style={{ color: '#3b82f6', textDecoration: 'none' }}>
-                                        {result.url}
-                                      </a>
-                                    </div>
-                                    <div style={{
-                                      fontSize: '0.75rem',
-                                      color: '#6b7280',
-                                      lineHeight: '1.4'
-                                    }}>
-                                      {result.reason}
-                                    </div>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          )
+                        const currentResults = searchMethodGroups[activeSearchMethodTab as keyof typeof searchMethodGroups] || []
+
+                        // 判定結果別にグループ化（3列表示用）
+                        const groupedResults = {
+                          '○': currentResults.filter(r => r.judgment === '○'),
+                          '？': currentResults.filter(r => r.judgment === '？' || r.judgment === '！'),
+                          '×': currentResults.filter(r => r.judgment === '×')
                         }
 
                         return (
                           <div>
-                            {renderResultSection('出版社公式', safeResults, '#dcfce7', '#166534', '○')}
-                            {renderResultSection('要注意サイト', warningResults, '#fef3c7', '#92400e', '！')}
-                            {renderResultSection('情報不足', unknownResults, '#f3f4f6', '#6b7280', '？')}
-                            {renderResultSection('危険サイト', dangerResults, '#fef2f2', '#dc2626', '×')}
+                            <h3 style={{ marginBottom: '20px', color: '#374151' }}>📋 分析結果一覧</h3>
+
+                            {/* 検索方法別タブ */}
+                            <div style={{
+                              display: 'flex',
+                              gap: '8px',
+                              marginBottom: '30px',
+                              borderBottom: '2px solid #e5e7eb',
+                              paddingBottom: '10px'
+                            }}>
+                              {[
+                                { key: 'all', label: '全て', count: results.length },
+                                { key: '完全一致', label: '完全一致', count: (searchSummary.search_methods as any)['完全一致'] || 0 },
+                                { key: '部分一致', label: '部分一致', count: (searchSummary.search_methods as any)['部分一致'] || 0 },
+
+      { key: '逆引き検索', label: '逆引き検索', count: (searchSummary.search_methods as any)['逆引き検索'] || 0 },
+      { key: '画像のみURL', label: '画像のみURL', count: (searchSummary.search_methods as any)['画像のみURL'] || 0 }
+                              ].map(tab => (
+                                <button
+                                  key={tab.key}
+                                  onClick={() => setActiveSearchMethodTab(tab.key)}
+                                  style={{
+                                    padding: '8px 16px',
+                                    borderRadius: '8px',
+                                    border: 'none',
+                                    backgroundColor: activeSearchMethodTab === tab.key ? '#3b82f6' : '#f3f4f6',
+                                    color: activeSearchMethodTab === tab.key ? 'white' : '#6b7280',
+                                    fontWeight: '500',
+                                    fontSize: '14px',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s ease'
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    if (activeSearchMethodTab !== tab.key) {
+                                      e.currentTarget.style.backgroundColor = '#e5e7eb'
+                                    }
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    if (activeSearchMethodTab !== tab.key) {
+                                      e.currentTarget.style.backgroundColor = '#f3f4f6'
+                                    }
+                                  }}
+                                >
+                                  {tab.label} ({tab.count}件)
+                                </button>
+                              ))}
+                            </div>
+
+                            {/* 3列グリッドレイアウト */}
+                            <div style={{
+                              display: 'grid',
+                              gridTemplateColumns: '1fr 1fr 1fr',
+                              gap: '20px',
+                              marginBottom: '20px'
+                            }}>
+                              {Object.entries(groupedResults).map(([judgment, results]) => {
+                                const groupConfig = {
+                                  '○': { title: '出版社公式', bg: '#dcfce7', border: '#10b981', icon: '✅' },
+                                  '？': { title: '要確認', bg: '#fef3c7', border: '#f59e0b', icon: '⚠️' },
+                                  '×': { title: '危険サイト', bg: '#fef2f2', border: '#ef4444', icon: '❌' }
+                                }[judgment] || { title: '不明', bg: '#f3f4f6', border: '#6b7280', icon: '❓' }
+
+                                return (
+                                  <div key={judgment} style={{
+                                    backgroundColor: groupConfig.bg,
+                                    borderRadius: '15px',
+                                    padding: '20px',
+                                    border: `2px solid ${groupConfig.border}`,
+                                    minHeight: '200px',
+                                    display: 'flex',
+                                    flexDirection: 'column'
+                                  }}>
+                                    {/* カラムヘッダー */}
+                                    <div style={{
+                                      textAlign: 'center',
+                                      marginBottom: '15px'
+                                    }}>
+                                      <div style={{
+                                        fontSize: '2rem',
+                                        marginBottom: '8px'
+                                      }}>
+                                        {groupConfig.icon}
+                                      </div>
+                                      <h4 style={{
+                                        margin: '0 0 8px 0',
+                                        color: groupConfig.border,
+                                        fontSize: '1.1rem',
+                                        fontWeight: '700'
+                                      }}>
+                                        {groupConfig.title}
+                                      </h4>
+                                      <div style={{
+                                        backgroundColor: 'white',
+                                        color: groupConfig.border,
+                                        border: `2px solid ${groupConfig.border}`,
+                                        borderRadius: '20px',
+                                        fontSize: '14px',
+                                        fontWeight: '600',
+                                        padding: '4px 12px',
+                                        marginTop: '8px',
+                                        display: 'inline-block'
+                                      }}>
+                                        {results.length}件
+                                      </div>
+                                    </div>
+
+                                    {/* カラム内の結果 */}
+                                    <div style={{
+                                      display: 'flex',
+                                      flexDirection: 'column',
+                                      gap: '12px',
+                                      flex: 1
+                                    }}>
+                                      {results.length === 0 ? (
+                                        <div style={{
+                                          textAlign: 'center',
+                                          color: '#9ca3af',
+                                          fontStyle: 'italic',
+                                          marginTop: '20px'
+                                        }}>
+                                          該当なし
+                                        </div>
+                                      ) : (
+                                        results.map((result: any, index: number) => {
+                                          const domain = new URL(result.url).hostname;
+
+                                          return (
+                                            <div key={`${judgment}-${index}`} style={{
+                                              backgroundColor: 'white',
+                                              borderRadius: '10px',
+                                              padding: '12px',
+                                              border: `1px solid ${groupConfig.border}`,
+                                              boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+                                              transition: 'all 0.3s ease'
+                                            }}
+                                            onMouseEnter={(e) => {
+                                              e.currentTarget.style.transform = 'translateY(-2px)'
+                                              e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)'
+                                            }}
+                                            onMouseLeave={(e) => {
+                                              e.currentTarget.style.transform = 'translateY(0)'
+                                              e.currentTarget.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)'
+                                            }}
+                                            >
+                                              <div style={{
+                                                fontSize: '0.8rem',
+                                                fontWeight: '600',
+                                                marginBottom: '6px',
+                                                color: groupConfig.border
+                                              }}>
+                                                {domain}
+                                              </div>
+                                              <div style={{
+                                                fontSize: '0.7rem',
+                                                color: '#6b7280',
+                                                lineHeight: '1.4',
+                                                marginBottom: '8px'
+                                              }}>
+                                                {result.reason}
+                                              </div>
+
+                                              {/* 検索分類情報 */}
+                                              {result.search_method && (
+                                                <div style={{
+                                                  display: 'flex',
+                                                  gap: '4px',
+                                                  marginBottom: '8px',
+                                                  flexWrap: 'wrap'
+                                                }}>
+                                                  <span style={{
+                                                    backgroundColor: '#e0f2fe',
+                                                    color: '#0277bd',
+                                                    padding: '2px 6px',
+                                                    borderRadius: '8px',
+                                                    fontSize: '0.6rem',
+                                                    fontWeight: '500'
+                                                  }}>
+                                                    {result.search_method}
+                                                  </span>
+                                                  {result.confidence && (
+                                                    <span style={{
+                                                      backgroundColor: result.confidence === '高' ? '#e8f5e8' :
+                                                                     result.confidence === '中' ? '#fff3cd' : '#f8d7da',
+                                                      color: result.confidence === '高' ? '#2e7d32' :
+                                                             result.confidence === '中' ? '#856404' : '#721c24',
+                                                      padding: '2px 6px',
+                                                      borderRadius: '8px',
+                                                      fontSize: '0.6rem',
+                                                      fontWeight: '500'
+                                                    }}>
+                                                      信頼度:{result.confidence}
+                                                    </span>
+                                                  )}
+                                                </div>
+                                              )}
+                                              <a
+                                                href={result.url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                style={{
+                                                  fontSize: '0.65rem',
+                                                  color: '#3b82f6',
+                                                  textDecoration: 'none',
+                                                  wordBreak: 'break-all',
+                                                  display: 'block',
+                                                  padding: '4px 8px',
+                                                  backgroundColor: '#f8fafc',
+                                                  borderRadius: '6px',
+                                                  border: '1px solid #e2e8f0'
+                                                }}
+                                                onMouseEnter={(e) => {
+                                                  e.currentTarget.style.backgroundColor = '#e0f2fe'
+                                                }}
+                                                onMouseLeave={(e) => {
+                                                  e.currentTarget.style.backgroundColor = '#f8fafc'
+                                                }}
+                                              >
+                                                🔗 {result.url}
+                                              </a>
+                                            </div>
+                                          )
+                                        })
+                                      )}
+                                    </div>
+                                  </div>
+                                )
+                              })}
+                            </div>
                           </div>
                         )
                       })()
@@ -2450,6 +2740,202 @@ function App() {
                         fontSize: '0.9rem'
                       }}>
                         このファイルでは検出結果がありませんでした
+                      </div>
+                    )}
+
+                    {/* 取得URL一覧セクション（バッチ結果用） */}
+                    {batchResults[activeTab].raw_urls && batchResults[activeTab].raw_urls!.length > 0 && (
+                      <div style={{ marginTop: '40px' }}>
+                        <h4 style={{ marginBottom: '20px', color: '#374151', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          🔗 取得URL一覧
+                          <span style={{
+                            backgroundColor: '#e5e7eb',
+                            color: '#374151',
+                            padding: '4px 8px',
+                            borderRadius: '12px',
+                            fontSize: '12px',
+                            fontWeight: '600'
+                          }}>
+                            {batchResults[activeTab].raw_urls!.length}件
+                          </span>
+                        </h4>
+
+                        {/* 統計情報 */}
+                        {batchResults[activeTab].search_summary && (
+                          <div style={{
+                            backgroundColor: '#f8fafc',
+                            border: '1px solid #e2e8f0',
+                            borderRadius: '12px',
+                            padding: '16px',
+                            marginBottom: '20px'
+                          }}>
+                            <h5 style={{ margin: '0 0 12px 0', color: '#374151', fontSize: '14px' }}>📊 検索統計</h5>
+                            <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ fontSize: '12px', color: '#6b7280' }}>総発見数:</span>
+                                <span style={{ fontSize: '14px', fontWeight: '600', color: '#1f2937' }}>
+                                  {batchResults[activeTab].search_summary!.total_found}件
+                                </span>
+                              </div>
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ fontSize: '12px', color: '#6b7280' }}>分析済み:</span>
+                                <span style={{ fontSize: '14px', fontWeight: '600', color: '#1f2937' }}>
+                                  {batchResults[activeTab].search_summary!.total_processed}件
+                                </span>
+                              </div>
+                              {Object.entries(batchResults[activeTab].search_summary!.search_methods).map(([method, count]) => (
+                                <div key={method} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <span style={{ fontSize: '12px', color: '#6b7280' }}>{method}:</span>
+                                  <span style={{ fontSize: '14px', fontWeight: '600', color: '#1f2937' }}>
+                                    {count}件
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {/* URL一覧 */}
+                        <div style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))',
+                          gap: '10px',
+                          maxHeight: '350px',
+                          overflowY: 'auto',
+                          padding: '8px',
+                          backgroundColor: '#f9fafb',
+                          borderRadius: '12px',
+                          border: '1px solid #e5e7eb'
+                        }}>
+                          {batchResults[activeTab].raw_urls!.map((urlData: RawUrl, index: number) => {
+                            let domain = '';
+                            try {
+                              domain = new URL(urlData.url).hostname;
+                            } catch (e) {
+                              domain = urlData.url;
+                            }
+
+                            const getMethodColor = (method: string) => {
+                              if (method.includes('逆引き検索')) return { bg: '#e0f2fe', color: '#0369a1' };
+                              if (method.includes('画像のみURL')) return { bg: '#fce7f3', color: '#be185d' };
+
+                              switch (method) {
+                                case '完全一致': return { bg: '#dcfce7', color: '#166534' };
+                                case '部分一致': return { bg: '#fef3c7', color: '#92400e' };
+
+                                default: return { bg: '#f3f4f6', color: '#6b7280' };
+                              }
+                            };
+
+                            const getConfidenceColor = (confidence: string) => {
+                              switch (confidence) {
+                                case '高': return { bg: '#dcfce7', color: '#166534' };
+                                case '中': return { bg: '#fef3c7', color: '#92400e' };
+                                case '低': return { bg: '#fef2f2', color: '#dc2626' };
+                                default: return { bg: '#f3f4f6', color: '#6b7280' };
+                              }
+                            };
+
+                            const getSourceColor = (source: string) => {
+                              switch (source) {
+                                case 'Vision API': return { bg: '#e0f2fe', color: '#0277bd' };
+                                default: return { bg: '#f3f4f6', color: '#6b7280' };
+                              }
+                            };
+
+                            const methodStyle = getMethodColor(urlData.search_method);
+                            const confidenceStyle = getConfidenceColor(urlData.confidence);
+                            const sourceStyle = getSourceColor(urlData.search_source);
+
+                            return (
+                              <div key={index} style={{
+                                backgroundColor: 'white',
+                                border: '1px solid #e5e7eb',
+                                borderRadius: '6px',
+                                padding: '10px',
+                                fontSize: '11px',
+                                transition: 'all 0.2s ease'
+                              }}
+                              onMouseEnter={(e) => {
+                                e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.1)';
+                                e.currentTarget.style.transform = 'translateY(-1px)';
+                              }}
+                              onMouseLeave={(e) => {
+                                e.currentTarget.style.boxShadow = 'none';
+                                e.currentTarget.style.transform = 'translateY(0)';
+                              }}>
+                                {/* ドメイン */}
+                                <div style={{
+                                  fontSize: '12px',
+                                  fontWeight: '600',
+                                  color: '#1f2937',
+                                  marginBottom: '6px',
+                                  wordBreak: 'break-all'
+                                }}>
+                                  {domain}
+                                </div>
+
+                                {/* タグ */}
+                                <div style={{ display: 'flex', gap: '4px', marginBottom: '6px', flexWrap: 'wrap' }}>
+                                  <span style={{
+                                    backgroundColor: methodStyle.bg,
+                                    color: methodStyle.color,
+                                    padding: '1px 4px',
+                                    borderRadius: '4px',
+                                    fontSize: '9px',
+                                    fontWeight: '500'
+                                  }}>
+                                    {urlData.search_method}
+                                  </span>
+                                  <span style={{
+                                    backgroundColor: sourceStyle.bg,
+                                    color: sourceStyle.color,
+                                    padding: '1px 4px',
+                                    borderRadius: '4px',
+                                    fontSize: '9px',
+                                    fontWeight: '500'
+                                  }}>
+                                    {urlData.search_source}
+                                  </span>
+                                  {urlData.confidence && (
+                                    <span style={{
+                                      backgroundColor: confidenceStyle.bg,
+                                      color: confidenceStyle.color,
+                                      padding: '1px 4px',
+                                      borderRadius: '4px',
+                                      fontSize: '9px',
+                                      fontWeight: '500'
+                                    }}>
+                                      {urlData.confidence}
+                                    </span>
+                                  )}
+                                </div>
+
+                                {/* URL */}
+                                <a
+                                  href={urlData.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  style={{
+                                    fontSize: '10px',
+                                    color: '#3b82f6',
+                                    textDecoration: 'none',
+                                    wordBreak: 'break-all',
+                                    lineHeight: '1.3'
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.textDecoration = 'underline';
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.textDecoration = 'none';
+                                  }}
+                                >
+                                  {urlData.url}
+                                </a>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -2704,6 +3190,41 @@ function App() {
                                     {result.reason}
                                   </div>
 
+                                  {/* 検索分類情報 */}
+                                  {result.search_method && (
+                                    <div style={{
+                                      display: 'flex',
+                                      gap: '4px',
+                                      marginBottom: '8px',
+                                      flexWrap: 'wrap'
+                                    }}>
+                                      <span style={{
+                                        backgroundColor: '#e0f2fe',
+                                        color: '#0277bd',
+                                        padding: '2px 6px',
+                                        borderRadius: '8px',
+                                        fontSize: '9px',
+                                        fontWeight: '500'
+                                      }}>
+                                        {result.search_method}
+                                      </span>
+                                      {result.confidence && (
+                                        <span style={{
+                                          backgroundColor: result.confidence === '高' ? '#e8f5e8' :
+                                                         result.confidence === '中' ? '#fff3cd' : '#f8d7da',
+                                          color: result.confidence === '高' ? '#2e7d32' :
+                                                 result.confidence === '中' ? '#856404' : '#721c24',
+                                          padding: '2px 6px',
+                                          borderRadius: '8px',
+                                          fontSize: '9px',
+                                          fontWeight: '500'
+                                        }}>
+                                          信頼度:{result.confidence}
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+
                                   {/* リンク */}
                                   <a
                                     href={result.url}
@@ -2732,6 +3253,200 @@ function App() {
                     );
                   });
                 })()}
+              </div>
+            </div>
+          )}
+
+          {/* 取得URL一覧セクション */}
+          {analysisResults && analysisResults.raw_urls && analysisResults.raw_urls.length > 0 && (
+            <div style={{ marginTop: '40px' }}>
+              <h3 style={{ marginBottom: '20px', color: '#374151', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                🔗 取得URL一覧
+                <span style={{
+                  backgroundColor: '#e5e7eb',
+                  color: '#374151',
+                  padding: '4px 8px',
+                  borderRadius: '12px',
+                  fontSize: '12px',
+                  fontWeight: '600'
+                }}>
+                  {analysisResults.raw_urls.length}件
+                </span>
+              </h3>
+
+              {/* 統計情報 */}
+              {analysisResults.search_summary && (
+                <div style={{
+                  backgroundColor: '#f8fafc',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '12px',
+                  padding: '16px',
+                  marginBottom: '20px'
+                }}>
+                  <h4 style={{ margin: '0 0 12px 0', color: '#374151', fontSize: '14px' }}>📊 検索統計</h4>
+                  <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '12px', color: '#6b7280' }}>総発見数:</span>
+                      <span style={{ fontSize: '14px', fontWeight: '600', color: '#1f2937' }}>
+                        {analysisResults.search_summary.total_found}件
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontSize: '12px', color: '#6b7280' }}>分析済み:</span>
+                      <span style={{ fontSize: '14px', fontWeight: '600', color: '#1f2937' }}>
+                        {analysisResults.search_summary.total_processed}件
+                      </span>
+                    </div>
+                    {Object.entries(analysisResults.search_summary.search_methods).map(([method, count]) => (
+                      <div key={method} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '12px', color: '#6b7280' }}>{method}:</span>
+                        <span style={{ fontSize: '14px', fontWeight: '600', color: '#1f2937' }}>
+                          {count}件
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* URL一覧 */}
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(400px, 1fr))',
+                gap: '12px',
+                maxHeight: '400px',
+                overflowY: 'auto',
+                padding: '8px',
+                backgroundColor: '#f9fafb',
+                borderRadius: '12px',
+                border: '1px solid #e5e7eb'
+              }}>
+                {analysisResults.raw_urls.map((urlData: RawUrl, index: number) => {
+                  let domain = '';
+                  try {
+                    domain = new URL(urlData.url).hostname;
+                  } catch (e) {
+                    domain = urlData.url;
+                  }
+
+                  const getMethodColor = (method: string) => {
+                    if (method.includes('逆引き検索')) return { bg: '#e0f2fe', color: '#0369a1' };
+                    if (method.includes('画像のみURL')) return { bg: '#fce7f3', color: '#be185d' };
+
+                    switch (method) {
+                      case '完全一致': return { bg: '#dcfce7', color: '#166534' };
+                      case '部分一致': return { bg: '#fef3c7', color: '#92400e' };
+                      default: return { bg: '#f3f4f6', color: '#6b7280' };
+                    }
+                  };
+
+                  const getConfidenceColor = (confidence: string) => {
+                    switch (confidence) {
+                      case '高': return { bg: '#dcfce7', color: '#166534' };
+                      case '中': return { bg: '#fef3c7', color: '#92400e' };
+                      case '低': return { bg: '#fef2f2', color: '#dc2626' };
+                      default: return { bg: '#f3f4f6', color: '#6b7280' };
+                    }
+                  };
+
+                  const getSourceColor = (source: string) => {
+                    switch (source) {
+                      case 'Vision API': return { bg: '#e0f2fe', color: '#0277bd' };
+                      default: return { bg: '#f3f4f6', color: '#6b7280' };
+                    }
+                  };
+
+                  const methodStyle = getMethodColor(urlData.search_method);
+                  const confidenceStyle = getConfidenceColor(urlData.confidence);
+                  const sourceStyle = getSourceColor(urlData.search_source);
+
+                  return (
+                    <div key={index} style={{
+                      backgroundColor: 'white',
+                      border: '1px solid #e5e7eb',
+                      borderRadius: '8px',
+                      padding: '12px',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)';
+                      e.currentTarget.style.transform = 'translateY(-1px)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.boxShadow = 'none';
+                      e.currentTarget.style.transform = 'translateY(0)';
+                    }}>
+                      {/* ドメイン */}
+                      <div style={{
+                        fontSize: '13px',
+                        fontWeight: '600',
+                        color: '#1f2937',
+                        marginBottom: '8px',
+                        wordBreak: 'break-all'
+                      }}>
+                        {domain}
+                      </div>
+
+                      {/* タグ */}
+                      <div style={{ display: 'flex', gap: '6px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                        <span style={{
+                          backgroundColor: methodStyle.bg,
+                          color: methodStyle.color,
+                          padding: '2px 6px',
+                          borderRadius: '6px',
+                          fontSize: '10px',
+                          fontWeight: '500'
+                        }}>
+                          {urlData.search_method}
+                        </span>
+                        <span style={{
+                          backgroundColor: sourceStyle.bg,
+                          color: sourceStyle.color,
+                          padding: '2px 6px',
+                          borderRadius: '6px',
+                          fontSize: '10px',
+                          fontWeight: '500'
+                        }}>
+                          {urlData.search_source}
+                        </span>
+                        {urlData.confidence && (
+                          <span style={{
+                            backgroundColor: confidenceStyle.bg,
+                            color: confidenceStyle.color,
+                            padding: '2px 6px',
+                            borderRadius: '6px',
+                            fontSize: '10px',
+                            fontWeight: '500'
+                          }}>
+                            信頼度: {urlData.confidence}
+                          </span>
+                        )}
+                      </div>
+
+                      {/* URL */}
+                      <a
+                        href={urlData.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={{
+                          fontSize: '11px',
+                          color: '#3b82f6',
+                          textDecoration: 'none',
+                          wordBreak: 'break-all',
+                          lineHeight: '1.4'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.textDecoration = 'underline';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.textDecoration = 'none';
+                        }}
+                      >
+                        {urlData.url}
+                      </a>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}

@@ -1,678 +1,635 @@
 [
   {
-    "history_id": "2a0694bd-4e0c-486a-9a0c-58ffed562d1a",
-    "image_id": "37b23991-bd8f-471a-8428-de36f55e7850",
-    "image_hash": "0464b9334887d33283b794f00e15cc7b8ccec6d727e7bb5d18a0a7804db5b1a3",
-    "original_filename": "image.jpg",
-    "analysis_date": "2025-08-01T14:25:21.688871",
-    "analysis_timestamp": 1754025921,
-    "found_urls_count": 10,
-    "processed_results_count": 10,
-    "results": [
-      {
-        "url": "https://www.hmv.co.jp/artist_%E5%A4%A7%E6%A9%8B%E5%92%8C%E4%B9%9F_500000000056632/media_books_7/",
-        "judgment": "○",
-        "reason": "HMV&BOOKS onlineは正規のオンライン書店です。"
-      },
-      {
-        "url": "https://healthspan.cohs.uci.edu/83282289479.htm",
-        "judgment": "×",
-        "reason": "無関係な情報と表記から、海賊版と判断。"
-      },
-      {
-        "url": "https://news.yahoo.co.jp/articles/6a251a5355091221bbee21eece5ebd0dc98da9d9?page=2",
-        "judgment": "○",
-        "reason": "信頼できるニュース・出版サイト"
-      },
-      {
-        "url": "https://more.hpplus.jp/entame/people/120007/",
-        "judgment": "○",
-        "reason": "信頼できるニュース・出版サイト"
-      },
-      {
-        "url": "https://search.rakuten.co.jp/search/mall/%E5%A4%A7%E6%A9%8B%E5%92%8C%E4%B9%9F/",
-        "judgment": "○",
-        "reason": "信頼できるニュース・出版サイト"
-      },
-      {
-        "url": "https://wagoncreamery.com/market/90215508",
-        "judgment": "？",
-        "reason": "情報不足のため判断不能"
-      },
-      {
-        "url": "https://pbs.twimg.com/media/GrmcAbWWcAAbGcQ?format=jpg&name=4096x4096",
-        "judgment": "？",
-        "reason": "Twitter画像ですが投稿内容を特定できませんでした"
-      },
-      {
-        "url": "https://pbs.twimg.com/media/GrmcAbWWcAAbGcQ.jpg:large",
-        "judgment": "？",
-        "reason": "Twitter画像ですが投稿内容を特定できませんでした"
-      },
-      {
-        "url": "https://pbs.twimg.com/media/GrmpbssXsAARf3_.jpg:large",
-        "judgment": "？",
-        "reason": "Twitter画像ですが投稿内容を特定できませんでした"
-      },
-      {
-        "url": "https://pbs.twimg.com/media/GsdJUeFagAAwaQb?format=jpg&name=large",
-        "judgment": "？",
-        "reason": "Twitter画像ですが投稿内容を特定できませんでした"
-      }
-    ]
-  },
-  {
-    "history_id": "d9560fae-7397-43f2-977e-f96d80af33c6",
-    "image_id": "f0b1aa6c-e66b-421f-9858-8fb2345fdfa0",
-    "image_hash": "cd620b02e9af45f51ab58eadd315f9740b84561cb699272cf5e8e45a5e3c3594",
-    "original_filename": "more_sana.jpg",
-    "analysis_date": "2025-08-01T14:32:25.627363",
-    "analysis_timestamp": 1754026345,
-    "found_urls_count": 8,
-    "processed_results_count": 8,
-    "results": [
-      {
-        "url": "https://shop.delivered.co.kr/products/more-japan-magazine-2024-spring-cover-twice-sana",
-        "judgment": "？",
-        "reason": "情報不足のため判断不能"
-      },
-      {
-        "url": "https://www.reddit.com/r/twice/comments/1aucyfn/240219_japan_twitter_update_magazine_information/",
-        "judgment": "×",
-        "reason": "TWICE関連コンテンツの違法共有を示唆。"
-      },
-      {
-        "url": "https://www.ubuy.mr/en/productjp/IRKVXSMCW-more-spring-2024-sana-twice",
-        "judgment": "？",
-        "reason": "情報不足のため判断不能"
-      },
-      {
-        "url": "https://www.ubuy.co.bw/productjp/IRKVXSMCW-more-spring-2024-sana-twice",
-        "judgment": "？",
-        "reason": "情報不足のため判断不能"
-      },
-      {
-        "url": "https://www.instagram.com/p/C3hCXJpLAOv/",
-        "judgment": "？",
-        "reason": "情報不足のため判断不能"
-      },
-      {
-        "url": "https://pbs.twimg.com/media/GGqwkkXX0AAKvhd?format=jpg&name=4096x4096",
-        "judgment": "？",
-        "reason": "Twitter画像ですが投稿内容を特定できませんでした"
-      },
-      {
-        "url": "https://pbs.twimg.com/media/GJWhjZ6XYAAlwfY?format=jpg&name=4096x4096",
-        "judgment": "？",
-        "reason": "Twitter画像ですが投稿内容を特定できませんでした"
-      },
-      {
-        "url": "https://pbs.twimg.com/media/GGqw1EvasAAhQ32.jpg:large",
-        "judgment": "？",
-        "reason": "Twitter画像ですが投稿内容を特定できませんでした"
-      }
-    ]
-  },
-  {
-    "history_id": "4c739e14-c259-4b7c-a1bc-03a90d7521dc",
-    "image_id": "21c2e327-db3f-4470-9d11-65d9e4ef18fd",
-    "image_hash": "bf8587b688b6b380589e2687871e40586412016200eb980dc88a3c9da18b475a",
-    "original_filename": "1281679705_l.jpg",
-    "analysis_date": "2025-08-01T15:24:54.697466",
-    "analysis_timestamp": 1754029494,
+    "history_id": "25fe3e25-02ef-410a-9d8a-3db173643656",
+    "image_id": "bc19cf96-0bc1-4e39-b8bc-f636724b93dc",
+    "image_hash": "afd6277717a293a3c32906ef7675fdfdf31101a3eb768a4ec8c0b7ced3cd943e",
+    "original_filename": "スクリーンショット 2025-08-05 17.28.35.png",
+    "analysis_date": "2025-08-05T21:23:17.101383",
+    "analysis_timestamp": 1754396597,
     "found_urls_count": 0,
     "processed_results_count": 0,
     "results": []
   },
   {
-    "history_id": "2129f997-aab6-4b66-90c5-3732248f8c02",
-    "image_id": "5f7373b8-91dc-43f3-b87c-7bd408e1a267",
-    "image_hash": "0464b9334887d33283b794f00e15cc7b8ccec6d727e7bb5d18a0a7804db5b1a3",
-    "original_filename": "image.jpg",
-    "analysis_date": "2025-08-01T15:25:32.213653",
-    "analysis_timestamp": 1754029532,
-    "found_urls_count": 10,
-    "processed_results_count": 10,
-    "results": [
-      {
-        "url": "https://www.hmv.co.jp/artist_%E5%A4%A7%E6%A9%8B%E5%92%8C%E4%B9%9F_500000000056632/media_books_7/",
-        "judgment": "○",
-        "reason": "HMV&BOOKS onlineは正規のオンライン書店。"
-      },
-      {
-        "url": "https://healthspan.cohs.uci.edu/83282289479.htm",
-        "judgment": "×",
-        "reason": "本文に関連性のない情報のみで、海賊版を示唆。"
-      },
-      {
-        "url": "https://news.yahoo.co.jp/articles/6a251a5355091221bbee21eece5ebd0dc98da9d9?page=2",
-        "judgment": "○",
-        "reason": "信頼できるニュース・出版サイト"
-      },
-      {
-        "url": "https://more.hpplus.jp/entame/people/120007/",
-        "judgment": "○",
-        "reason": "信頼できるニュース・出版サイト"
-      },
-      {
-        "url": "https://search.rakuten.co.jp/search/mall/%E5%A4%A7%E6%A9%8B%E5%92%8C%E4%B9%9F/",
-        "judgment": "○",
-        "reason": "信頼できるニュース・出版サイト"
-      },
-      {
-        "url": "https://wagoncreamery.com/market/90215508",
-        "judgment": "？",
-        "reason": "情報不足のため判断不能"
-      },
-      {
-        "url": "https://pbs.twimg.com/media/GrmcAbWWcAAbGcQ?format=jpg&name=4096x4096",
-        "judgment": "？",
-        "reason": "Twitter画像ですが投稿内容を特定できませんでした"
-      },
-      {
-        "url": "https://pbs.twimg.com/media/GrmcAbWWcAAbGcQ.jpg:large",
-        "judgment": "？",
-        "reason": "Twitter画像ですが投稿内容を特定できませんでした"
-      },
-      {
-        "url": "https://pbs.twimg.com/media/GrmpbssXsAARf3_.jpg:large",
-        "judgment": "？",
-        "reason": "Twitter画像ですが投稿内容を特定できませんでした"
-      },
-      {
-        "url": "https://pbs.twimg.com/media/GsdJUeFagAAwaQb?format=jpg&name=large",
-        "judgment": "？",
-        "reason": "Twitter画像ですが投稿内容を特定できませんでした"
-      }
-    ]
-  },
-  {
-    "history_id": "7406353d-e27e-432f-9527-5b28c5f5ea69",
-    "image_id": "977b1824-3bcf-47e5-8863-21be604fc44c",
-    "image_hash": "cd620b02e9af45f51ab58eadd315f9740b84561cb699272cf5e8e45a5e3c3594",
-    "original_filename": "more_sana.jpg",
-    "analysis_date": "2025-08-01T15:26:35.386646",
-    "analysis_timestamp": 1754029595,
-    "found_urls_count": 9,
-    "processed_results_count": 8,
-    "results": [
-      {
-        "url": "https://shop.delivered.co.kr/products/more-japan-magazine-2024-spring-cover-twice-sana",
-        "judgment": "？",
-        "reason": "情報不足のため判断不能"
-      },
-      {
-        "url": "https://www.reddit.com/r/twice/comments/1aucyfn/240219_japan_twitter_update_magazine_information/",
-        "judgment": "×",
-        "reason": "Redditは投稿サイトであり、著作権侵害コンテンツを含む可能性があるため。"
-      },
-      {
-        "url": "https://www.ubuy.mr/en/productjp/IRKVXSMCW-more-spring-2024-sana-twice",
-        "judgment": "×",
-        "reason": "タイトルに雑誌名と表紙モデル名のみで、本文は送料に関する記述のみ。内容が不自然。"
-      },
-      {
-        "url": "https://www.ubuy.co.bw/productjp/IRKVXSMCW-more-spring-2024-sana-twice",
-        "judgment": "？",
-        "reason": "情報不足のため判断不能"
-      },
-      {
-        "url": "https://www.instagram.com/p/C3hCXJpLAOv/",
-        "judgment": "？",
-        "reason": "情報不足のため判断不能"
-      },
-      {
-        "url": "https://pbs.twimg.com/media/GGqwkkXX0AAKvhd?format=jpg&name=4096x4096",
-        "judgment": "？",
-        "reason": "Twitter画像ですが投稿内容を特定できませんでした"
-      },
-      {
-        "url": "https://pbs.twimg.com/media/GJWhjZ6XYAAlwfY?format=jpg&name=4096x4096",
-        "judgment": "？",
-        "reason": "Twitter画像ですが投稿内容を特定できませんでした"
-      },
-      {
-        "url": "https://pbs.twimg.com/media/GGqw1EvasAAhQ32.jpg:large",
-        "judgment": "？",
-        "reason": "Twitter画像ですが投稿内容を特定できませんでした"
-      }
-    ]
-  },
-  {
-    "history_id": "eb7eeda6-faaa-4995-aa84-97a7d560e754",
-    "image_id": "60b4933a-1729-407b-b970-eab9bd823158",
-    "image_hash": "cd620b02e9af45f51ab58eadd315f9740b84561cb699272cf5e8e45a5e3c3594",
-    "original_filename": "more_sana.jpg",
-    "analysis_date": "2025-08-01T15:46:09.579991",
-    "analysis_timestamp": 1754030769,
-    "found_urls_count": 9,
-    "processed_results_count": 8,
-    "results": [
-      {
-        "url": "https://shop.delivered.co.kr/products/more-japan-magazine-2024-spring-cover-twice-sana",
-        "judgment": "？",
-        "reason": "情報不足のため判断不能"
-      },
-      {
-        "url": "https://shop.delivered.co.kr/collections/vendors?q=twice",
-        "judgment": "×",
-        "reason": "コンテンツが不足し、正規サイトと判断できない。"
-      },
-      {
-        "url": "https://www.ubuy.mr/en/productjp/IRKVXSMCW-more-spring-2024-sana-twice",
-        "judgment": "×",
-        "reason": "雑誌表紙のみで本文なし、販売サイトと推測。"
-      },
-      {
-        "url": "https://www.reddit.com/r/twice/comments/1aucyfn/240219_japan_twitter_update_magazine_information/",
-        "judgment": "×",
-        "reason": "TWICE関連コンテンツの違法アップロードの可能性あり。"
-      },
-      {
-        "url": "https://www.ubuy.co.bw/productjp/IRKVXSMCW-more-spring-2024-sana-twice",
-        "judgment": "？",
-        "reason": "情報不足のため判断不能"
-      },
-      {
-        "url": "https://pbs.twimg.com/media/GGqwkkXX0AAKvhd?format=jpg&name=4096x4096",
-        "judgment": "？",
-        "reason": "Twitter画像ですが投稿内容を特定できませんでした"
-      },
-      {
-        "url": "https://pbs.twimg.com/media/GJWhjZ6XYAAlwfY?format=jpg&name=4096x4096",
-        "judgment": "？",
-        "reason": "Twitter画像ですが投稿内容を特定できませんでした"
-      },
-      {
-        "url": "https://pbs.twimg.com/media/GGqw1EvasAAhQ32.jpg:large",
-        "judgment": "？",
-        "reason": "Twitter画像ですが投稿内容を特定できませんでした"
-      }
-    ]
-  },
-  {
-    "history_id": "9cdbb2d1-6533-4a58-859c-34442f2ca0c3",
-    "image_id": "0c44ca16-1b76-4912-9a18-8218b18ed191",
-    "image_hash": "bf8587b688b6b380589e2687871e40586412016200eb980dc88a3c9da18b475a",
-    "original_filename": "1281679705_l.jpg",
-    "analysis_date": "2025-08-01T15:46:11.620607",
-    "analysis_timestamp": 1754030771,
-    "found_urls_count": 0,
-    "processed_results_count": 0,
-    "results": []
-  },
-  {
-    "history_id": "3b1195f0-2126-4cde-a362-e32e87a1443a",
-    "image_id": "8eabb5b7-c2d7-45da-9c75-326bfa5020ac",
-    "image_hash": "bf8587b688b6b380589e2687871e40586412016200eb980dc88a3c9da18b475a",
-    "original_filename": "1281679705_l.jpg",
-    "analysis_date": "2025-08-01T16:02:11.540199",
-    "analysis_timestamp": 1754031731,
-    "found_urls_count": 0,
-    "processed_results_count": 0,
-    "results": []
-  },
-  {
-    "history_id": "68e1c2e6-f94a-40a2-b55c-f627d417cc32",
-    "image_id": "a1ee1125-d6bf-47a1-96af-f51aee1c100e",
-    "image_hash": "bf8587b688b6b380589e2687871e40586412016200eb980dc88a3c9da18b475a",
-    "original_filename": "1281679705_l.jpg",
-    "analysis_date": "2025-08-01T16:11:25.131624",
-    "analysis_timestamp": 1754032285,
-    "found_urls_count": 3,
-    "processed_results_count": 3,
-    "results": [
-      {
-        "url": "https://www.merriam-webster.com/dictionary/sophisticated",
-        "judgment": "○",
-        "reason": "著名な辞書サイトの内容のため"
-      },
-      {
-        "url": "https://dictionary.cambridge.org/us/dictionary/english/sophisticated",
-        "judgment": "○",
-        "reason": "正規辞書サイトの特徴。海賊版示唆なし。"
-      },
-      {
-        "url": "https://kfcdominica.com/?f=81722119625200&channel=54d964&from=shop.php%3Fid%3D1196252-2001%26name%3D%E3%80%90%E4%B8%AD%E5%8F%A4%E3%80%91%E3%83%97%E3%83%AC%E3%82%BC%E3%83%B3V-Style%E3%83%93%E3%82%B8%E3%83%8D%E3%82%B9%E7%B7%A8%E3%80%8D",
-        "judgment": "？",
-        "reason": "分析に失敗しました"
-      }
-    ]
-  },
-  {
-    "history_id": "6e43c56c-42e4-4abe-9338-5865be2b5e17",
-    "image_id": "71e2b986-3040-4924-8860-2777e0f7d5bb",
-    "image_hash": "cd620b02e9af45f51ab58eadd315f9740b84561cb699272cf5e8e45a5e3c3594",
-    "original_filename": "more_sana.jpg",
-    "analysis_date": "2025-08-01T16:17:23.304009",
-    "analysis_timestamp": 1754032643,
-    "found_urls_count": 10,
-    "processed_results_count": 10,
-    "results": [
-      {
-        "url": "https://shop.delivered.co.kr/products/more-japan-magazine-2024-spring-cover-twice-sana",
-        "judgment": "○",
-        "reason": "雑誌名と販売関連情報のみで、違法性の示唆なし。"
-      },
-      {
-        "url": "https://www.reddit.com/r/twice/comments/1aucyfn/240219_japan_twitter_update_magazine_information/",
-        "judgment": "○",
-        "reason": "正規プラットフォームのコミュニティ紹介であり違法示唆なし。"
-      },
-      {
-        "url": "https://www.ebay.co.uk/itm/296179218530",
-        "judgment": "？",
-        "reason": "分析に失敗しました"
-      },
-      {
-        "url": "https://www.ubuy.mr/en/productjp/IRKVXSMCW-more-spring-2024-sana-twice",
-        "judgment": "○",
-        "reason": "正規ECサイトの商品販売ページと判断。"
-      },
-      {
-        "url": "https://www.deliveredh.shop/product/more-japan-magazine-2024-spring-cover-twice-sana",
-        "judgment": "？",
-        "reason": "情報不足のため判断不能"
-      },
-      {
-        "url": "https://www.ubuy.co.bw/productjp/IRKVXSMCW-more-spring-2024-sana-twice",
-        "judgment": "○",
-        "reason": "オンラインストアUbuyでの商品購入情報のため"
-      },
-      {
-        "url": "https://www.instagram.com/p/C3hCXJpLAOv/",
-        "judgment": "？",
-        "reason": "情報不足のため判断不能"
-      },
-      {
-        "url": "https://pbs.twimg.com/media/GGqwkkXX0AAKvhd?format=jpg&name=4096x4096",
-        "judgment": "？",
-        "reason": "Twitter画像ですが投稿内容を特定できませんでした"
-      },
-      {
-        "url": "https://pbs.twimg.com/media/GJWhjZ6XYAAlwfY?format=jpg&name=4096x4096",
-        "judgment": "？",
-        "reason": "Twitter画像ですが投稿内容を特定できませんでした"
-      },
-      {
-        "url": "https://pbs.twimg.com/media/GGqw1EvasAAhQ32.jpg:large",
-        "judgment": "？",
-        "reason": "Twitter画像ですが投稿内容を特定できませんでした"
-      }
-    ]
-  },
-  {
-    "history_id": "265ecd81-d1dc-4182-ba4b-9babc7bb69a8",
-    "image_id": "9f82e28d-2bb0-4c65-ba9c-583b149005ed",
-    "image_hash": "cd620b02e9af45f51ab58eadd315f9740b84561cb699272cf5e8e45a5e3c3594",
-    "original_filename": "more_sana.jpg",
-    "analysis_date": "2025-08-01T16:42:17.573125",
-    "analysis_timestamp": 1754034137,
-    "found_urls_count": 9,
-    "processed_results_count": 9,
-    "results": [
-      {
-        "url": "https://shop.delivered.co.kr/products/more-japan-magazine-2024-spring-cover-twice-sana",
-        "judgment": "？",
-        "reason": "応答解析失敗"
-      },
-      {
-        "url": "https://shop.delivered.co.kr/collections/vendors?q=twice",
-        "judgment": "？",
-        "reason": "応答解析失敗"
-      },
-      {
-        "url": "https://www.deliveredh.shop/product/more-japan-magazine-2024-spring-cover-twice-sana",
-        "judgment": "？",
-        "reason": "応答解析失敗"
-      },
-      {
-        "url": "https://www.ubuy.mr/en/productjp/IRKVXSMCW-more-spring-2024-sana-twice",
-        "judgment": "？",
-        "reason": "応答解析失敗"
-      },
-      {
-        "url": "https://www.reddit.com/r/twice/comments/1aucyfn/240219_japan_twitter_update_magazine_information/",
-        "judgment": "？",
-        "reason": "応答解析失敗"
-      },
-      {
-        "url": "https://www.ubuy.co.bw/productjp/IRKVXSMCW-more-spring-2024-sana-twice",
-        "judgment": "？",
-        "reason": "応答解析失敗"
-      },
-      {
-        "url": "https://pbs.twimg.com/media/GGqwkkXX0AAKvhd?format=jpg&name=4096x4096",
-        "judgment": "？",
-        "reason": "Twitter画像ですが投稿内容を特定できませんでした"
-      },
-      {
-        "url": "https://pbs.twimg.com/media/GJWhjZ6XYAAlwfY?format=jpg&name=4096x4096",
-        "judgment": "？",
-        "reason": "Twitter画像ですが投稿内容を特定できませんでした"
-      },
-      {
-        "url": "https://pbs.twimg.com/media/GGqw1EvasAAhQ32.jpg:large",
-        "judgment": "？",
-        "reason": "Twitter画像ですが投稿内容を特定できませんでした"
-      }
-    ]
-  },
-  {
-    "history_id": "a54b1d9b-c327-42d1-b005-b15b6cfd1db7",
-    "image_id": "b8179dbd-a00a-411d-be72-df43981253b0",
-    "image_hash": "cd620b02e9af45f51ab58eadd315f9740b84561cb699272cf5e8e45a5e3c3594",
-    "original_filename": "more_sana.jpg",
-    "analysis_date": "2025-08-01T17:02:43.045286",
-    "analysis_timestamp": 1754035363,
-    "found_urls_count": 10,
-    "processed_results_count": 10,
-    "results": [
-      {
-        "url": "https://shop.delivered.co.kr/products/more-japan-magazine-2024-spring-cover-twice-sana",
-        "judgment": "○",
-        "reason": "公式ECサイト"
-      },
-      {
-        "url": "https://www.ebay.co.uk/itm/296179218530",
-        "judgment": "？",
-        "reason": "分析に失敗しました"
-      },
-      {
-        "url": "https://www.ubuy.mr/en/productjp/IRKVXSMCW-more-spring-2024-sana-twice",
-        "judgment": "○",
-        "reason": "ECサイトの商品ページ"
-      },
-      {
-        "url": "https://www.deliveredh.shop/product/more-japan-magazine-2024-spring-cover-twice-sana",
-        "judgment": "○",
-        "reason": "ECサイトの商品ページ"
-      },
-      {
-        "url": "https://www.reddit.com/r/twice/comments/1aucyfn/240219_japan_twitter_update_magazine_information/",
-        "judgment": "○",
-        "reason": "一般的なSNSサイト"
-      },
-      {
-        "url": "https://www.ubuy.co.bw/productjp/IRKVXSMCW-more-spring-2024-sana-twice",
-        "judgment": "○",
-        "reason": "ECサイトの商品ページ"
-      },
-      {
-        "url": "https://www.instagram.com/p/C3hCXJpLAOv/",
-        "judgment": "？",
-        "reason": "情報不足"
-      },
-      {
-        "url": "https://pbs.twimg.com/media/GGqwkkXX0AAKvhd?format=jpg&name=4096x4096",
-        "judgment": "○",
-        "reason": "著作権侵害なし"
-      },
-      {
-        "url": "https://pbs.twimg.com/media/GJWhjZ6XYAAlwfY?format=jpg&name=4096x4096",
-        "judgment": "？",
-        "reason": "Twitter画像ですが投稿内容を特定できませんでした"
-      },
-      {
-        "url": "https://pbs.twimg.com/media/GGqw1EvasAAhQ32.jpg:large",
-        "judgment": "？",
-        "reason": "Twitter画像ですが投稿内容を特定できませんでした"
-      }
-    ]
-  },
-  {
-    "history_id": "e6235c08-2ba8-46ca-ac63-7b367e6a0ca3",
-    "image_id": "0b1c87dc-f666-4e0a-8ec0-6cadec64d3a6",
+    "history_id": "90fbc0ab-987b-4300-84fa-eb57e8ea8d62",
+    "image_id": "ec7c0e98-af33-43c6-a9c0-e92778222071",
     "image_hash": "b70a58a9b3250e633b10b9f17435b498d00344a10ce63edb6caa082b64c09989",
     "original_filename": "00022.pdf",
-    "analysis_date": "2025-08-01T17:39:03.833059",
-    "analysis_timestamp": 1754037543,
-    "found_urls_count": 4,
-    "processed_results_count": 4,
+    "analysis_date": "2025-08-05T21:23:49.065188",
+    "analysis_timestamp": 1754396629,
+    "found_urls_count": 1,
+    "processed_results_count": 1,
     "results": [
-      {
-        "url": "https://www.instagram.com/p/DAIvlgDzA9j/?hl=en",
-        "judgment": "？",
-        "reason": "情報不足"
-      },
-      {
-        "url": "https://www.instagram.com/p/DL7MXogSpKg/",
-        "judgment": "？",
-        "reason": "情報不足"
-      },
-      {
-        "url": "https://www.threads.com/@precure_paradise/post/DL7o8VDPSbf/%E3%81%AF%E3%81%AA%E3%81%82%E3%81%84%EB%8B%98precure_paradise%EC%9D%98-%EA%B2%8C%EC%8B%9C%EB%AC%BC",
-        "judgment": "？",
-        "reason": "情報不足"
-      },
       {
         "url": "https://lookaside.instagram.com/seo/google_widget/crawler/?media_id=3673584311565046280",
         "judgment": "？",
-        "reason": "情報が極端に少ない"
+        "reason": "情報が極端に少ない",
+        "search_method": "完全一致",
+        "search_source": "Vision API",
+        "confidence": "高"
       }
     ]
   },
   {
-    "history_id": "c0ecbaaa-92ac-4e30-853e-ce541949932d",
-    "image_id": "126e37ff-1fe0-4292-86fe-7197571f644f",
-    "image_hash": "d9dffb14bd7d894c834b2485ac0cb0d1f31a736211150b7e206e16a0ac7988ac",
-    "original_filename": "00025.pdf",
-    "analysis_date": "2025-08-01T17:44:09.067915",
-    "analysis_timestamp": 1754037849,
-    "found_urls_count": 5,
-    "processed_results_count": 5,
+    "history_id": "794a6412-706b-47f2-97c0-c1bbc153a43c",
+    "image_id": "3c8abf43-8c88-4ff2-9d55-def97bb12393",
+    "image_hash": "b70a58a9b3250e633b10b9f17435b498d00344a10ce63edb6caa082b64c09989",
+    "original_filename": "00022.pdf",
+    "analysis_date": "2025-08-05T21:28:33.729566",
+    "analysis_timestamp": 1754396913,
+    "found_urls_count": 1,
+    "processed_results_count": 1,
     "results": [
       {
-        "url": "https://www.instagram.com/p/CzdQi8rP53F/",
+        "url": "https://lookaside.instagram.com/seo/google_widget/crawler/?media_id=3673584311565046280",
         "judgment": "？",
-        "reason": "情報不足"
-      },
-      {
-        "url": "https://www.instagram.com/p/C16HjtPJvcs/",
-        "judgment": "○",
-        "reason": "出版社公式"
-      },
-      {
-        "url": "https://www.instagram.com/p/CJ7umRpMnJq/",
-        "judgment": "？",
-        "reason": "情報不足"
-      },
-      {
-        "url": "https://www.instagram.com/p/CZGuQ28s4kT/",
-        "judgment": "○",
-        "reason": "出版社公式"
-      },
-      {
-        "url": "https://dmagazine.docomo.ne.jp/article/2e7a0a6488b23aab7378f79c9fa1698d58458a87b1ef2c0ff2139cfaa04cca40/3bec5e610931ce16f674cd5de7be15a23b1ab00d4e3351957925c844e3d3928f/",
-        "judgment": "○",
-        "reason": "合法サービス紹介ページ"
+        "reason": "情報不足で内容不明",
+        "search_method": "完全一致",
+        "search_source": "Vision API",
+        "confidence": "高"
       }
     ]
   },
   {
-    "history_id": "a2f06653-04f5-4f89-938c-e14ce0ed1b06",
-    "image_id": "9aef216a-7190-4b30-bdce-ac2bd7d36e12",
+    "history_id": "d186e696-b9ce-470f-81b8-6cd1c0f1c70f",
+    "image_id": "10308d7b-166a-4f89-81f4-a54fa0f2afd3",
+    "image_hash": "b70a58a9b3250e633b10b9f17435b498d00344a10ce63edb6caa082b64c09989",
+    "original_filename": "00022.pdf",
+    "analysis_date": "2025-08-05T21:30:23.504064",
+    "analysis_timestamp": 1754397023,
+    "found_urls_count": 1,
+    "processed_results_count": 1,
+    "results": [
+      {
+        "url": "https://lookaside.instagram.com/seo/google_widget/crawler/?media_id=3673584311565046280",
+        "judgment": "？",
+        "reason": "情報不足",
+        "search_method": "完全一致",
+        "search_source": "Vision API",
+        "confidence": "高"
+      }
+    ]
+  },
+  {
+    "history_id": "7cf23f31-77d2-4947-a74c-52019189a22a",
+    "image_id": "8285e870-d6e7-4da0-a8d2-f65c2bc19f87",
+    "image_hash": "b70a58a9b3250e633b10b9f17435b498d00344a10ce63edb6caa082b64c09989",
+    "original_filename": "00022.pdf",
+    "analysis_date": "2025-08-05T21:32:18.715234",
+    "analysis_timestamp": 1754397138,
+    "found_urls_count": 1,
+    "processed_results_count": 1,
+    "results": [
+      {
+        "url": "https://lookaside.instagram.com/seo/google_widget/crawler/?media_id=3673584311565046280",
+        "judgment": "？",
+        "reason": "情報不足",
+        "search_method": "完全一致",
+        "search_source": "Vision API",
+        "confidence": "高"
+      }
+    ]
+  },
+  {
+    "history_id": "e39c2799-ea50-45a7-b7be-5c2f84142314",
+    "image_id": "80ce95e3-d96d-4da6-b986-781dc134a0de",
+    "image_hash": "b70a58a9b3250e633b10b9f17435b498d00344a10ce63edb6caa082b64c09989",
+    "original_filename": "00022.pdf",
+    "analysis_date": "2025-08-05T21:33:16.185209",
+    "analysis_timestamp": 1754397196,
+    "found_urls_count": 1,
+    "processed_results_count": 1,
+    "results": [
+      {
+        "url": "https://lookaside.instagram.com/seo/google_widget/crawler/?media_id=3673584311565046280",
+        "judgment": "？",
+        "reason": "情報不足",
+        "search_method": "完全一致",
+        "search_source": "Vision API",
+        "confidence": "高"
+      }
+    ]
+  },
+  {
+    "history_id": "902a1743-ca0f-4442-9a91-521cab0aff87",
+    "image_id": "ead59697-7138-4f84-bd53-5ef9648c70b7",
+    "image_hash": "b70a58a9b3250e633b10b9f17435b498d00344a10ce63edb6caa082b64c09989",
+    "original_filename": "00022.pdf",
+    "analysis_date": "2025-08-05T21:33:57.332736",
+    "analysis_timestamp": 1754397237,
+    "found_urls_count": 1,
+    "processed_results_count": 1,
+    "results": [
+      {
+        "url": "https://lookaside.instagram.com/seo/google_widget/crawler/?media_id=3673584311565046280",
+        "judgment": "？",
+        "reason": "情報不足",
+        "search_method": "完全一致",
+        "search_source": "Vision API",
+        "confidence": "高"
+      }
+    ]
+  },
+  {
+    "history_id": "776602a7-e44f-4dcc-8ec4-d06c99553f22",
+    "image_id": "f8e0f65b-940e-45ca-bd22-083465544a4a",
+    "image_hash": "b70a58a9b3250e633b10b9f17435b498d00344a10ce63edb6caa082b64c09989",
+    "original_filename": "00022.pdf",
+    "analysis_date": "2025-08-05T21:35:04.391499",
+    "analysis_timestamp": 1754397304,
+    "found_urls_count": 1,
+    "processed_results_count": 1,
+    "results": [
+      {
+        "url": "https://lookaside.instagram.com/seo/google_widget/crawler/?media_id=3673584311565046280",
+        "judgment": "？",
+        "reason": "情報不足",
+        "search_method": "完全一致",
+        "search_source": "Vision API",
+        "confidence": "高"
+      }
+    ]
+  },
+  {
+    "history_id": "802471d8-54c2-4c36-abee-a4d831ef5ba4",
+    "image_id": "1f7a21bc-a09f-4868-84b4-04f708239c20",
+    "image_hash": "b70a58a9b3250e633b10b9f17435b498d00344a10ce63edb6caa082b64c09989",
+    "original_filename": "00022.pdf",
+    "analysis_date": "2025-08-05T21:40:23.476392",
+    "analysis_timestamp": 1754397623,
+    "found_urls_count": 1,
+    "processed_results_count": 1,
+    "results": [
+      {
+        "url": "https://lookaside.instagram.com/seo/google_widget/crawler/?media_id=3673584311565046280",
+        "judgment": "？",
+        "reason": "情報が極端に少ない",
+        "search_method": "完全一致",
+        "search_source": "Vision API",
+        "confidence": "高"
+      }
+    ]
+  },
+  {
+    "history_id": "7c3ec984-3e0b-4454-9eea-925273fad7ea",
+    "image_id": "bccd918f-e1f2-4fa2-a438-8eea8efc3b98",
     "image_hash": "8ef4bdf1a64082fc6170be5ae832b4f4d7c28fee092d0c1d4f17cfd563678fbc",
     "original_filename": "00026.pdf",
-    "analysis_date": "2025-08-01T17:44:55.582117",
-    "analysis_timestamp": 1754037895,
-    "found_urls_count": 6,
-    "processed_results_count": 6,
+    "analysis_date": "2025-08-05T21:41:08.945509",
+    "analysis_timestamp": 1754397668,
+    "found_urls_count": 1,
+    "processed_results_count": 1,
     "results": [
       {
         "url": "https://dmagazine.docomo.ne.jp/article/2e7a0a6488b23aab7378f79c9fa1698d58458a87b1ef2c0ff2139cfaa04cca40/3bec5e610931ce16f674cd5de7be15a23b1ab00d4e3351957925c844e3d3928f/",
         "judgment": "○",
-        "reason": "サービス公式"
-      },
-      {
-        "url": "https://en.wikipedia.org/wiki/Japanese_idol",
-        "judgment": "○",
-        "reason": "百科事典情報"
-      },
-      {
-        "url": "https://www.tokyoweekender.com/entertainment/music/idol-free-after-being-made-to-say-goodnight/",
-        "judgment": "○",
-        "reason": "ニュース記事"
-      },
-      {
-        "url": "https://www.instagram.com/p/C16HjtPJvcs/",
-        "judgment": "？",
-        "reason": "情報が極端に少ない"
-      },
-      {
-        "url": "https://www.instagram.com/p/CzdQi8rP53F/",
-        "judgment": "？",
-        "reason": "情報不足"
-      },
-      {
-        "url": "https://www.instagram.com/p/CJ7umRpMnJq/",
-        "judgment": "？",
-        "reason": "情報が極端に少ない"
+        "reason": "公式サービスページ",
+        "search_method": "逆引き検索(部分一致)",
+        "search_source": "Vision API",
+        "confidence": "低"
       }
     ]
   },
   {
-    "history_id": "78933fd5-28a0-467d-9b05-1a4334eec81b",
-    "image_id": "20b76679-9fed-46bd-911a-3c90236a3994",
+    "history_id": "d9536943-2c25-49d4-badb-3d56430dfc42",
+    "image_id": "0df5acfa-a5e1-43ab-92a7-8b96ae231b94",
+    "image_hash": "834792ceb51fdac329e401927ab6b5b9de871e4fcd87bd728452b1b06dd1b46d",
+    "original_filename": "00023.pdf",
+    "analysis_date": "2025-08-05T21:41:27.983449",
+    "analysis_timestamp": 1754397687,
+    "found_urls_count": 0,
+    "processed_results_count": 0,
+    "results": []
+  },
+  {
+    "history_id": "4e1dc517-2444-4cb5-b4a3-311bb5f1ba28",
+    "image_id": "ee8c5143-e7f7-4949-8df7-4514c15c6911",
     "image_hash": "fb6e18d9f302e82010a0c7a3039331c962988cfbc76d665babf1621fd45aa637",
     "original_filename": "00024.pdf",
-    "analysis_date": "2025-08-02T20:59:33.806131",
-    "analysis_timestamp": 1754135973,
+    "analysis_date": "2025-08-05T21:42:17.965737",
+    "analysis_timestamp": 1754397737,
     "found_urls_count": 0,
     "processed_results_count": 0,
     "results": []
   },
   {
-    "history_id": "03436bdb-a4d5-4c9a-91f6-207b39a1c145",
-    "image_id": "20b76679-9fed-46bd-911a-3c90236a3994",
+    "history_id": "131913c6-215e-468b-b053-73e1e2e5ddcb",
+    "image_id": "78c8ce3f-ed38-451c-bedd-b48fbfc68573",
     "image_hash": "fb6e18d9f302e82010a0c7a3039331c962988cfbc76d665babf1621fd45aa637",
     "original_filename": "00024.pdf",
-    "analysis_date": "2025-08-02T20:59:46.442904",
-    "analysis_timestamp": 1754135986,
-    "found_urls_count": 0,
-    "processed_results_count": 0,
-    "results": []
+    "analysis_date": "2025-08-05T21:49:15.458949",
+    "analysis_timestamp": 1754398155,
+    "found_urls_count": 14,
+    "processed_results_count": 14,
+    "results": [
+      {
+        "url": "https://tc-animate.techorus-cdn.com/resize_image/resize_image.php?image=03031410_67c539e0266d9.jpg&width=350",
+        "judgment": "？",
+        "reason": "分析に失敗しました",
+        "search_method": "部分一致",
+        "search_source": "Vision API",
+        "confidence": "低"
+      },
+      {
+        "url": "https://oa-profile-media.line-scdn.net/0h4vRyd4Hja1lvAHr5rHEUDjlfZShcYjJdCGcmVElkfjkkU2pdDBV9VxFSNRIdTCRfDBYlRBVgPQIwWyxuNhF7V0h7fRVBNGlfGAJsVAFwaTknMWo/w480?0",
+        "judgment": "？",
+        "reason": "分析に失敗しました",
+        "search_method": "部分一致",
+        "search_source": "Vision API",
+        "confidence": "低"
+      },
+      {
+        "url": "https://img.alicdn.com/imgextra/i4/O1CN01dIWstU1hVfO13u7xv_!!4611686018427382395-53-fleamarket.heic",
+        "judgment": "？",
+        "reason": "分析に失敗しました",
+        "search_method": "部分一致",
+        "search_source": "Vision API",
+        "confidence": "低"
+      },
+      {
+        "url": "https://cho-animedia.jp/imgs/p/Dybu1wcglzgN6YILHHa9fs3Ml8DBwsPExcbH/916855.jpg?zoom=spacing",
+        "judgment": "？",
+        "reason": "分析に失敗しました",
+        "search_method": "部分一致",
+        "search_source": "Vision API",
+        "confidence": "低"
+      },
+      {
+        "url": "https://prcdn.freetls.fastly.net/release_image/7785/1453/7785-1453-ed8b7685dc4cb03257577a3f1f2f5e81-572x800.jpg?format=jpeg&auto=webp&fit=bounds&width=2400&height=1260",
+        "judgment": "？",
+        "reason": "分析に失敗しました",
+        "search_method": "部分一致",
+        "search_source": "Vision API",
+        "confidence": "低"
+      },
+      {
+        "url": "https://assets.mercari-shops-static.com/-/small/plain/375jLoZMxHdDwJhetFbLzA.webp@webp",
+        "judgment": "？",
+        "reason": "分析に失敗しました",
+        "search_method": "部分一致",
+        "search_source": "Vision API",
+        "confidence": "低"
+      },
+      {
+        "url": "https://down-th.img.susercontent.com/file/th-11134208-7rasg-m8il5pvoinla94",
+        "judgment": "？",
+        "reason": "分析に失敗しました",
+        "search_method": "部分一致",
+        "search_source": "Vision API",
+        "confidence": "低"
+      },
+      {
+        "url": "http://shigatcg.com/cdn/shop/files/cover_1f448b1f-697e-4df0-8678-30166aa137bc.jpg?v=1747467720",
+        "judgment": "？",
+        "reason": "分析に失敗しました",
+        "search_method": "部分一致",
+        "search_source": "Vision API",
+        "confidence": "低"
+      },
+      {
+        "url": "https://shoplineimg.com/614ce1287d53ca00557fa796/67d033fa6c953e000f49e0b9/720x.jpg?",
+        "judgment": "？",
+        "reason": "分析に失敗しました",
+        "search_method": "部分一致",
+        "search_source": "Vision API",
+        "confidence": "低"
+      },
+      {
+        "url": "https://tc-animate.techorus-cdn.com/resize_image/resize_image.php?image=JPRO_9784074611614.jpg&width=300&height=300",
+        "judgment": "？",
+        "reason": "分析に失敗しました",
+        "search_method": "部分一致",
+        "search_source": "Vision API",
+        "confidence": "低"
+      },
+      {
+        "url": "https://s.animeanime.jp/imgs/p/64XVvff3mD9cFhi_PU1_DqGg_6ytrq_oqaqr/751142.jpg?zoom=spacing",
+        "judgment": "○",
+        "reason": "信頼できるニュース・出版サイト",
+        "search_method": "部分一致",
+        "search_source": "Vision API",
+        "confidence": "低"
+      },
+      {
+        "url": "https://preview.redd.it/uesaka-sumires-teasers-and-covers-for-her-upcoming-v0-jsfb5lfdgwle1.jpg?width=572&format=pjpg&auto=webp&s=4b68f2410091a4ca7ac5d79532d0c2710d2fcbd9",
+        "judgment": "？",
+        "reason": "分析に失敗しました",
+        "search_method": "部分一致",
+        "search_source": "Vision API",
+        "confidence": "低"
+      },
+      {
+        "url": "https://tshop.r10s.jp/book/cabinet/1614/9784074611614_1_5.jpg?fitin=208:208",
+        "judgment": "？",
+        "reason": "分析に失敗しました",
+        "search_method": "部分一致",
+        "search_source": "Vision API",
+        "confidence": "低"
+      },
+      {
+        "url": "https://www.tumgik.com/tag/Sumire%20Uesaka",
+        "judgment": "？",
+        "reason": "情報不足",
+        "search_method": "逆引き検索(部分一致)",
+        "search_source": "Vision API",
+        "confidence": "低"
+      }
+    ]
   },
   {
-    "history_id": "fdfd005d-209b-49fd-b51c-44f10f6ff5d4",
-    "image_id": "5e046827-f480-473e-b313-299c0710e124",
+    "history_id": "ad8b68fc-c1bd-44e4-8f9f-62fe866abf68",
+    "image_id": "8fa3d802-d595-4679-9dae-bd17f2ac8958",
     "image_hash": "b70a58a9b3250e633b10b9f17435b498d00344a10ce63edb6caa082b64c09989",
     "original_filename": "00022.pdf",
-    "analysis_date": "2025-08-02T21:09:33.823764",
-    "analysis_timestamp": 1754136573,
-    "found_urls_count": 0,
-    "processed_results_count": 0,
-    "results": []
+    "analysis_date": "2025-08-05T21:49:56.162369",
+    "analysis_timestamp": 1754398196,
+    "found_urls_count": 1,
+    "processed_results_count": 1,
+    "results": [
+      {
+        "url": "https://lookaside.instagram.com/seo/google_widget/crawler/?media_id=3673584311565046280",
+        "judgment": "？",
+        "reason": "情報不足",
+        "search_method": "完全一致",
+        "search_source": "Vision API",
+        "confidence": "高"
+      }
+    ]
   },
   {
-    "history_id": "cc9aed4a-9a9b-4ac2-b4a7-c5ff8b69e477",
-    "image_id": "5e046827-f480-473e-b313-299c0710e124",
+    "history_id": "4a410cd7-3b62-49e6-bfc3-7692e44e3f78",
+    "image_id": "0848a69c-3e18-4154-924d-c6d69d1a63f6",
+    "image_hash": "d9dffb14bd7d894c834b2485ac0cb0d1f31a736211150b7e206e16a0ac7988ac",
+    "original_filename": "00025.pdf",
+    "analysis_date": "2025-08-05T21:51:04.952422",
+    "analysis_timestamp": 1754398264,
+    "found_urls_count": 2,
+    "processed_results_count": 2,
+    "results": [
+      {
+        "url": "https://lookaside.instagram.com/seo/google_widget/crawler/?media_id=3673594475008918150",
+        "judgment": "？",
+        "reason": "情報が極端に少ない",
+        "search_method": "部分一致",
+        "search_source": "Vision API",
+        "confidence": "低"
+      },
+      {
+        "url": "https://twitter.com/search?q=%23Wishforyou&src=recent_search_click&f=media",
+        "judgment": "？",
+        "reason": "分析に失敗しました",
+        "search_method": "逆引き検索(部分一致)",
+        "search_source": "Vision API",
+        "confidence": "低"
+      }
+    ]
+  },
+  {
+    "history_id": "b70df71e-ef5f-44c3-9f07-bbe30733bbd9",
+    "image_id": "ad7bc39c-cd02-4b09-a078-9321244b0e07",
+    "image_hash": "d9dffb14bd7d894c834b2485ac0cb0d1f31a736211150b7e206e16a0ac7988ac",
+    "original_filename": "00025.pdf",
+    "analysis_date": "2025-08-05T21:52:33.648288",
+    "analysis_timestamp": 1754398353,
+    "found_urls_count": 2,
+    "processed_results_count": 2,
+    "results": [
+      {
+        "url": "https://lookaside.instagram.com/seo/google_widget/crawler/?media_id=3673594475008918150",
+        "judgment": "？",
+        "reason": "情報不足",
+        "search_method": "部分一致",
+        "search_source": "Vision API",
+        "confidence": "低"
+      },
+      {
+        "url": "https://twitter.com/search?q=%23Wishforyou&src=recent_search_click&f=media",
+        "judgment": "？",
+        "reason": "分析に失敗しました",
+        "search_method": "逆引き検索(部分一致)",
+        "search_source": "Vision API",
+        "confidence": "低"
+      }
+    ]
+  },
+  {
+    "history_id": "59dff680-ddc9-4318-9aa0-79952c292097",
+    "image_id": "6e5e032c-faa6-49e8-8952-7b364c7d6f34",
+    "image_hash": "d9dffb14bd7d894c834b2485ac0cb0d1f31a736211150b7e206e16a0ac7988ac",
+    "original_filename": "00025.pdf",
+    "analysis_date": "2025-08-05T21:57:22.742136",
+    "analysis_timestamp": 1754398642,
+    "found_urls_count": 2,
+    "processed_results_count": 2,
+    "results": [
+      {
+        "url": "https://lookaside.instagram.com/seo/google_widget/crawler/?media_id=3673594475008918150",
+        "judgment": "？",
+        "reason": "情報不足",
+        "search_method": "部分一致",
+        "search_source": "Vision API",
+        "confidence": "低"
+      },
+      {
+        "url": "https://twitter.com/search?q=%23Wishforyou&src=recent_search_click&f=media",
+        "judgment": "？",
+        "reason": "分析に失敗しました",
+        "search_method": "逆引き検索(部分一致)",
+        "search_source": "Vision API",
+        "confidence": "低"
+      }
+    ]
+  },
+  {
+    "history_id": "ad9988d7-3801-4153-be8e-94eb3f373336",
+    "image_id": "cae7394e-8bd6-4cfb-a0c5-a63d2d004bcd",
+    "image_hash": "d9dffb14bd7d894c834b2485ac0cb0d1f31a736211150b7e206e16a0ac7988ac",
+    "original_filename": "00025.pdf",
+    "analysis_date": "2025-08-05T22:07:30.079887",
+    "analysis_timestamp": 1754399250,
+    "found_urls_count": 2,
+    "processed_results_count": 2,
+    "results": [
+      {
+        "url": "https://lookaside.instagram.com/seo/google_widget/crawler/?media_id=3673594475008918150",
+        "judgment": "？",
+        "reason": "情報が極めて少ない",
+        "search_method": "部分一致",
+        "search_source": "Vision API",
+        "confidence": "低"
+      },
+      {
+        "url": "https://twitter.com/search?q=%23Wishforyou&src=recent_search_click&f=media",
+        "judgment": "？",
+        "reason": "分析に失敗しました",
+        "search_method": "逆引き検索(部分一致)",
+        "search_source": "Vision API",
+        "confidence": "低"
+      }
+    ]
+  },
+  {
+    "history_id": "36ceadb6-7aa2-415d-97c9-17f0344fd607",
+    "image_id": "aba3294f-8789-4b3d-95cb-5967ffede06e",
+    "image_hash": "eacd8498e4f12207338622c885ed729c46109c52fcee406ed337bd0a9eeca146",
+    "original_filename": "スクリーンショット 2025-08-05 14.03.22.png",
+    "analysis_date": "2025-08-05T22:07:59.640986",
+    "analysis_timestamp": 1754399279,
+    "found_urls_count": 2,
+    "processed_results_count": 2,
+    "results": [
+      {
+        "url": "https://lookaside.instagram.com/seo/google_widget/crawler/?media_id=3673594475008918150",
+        "judgment": "？",
+        "reason": "情報不足",
+        "search_method": "部分一致",
+        "search_source": "Vision API",
+        "confidence": "低"
+      },
+      {
+        "url": "https://twitter.com/search?q=%23Wishforyou&src=recent_search_click&f=media",
+        "judgment": "？",
+        "reason": "分析に失敗しました",
+        "search_method": "逆引き検索(部分一致)",
+        "search_source": "Vision API",
+        "confidence": "低"
+      }
+    ]
+  },
+  {
+    "history_id": "44bd123c-b25f-42a8-b809-9295637410e4",
+    "image_id": "ea18b2c4-42dc-45bb-b81c-ddad0505125d",
     "image_hash": "b70a58a9b3250e633b10b9f17435b498d00344a10ce63edb6caa082b64c09989",
     "original_filename": "00022.pdf",
-    "analysis_date": "2025-08-02T21:09:37.280023",
-    "analysis_timestamp": 1754136577,
-    "found_urls_count": 0,
-    "processed_results_count": 0,
-    "results": []
+    "analysis_date": "2025-08-05T22:13:34.595816",
+    "analysis_timestamp": 1754399614,
+    "found_urls_count": 1,
+    "processed_results_count": 1,
+    "results": [
+      {
+        "url": "https://lookaside.instagram.com/seo/google_widget/crawler/?media_id=3673584311565046280",
+        "judgment": "？",
+        "reason": "情報不足のため判断不能",
+        "search_method": "完全一致",
+        "search_source": "Vision API",
+        "confidence": "高"
+      }
+    ]
+  },
+  {
+    "history_id": "6d207e99-50de-42d7-a97f-793012f18f35",
+    "image_id": "fcbc5b43-8282-4537-8667-9ca56a9b9405",
+    "image_hash": "d9dffb14bd7d894c834b2485ac0cb0d1f31a736211150b7e206e16a0ac7988ac",
+    "original_filename": "00025.pdf",
+    "analysis_date": "2025-08-05T22:14:01.089528",
+    "analysis_timestamp": 1754399641,
+    "found_urls_count": 2,
+    "processed_results_count": 2,
+    "results": [
+      {
+        "url": "https://lookaside.instagram.com/seo/google_widget/crawler/?media_id=3673594475008918150",
+        "judgment": "？",
+        "reason": "情報不足",
+        "search_method": "部分一致",
+        "search_source": "Vision API",
+        "confidence": "低"
+      },
+      {
+        "url": "https://twitter.com/search?q=%23Wishforyou&src=recent_search_click&f=media",
+        "judgment": "？",
+        "reason": "分析に失敗しました",
+        "search_method": "逆引き検索(部分一致)",
+        "search_source": "Vision API",
+        "confidence": "低"
+      }
+    ]
+  },
+  {
+    "history_id": "df977228-e6f6-4b26-8c75-b00efc54a088",
+    "image_id": "cc259353-6c0c-4009-9149-6432449f76f4",
+    "image_hash": "b70a58a9b3250e633b10b9f17435b498d00344a10ce63edb6caa082b64c09989",
+    "original_filename": "00022.pdf",
+    "analysis_date": "2025-08-05T22:18:44.438413",
+    "analysis_timestamp": 1754399924,
+    "found_urls_count": 1,
+    "processed_results_count": 1,
+    "results": [
+      {
+        "url": "https://lookaside.instagram.com/seo/google_widget/crawler/?media_id=3673584311565046280",
+        "judgment": "？",
+        "reason": "情報不足",
+        "search_method": "完全一致",
+        "search_source": "Vision API",
+        "confidence": "高"
+      }
+    ]
+  },
+  {
+    "history_id": "ce34c6d0-c505-4460-bf12-a0c15be1cacb",
+    "image_id": "79a843fa-ac8d-4306-abfd-8c4b7450bd73",
+    "image_hash": "d9dffb14bd7d894c834b2485ac0cb0d1f31a736211150b7e206e16a0ac7988ac",
+    "original_filename": "00025.pdf",
+    "analysis_date": "2025-08-05T22:18:55.202654",
+    "analysis_timestamp": 1754399935,
+    "found_urls_count": 2,
+    "processed_results_count": 1,
+    "results": [
+      {
+        "url": "https://lookaside.instagram.com/seo/google_widget/crawler/?media_id=3673594475008918150",
+        "judgment": "？",
+        "reason": "情報不足",
+        "search_method": "部分一致",
+        "search_source": "Vision API",
+        "confidence": "低"
+      }
+    ]
+  },
+  {
+    "history_id": "b6fe5b68-febe-4313-ad71-e9a4dfa861dc",
+    "image_id": "8e4105da-1a3a-469e-81f3-580ac8419280",
+    "image_hash": "b70a58a9b3250e633b10b9f17435b498d00344a10ce63edb6caa082b64c09989",
+    "original_filename": "00022.pdf",
+    "analysis_date": "2025-08-05T23:02:51.128812",
+    "analysis_timestamp": 1754402571,
+    "found_urls_count": 2,
+    "processed_results_count": 2,
+    "results": [
+      {
+        "url": "https://lookaside.instagram.com/seo/google_widget/crawler/?media_id=3673584311565046280",
+        "judgment": "？",
+        "reason": "情報が極端に少ない",
+        "search_method": "完全一致",
+        "search_source": "Vision API",
+        "confidence": "高"
+      },
+      {
+        "url": "https://www.instagram.com/p/DAIvlgDzA9j/?hl=en",
+        "judgment": "？",
+        "reason": "応答解析失敗",
+        "search_method": "逆引き検索(超厳選部分一致)",
+        "search_source": "Vision API",
+        "confidence": "低"
+      }
+    ]
+  },
+  {
+    "history_id": "ae7a29bd-a277-4e54-befd-34ea759d3558",
+    "image_id": "40a690d2-893d-464e-a250-d9e50a81b1f2",
+    "image_hash": "b70a58a9b3250e633b10b9f17435b498d00344a10ce63edb6caa082b64c09989",
+    "original_filename": "00022.pdf",
+    "analysis_date": "2025-08-05T23:09:10.748940",
+    "analysis_timestamp": 1754402950,
+    "found_urls_count": 1,
+    "processed_results_count": 1,
+    "results": [
+      {
+        "url": "https://lookaside.instagram.com/seo/google_widget/crawler/?media_id=3673584311565046280",
+        "judgment": "？",
+        "reason": "コンテンツ内容不明",
+        "search_method": "完全一致",
+        "search_source": "Vision API",
+        "confidence": "高"
+      }
+    ]
   }
 ]
