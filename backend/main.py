@@ -1231,9 +1231,9 @@ def is_reliable_domain_relaxed(url: str) -> bool:
 
 # search_with_serpapi関数を削除
 
-def get_x_tweet_content(tweet_url: str) -> str | None:
+def get_x_tweet_content(tweet_url: str) -> dict | None:
     """
-    X（Twitter）のツイートURLから投稿内容を取得
+    X（Twitter）のツイートURLから投稿内容とアカウント情報を取得
     X API v2のBearer Token認証を使用
     """
     if not X_BEARER_TOKEN:
@@ -1251,7 +1251,7 @@ def get_x_tweet_content(tweet_url: str) -> str | None:
             return None
 
         tweet_id = tweet_id_match.group(1)
-        logger.info(f"🐦 ツイート内容取得開始: ID={tweet_id}")
+        logger.info(f"🐦 X API ツイート内容取得開始: ID={tweet_id}")
 
         # X API v2でツイート内容を取得（Bearer Token認証）
         headers = {
@@ -1265,42 +1265,170 @@ def get_x_tweet_content(tweet_url: str) -> str | None:
                 headers=headers,
                 params={
                     'tweet.fields': 'text,author_id,created_at,public_metrics',
-                    'user.fields': 'username,name',
+                    'user.fields': 'username,name,description,public_metrics',
                     'expansions': 'author_id'
                 }
             )
+            response.raise_for_status()
 
-            if response.status_code == 200:
-                data = response.json()
-                if 'data' in data:
-                    tweet_text = data['data'].get('text', '')
-                    author_info = ""
+            data = response.json()
 
-                    # 作者情報も取得
-                    if 'includes' in data and 'users' in data['includes']:
-                        user = data['includes']['users'][0]
-                        username = user.get('username', '')
-                        name = user.get('name', '')
-                        author_info = f"@{username} ({name})"
-
-                    logger.info(f"✅ ツイート内容取得完了: {len(tweet_text)}文字")
-                    return f"X投稿内容 {author_info}: {tweet_text}"
-                else:
-                    logger.warning("⚠️ ツイートデータが見つかりません")
-                    return None
-            elif response.status_code == 429:
-                logger.warning(f"⚠️ X API制限到達 (429): 一時的に利用不可のため処理継続")
-                return "TWITTER_RATE_LIMITED: APIの利用制限に達しています"
-            elif response.status_code == 403:
-                logger.warning(f"⚠️ X API認証エラー (403): アクセス権限なし")
-                return "TWITTER_FORBIDDEN: ツイートにアクセスできません"
-            else:
-                logger.error(f"❌ X API エラー: {response.status_code} - {response.text}")
+            if 'data' not in data:
+                logger.warning(f"⚠️ ツイートデータが見つかりません: {tweet_id}")
                 return None
 
-    except Exception as e:
-        logger.error(f"❌ X API取得エラー: {str(e)}")
+            tweet_data = data['data']
+            user_data = None
+
+            # ユーザー情報を取得
+            if 'includes' in data and 'users' in data['includes']:
+                user_data = data['includes']['users'][0]
+
+            # 結果を構造化
+            result = {
+                'tweet_id': tweet_id,
+                'tweet_text': tweet_data.get('text', ''),
+                'author_id': tweet_data.get('author_id', ''),
+                'created_at': tweet_data.get('created_at', ''),
+                'public_metrics': tweet_data.get('public_metrics', {}),
+                'username': user_data.get('username', '') if user_data else '',
+                'display_name': user_data.get('name', '') if user_data else '',
+                'user_description': user_data.get('description', '') if user_data else '',
+                'user_metrics': user_data.get('public_metrics', {}) if user_data else {}
+            }
+
+            logger.info(f"✅ X API取得成功: @{result['username']} - {result['tweet_text'][:50]}...")
+            return result
+
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code == 401:
+            logger.error("❌ X API認証エラー: Bearer Tokenが無効または期限切れです")
+        elif e.response.status_code == 403:
+            logger.error("❌ X API権限エラー: アクセス権限がありません")
+        elif e.response.status_code == 404:
+            logger.error("❌ ツイートが見つかりません（削除済みまたは非公開）")
+        else:
+            logger.error(f"❌ X API HTTPエラー: {e.response.status_code} - {e.response.text}")
         return None
+    except Exception as e:
+        logger.error(f"❌ X API一般エラー: {str(e)}")
+        return None
+
+def judge_x_content_with_gemini(x_data: dict) -> dict:
+    """
+    X（Twitter）の投稿内容とアカウント情報をGemini AIで判定
+    """
+    if not gemini_model:
+        logger.warning("⚠️ Gemini モデルが初期化されていません")
+        return {
+            "judgment": "？",
+            "reason": "Gemini AIが利用できません",
+            "confidence": "不明"
+        }
+
+    try:
+        # X投稿の詳細情報を構築
+        username = x_data.get('username', '不明')
+        display_name = x_data.get('display_name', '不明')
+        tweet_text = x_data.get('tweet_text', '')
+        user_description = x_data.get('user_description', '')
+
+        # フォロワー数などの指標
+        user_metrics = x_data.get('user_metrics', {})
+        followers_count = user_metrics.get('followers_count', 0)
+        following_count = user_metrics.get('following_count', 0)
+        tweet_count = user_metrics.get('tweet_count', 0)
+
+        # 投稿の指標
+        public_metrics = x_data.get('public_metrics', {})
+        retweet_count = public_metrics.get('retweet_count', 0)
+        like_count = public_metrics.get('like_count', 0)
+        reply_count = public_metrics.get('reply_count', 0)
+
+        # Gemini用のプロンプトを構築
+        prompt = f"""
+以下のX（Twitter）投稿とアカウント情報を分析し、著作権侵害や違法コンテンツの可能性を判定してください。
+
+【アカウント情報】
+- ユーザー名: @{username}
+- 表示名: {display_name}
+- プロフィール: {user_description}
+- フォロワー数: {followers_count:,}
+- フォロー数: {following_count:,}
+- 投稿数: {tweet_count:,}
+
+【投稿内容】
+{tweet_text}
+
+【投稿の反応】
+- リツイート: {retweet_count:,}
+- いいね: {like_count:,}
+- リプライ: {reply_count:,}
+
+判定基準：
+○（安全）: 公式アカウント、正当な投稿、著作権問題なし
+×（危険）: 明らかな著作権侵害、違法コンテンツ、海賊版配布
+？（不明）: 判定困難、情報不足
+
+回答形式: "判定:[○/×/?] 理由:[具体的な理由]"
+"""
+
+        logger.info("🤖 Gemini AI X投稿判定開始")
+        response = gemini_model.generate_content(prompt)
+
+        if not response or not response.text:
+            logger.warning("⚠️ Gemini AIからの応答が空です")
+            return {
+                "judgment": "？",
+                "reason": "AI応答が空でした",
+                "confidence": "不明"
+            }
+
+        response_text = response.text.strip()
+        logger.info(f"📋 Gemini X投稿判定応答: {response_text}")
+
+        # 応答を解析
+        judgment = "？"
+        reason = "判定できませんでした"
+
+        if "判定:" in response_text and "理由:" in response_text:
+            parts = response_text.split("理由:")
+            judgment_part = parts[0].replace("判定:", "").strip()
+            reason = parts[1].strip()
+
+            if "○" in judgment_part:
+                judgment = "○"
+            elif "×" in judgment_part:
+                judgment = "×"
+            else:
+                judgment = "？"
+        else:
+            # フォールバック解析
+            if "○" in response_text:
+                judgment = "○"
+            elif "×" in response_text:
+                judgment = "×"
+            reason = response_text
+
+        # 信頼度を設定
+        confidence = "高" if judgment in ["○", "×"] else "低"
+
+        logger.info(f"✅ Gemini X投稿判定完了: {judgment} - {reason}")
+
+        return {
+            "judgment": judgment,
+            "reason": reason,
+            "confidence": confidence,
+            "x_data": x_data  # 元データも保持
+        }
+
+    except Exception as e:
+        logger.error(f"❌ Gemini X投稿判定エラー: {str(e)}")
+        return {
+            "judgment": "？",
+            "reason": f"判定エラー: {str(e)}",
+            "confidence": "不明"
+        }
 
 def validate_url_availability_fast(url: str) -> bool:
     """
@@ -4165,6 +4293,304 @@ async def get_pdf_preview(file_id: str):
             status_code=500,
             detail="PDFプレビューの生成に失敗しました"
         )
+
+# URL分析関数群
+def analyze_url_efficiently(url: str) -> dict | None:
+    """
+    URLを効率的に分析し、判定結果を返す
+    X URLは特別処理でAPI経由で詳細分析
+    """
+    try:
+        logger.info(f"🔄 URL分析開始: {url}")
+
+        # X (Twitter) URLの特別処理
+        if 'twitter.com' in url or 'x.com' in url:
+            logger.info(f"🐦 X URL検出 - API経由で詳細分析: {url}")
+
+            # X APIでツイート内容を取得
+            x_data = get_x_tweet_content(url)
+            if x_data:
+                # Gemini AIで判定
+                judgment_result = judge_x_content_with_gemini(x_data)
+
+                # 結果を構築
+                return {
+                    "url": url,
+                    "judgment": judgment_result["judgment"],
+                    "reason": judgment_result["reason"],
+                    "confidence": judgment_result["confidence"],
+                    "analysis_type": "X API + Gemini AI",
+                    "x_username": x_data.get("username", ""),
+                    "x_display_name": x_data.get("display_name", ""),
+                    "x_tweet_text": x_data.get("tweet_text", "")[:100] + "..." if len(x_data.get("tweet_text", "")) > 100 else x_data.get("tweet_text", "")
+                }
+            else:
+                # X API取得失敗時はスクレイピングにフォールバック
+                logger.warning(f"⚠️ X API取得失敗、スクレイピングにフォールバック: {url}")
+                return analyze_url_with_scraping(url)
+
+        # その他のURLは通常のスクレイピング分析
+        else:
+            return analyze_url_with_scraping(url)
+
+    except Exception as e:
+        logger.error(f"❌ URL分析エラー {url}: {str(e)}")
+        return None
+
+def analyze_url_with_scraping(url: str) -> dict | None:
+    """
+    URLをスクレイピングしてGemini AIで判定
+    """
+    try:
+        # 信頼できるドメインの事前判定
+        trusted_domains = [
+            'amazon.co.jp', 'amazon.com', 'rakuten.co.jp', 'yahoo.co.jp',
+            'nintendo.com', 'sony.com', 'microsoft.com', 'apple.com',
+            'google.com', 'youtube.com', 'wikipedia.org',
+            'gov.jp', 'go.jp', 'ac.jp', 'ed.jp',
+            'nhk.or.jp', 'asahi.com', 'yomiuri.co.jp', 'mainichi.jp',
+            'nikkei.com', 'sankei.com', 'famitsu.com', 'oricon.co.jp',
+            'natalie.mu', 'animenewsnetwork.com', 'seigura.com'
+        ]
+
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        domain = parsed.netloc.lower()
+
+        # 信頼ドメインは事前○判定
+        for trusted in trusted_domains:
+            if trusted in domain:
+                logger.info(f"✅ 信頼ドメインのため事前○判定: {url}")
+                return {
+                    "url": url,
+                    "judgment": "○",
+                    "reason": f"信頼できる公式サイト ({trusted})",
+                    "confidence": "高",
+                    "analysis_type": "信頼ドメイン判定"
+                }
+
+        # スクレイピングしてコンテンツ取得
+        content = scrape_page_content(url)
+        if not content:
+            return {
+                "url": url,
+                "judgment": "？",
+                "reason": "ページ内容を取得できませんでした",
+                "confidence": "不明",
+                "analysis_type": "スクレイピング失敗"
+            }
+
+        # Gemini AIで判定
+        judgment_result = judge_content_with_gemini(content)
+
+        return {
+            "url": url,
+            "judgment": judgment_result["judgment"],
+            "reason": judgment_result["reason"],
+            "confidence": judgment_result["confidence"],
+            "analysis_type": "スクレイピング + Gemini AI"
+        }
+
+    except Exception as e:
+        logger.error(f"❌ スクレイピング分析エラー {url}: {str(e)}")
+        return None
+
+def judge_content_with_gemini(content: str) -> dict:
+    """
+    ページコンテンツをGemini AIで判定
+    """
+    if not gemini_model:
+        return {
+            "judgment": "？",
+            "reason": "Gemini AIが利用できません",
+            "confidence": "不明"
+        }
+
+    try:
+        prompt = f"""
+以下のWebページ内容を分析し、著作権侵害や違法コンテンツの可能性を判定してください。
+
+【ページ内容】
+{content[:2000]}
+
+判定基準：
+○（安全）: 公式サイト、正当なコンテンツ、著作権問題なし
+×（危険）: 明らかな著作権侵害、違法コンテンツ、海賊版配布
+？（不明）: 判定困難、情報不足
+
+回答形式: "判定:[○/×/?] 理由:[具体的な理由]"
+"""
+
+        logger.info("🤖 Gemini AI判定開始")
+        response = gemini_model.generate_content(prompt)
+
+        if not response or not response.text:
+            return {
+                "judgment": "？",
+                "reason": "AI応答が空でした",
+                "confidence": "不明"
+            }
+
+        response_text = response.text.strip()
+        logger.info(f"📋 Gemini応答: {response_text}")
+
+        # 応答を解析
+        judgment = "？"
+        reason = "判定できませんでした"
+
+        if "判定:" in response_text and "理由:" in response_text:
+            parts = response_text.split("理由:")
+            judgment_part = parts[0].replace("判定:", "").strip()
+            reason = parts[1].strip()
+
+            if "○" in judgment_part:
+                judgment = "○"
+            elif "×" in judgment_part:
+                judgment = "×"
+            else:
+                judgment = "？"
+        else:
+            # フォールバック解析
+            if "○" in response_text:
+                judgment = "○"
+            elif "×" in response_text:
+                judgment = "×"
+            reason = response_text
+
+        logger.info(f"✅ Gemini判定完了: {judgment} - {reason}")
+
+        return {
+            "judgment": judgment,
+            "reason": reason,
+            "confidence": "高" if judgment in ["○", "×"] else "低"
+        }
+
+    except Exception as e:
+        logger.error(f"❌ Gemini判定エラー: {str(e)}")
+        return {
+            "judgment": "？",
+            "reason": f"判定エラー: {str(e)}",
+            "confidence": "不明"
+        }
+
+def scrape_page_content(url: str) -> str | None:
+    """
+    URLからページ内容をスクレイピング
+    """
+    # 画像URLの場合はドメインベースで分類
+    image_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp']
+    if any(url.lower().endswith(ext) for ext in image_extensions):
+        logger.info(f"🖼️ 画像URL検出 - ドメインベース分類: {url}")
+        return f"画像URL: {url}"
+
+    # Instagram専用処理
+    if 'instagram.com' in url:
+        return extract_instagram_content(url)
+
+    # Threads専用処理
+    if 'threads.net' in url:
+        return extract_threads_content(url)
+
+    logger.info(f"🌐 スクレイピング開始: {url}")
+    try:
+        with httpx.Client(timeout=10.0, follow_redirects=True) as client:
+            # Content-Typeを事前確認
+            try:
+                head_response = client.head(url, headers={'User-Agent': 'Mozilla/5.0'})
+                content_type = head_response.headers.get('content-type', '').lower()
+                if 'text/html' not in content_type:
+                    logger.info(f"⏭️  HTMLでないためスキップ (Content-Type: {content_type}): {url}")
+                    return None
+            except httpx.RequestError as e:
+                logger.warning(f"⚠️ HEADリクエスト失敗 (GETで続行): {e}")
+
+            # GETリクエストでコンテンツ取得
+            response = client.get(url, headers={'User-Agent': 'Mozilla/5.0'})
+            response.raise_for_status()
+
+        # BeautifulSoupで解析
+        soup = BeautifulSoup(response.text, 'html.parser')
+        title = soup.title.string if soup.title else ""
+        body_text = " ".join([p.get_text() for p in soup.find_all('p', limit=5)])
+
+        content = f"Title: {title.strip()}\n\nBody: {body_text.strip()}"
+        logger.info(f"📝 スクレイピング完了: {len(content)} chars")
+        return content
+
+    except httpx.HTTPStatusError as e:
+        logger.error(f"❌ HTTPステータスエラー {url}: {e.response.status_code} {e.response.reason_phrase}")
+        return None
+    except Exception as e:
+        logger.error(f"❌ スクレイピング一般エラー {url}: {e}")
+        return None
+
+def extract_instagram_content(url: str) -> str:
+    """Instagram投稿から内容を抽出"""
+    try:
+        logger.info(f"📸 Instagram専用解析: {url}")
+
+        with httpx.Client(timeout=10.0, follow_redirects=True) as client:
+            response = client.get(url, headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            })
+            response.raise_for_status()
+
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        # メタデータから情報を抽出
+        title = ""
+        description = ""
+
+        # og:title
+        og_title = soup.find('meta', property='og:title')
+        if og_title:
+            title = og_title.get('content', '')
+
+        # og:description
+        og_desc = soup.find('meta', property='og:description')
+        if og_desc:
+            description = og_desc.get('content', '')
+
+        content = f"Instagram投稿\nタイトル: {title}\n説明: {description}"
+        logger.info(f"📸 Instagram解析完了: {len(content)} chars")
+        return content
+
+    except Exception as e:
+        return f"Instagram投稿: {url}"
+
+def extract_threads_content(url: str) -> str:
+    """Threads投稿から内容を抽出"""
+    try:
+        logger.info(f"🧵 Threads専用解析: {url}")
+
+        with httpx.Client(timeout=10.0, follow_redirects=True) as client:
+            response = client.get(url, headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            })
+            response.raise_for_status()
+
+        soup = BeautifulSoup(response.text, 'html.parser')
+
+        # メタデータから情報を抽出
+        title = ""
+        description = ""
+
+        # og:title
+        og_title = soup.find('meta', property='og:title')
+        if og_title:
+            title = og_title.get('content', '')
+
+        # og:description
+        og_desc = soup.find('meta', property='og:description')
+        if og_desc:
+            description = og_desc.get('content', '')
+
+        content = f"Threads投稿\nタイトル: {title}\n説明: {description}"
+        logger.info(f"🧵 Threads解析完了: {len(content)} chars")
+        return content
+
+    except Exception as e:
+        return f"Threads投稿: {url}"
 
 if __name__ == "__main__":
     import uvicorn

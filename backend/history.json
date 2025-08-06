@@ -2654,5 +2654,265 @@
         "confidence": "低"
       }
     ]
+  },
+  {
+    "history_id": "af1b2de8-1a6d-4a09-aacd-8b015a851181",
+    "image_id": "0700b2d5-fbd5-4a85-999a-f36b70e3525c",
+    "image_hash": "b70a58a9b3250e633b10b9f17435b498d00344a10ce63edb6caa082b64c09989",
+    "original_filename": "00022.pdf",
+    "analysis_date": "2025-08-06T16:27:22.493167",
+    "analysis_timestamp": 1754465242,
+    "found_urls_count": 4,
+    "processed_results_count": 4,
+    "results": [
+      {
+        "url": "https://lookaside.instagram.com/seo/google_widget/crawler/?media_id=3673584311565046280",
+        "judgment": "？",
+        "reason": "提供された情報には、Instagramの投稿のタイトル（キャプション）と投稿者名、いいね数のみが含まれており、**実際の投稿内容（画像や動画など）が提示されていません**。そのため、投稿されたコンテンツが「Hina Suguta」氏の肖像権や、そのコンテンツの著作権を侵害しているか、あるいはその他の違法コンテンツであるかを判断するための具体的な情報が決定的に不足しています。単に人物名が言及されているだけでは、安全とも危険とも断定できません。",
+        "confidence": "高",
+        "analysis_type": "スクレイピング + Gemini AI",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://www.instagram.com/p/DAIvlgDzA9j/?hl=en",
+        "judgment": "？",
+        "reason": "提供された情報（Instagramの投稿タイトルと説明文）からは、投稿の具体的な画像や動画の内容が不明です。「Kaorin 🥰💕💕💕」というキャプション自体は、著作権侵害や違法性を示唆するものではありません。しかし、Instagram投稿の核となる画像や動画の内容が確認できないため、それらが著作権侵害にあたるか、あるいは違法コンテンツであるかを判断することはできません。情報が不足しているため「不明」とします。",
+        "confidence": "低",
+        "analysis_type": "スクレイピング + Gemini AI",
+        "search_method": "関連ページ",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://www.instagram.com/p/DL7MXogSpKg/",
+        "judgment": "？",
+        "reason": "提供された情報がInstagram投稿のタイトルと説明（テキストのみ）に限定されており、実際に投稿に含まれる画像や動画の具体的な内容が不明なため、著作権侵害や違法コンテンツの有無を判断できません。テキスト「Hina Suguta 🥰💕💕💕」自体は著作権侵害や違法性を示すものではありませんが、もし投稿に著作権を侵害する画像や動画、または違法なコンテンツが含まれていたとしても、この情報だけでは確認できません。",
+        "confidence": "低",
+        "analysis_type": "スクレイピング + Gemini AI",
+        "search_method": "関連ページ",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://www.threads.com/@precure_paradise/post/DL7o8VDPSbf/%E3%81%AF%E3%81%AA%E3%81%82%E3%81%84%EB%8B%98precure_paradise%EC%9D%98-%EA%B2%8C%EC%8B%9C%EB%AC%BC",
+        "judgment": "？",
+        "reason": "提示された情報が「Title: Post by はなあい (@precure_paradise)」と「Body: (空欄)」のみであり、具体的なコンテンツ内容が全く不明なため、著作権侵害や違法コンテンツの有無を判定することができません。アカウント名から「プリキュア」に関連する内容である可能性は示唆されますが、それが合法的なファン活動、公式情報の共有、あるいは著作権侵害に当たる内容（例：違法なアップロード、海賊版配布）であるかは判断するための情報が決定的に不足しています。",
+        "confidence": "低",
+        "analysis_type": "スクレイピング + Gemini AI",
+        "search_method": "関連ページ",
+        "search_source": "Vision API"
+      }
+    ]
+  },
+  {
+    "history_id": "a5e2eed3-a59f-40f8-8fca-94f6832f1294",
+    "image_id": "9fb4d9d5-5969-4e69-ab71-68a98801e761",
+    "image_hash": "834792ceb51fdac329e401927ab6b5b9de871e4fcd87bd728452b1b06dd1b46d",
+    "original_filename": "00023.pdf",
+    "analysis_date": "2025-08-06T16:27:24.458030",
+    "analysis_timestamp": 1754465244,
+    "found_urls_count": 0,
+    "processed_results_count": 0,
+    "results": []
+  },
+  {
+    "history_id": "5bcf27bc-faac-4ae5-a1b5-8a8941bcaba2",
+    "image_id": "472e5579-678a-461d-8acb-e777b5449a26",
+    "image_hash": "fb6e18d9f302e82010a0c7a3039331c962988cfbc76d665babf1621fd45aa637",
+    "original_filename": "00024.pdf",
+    "analysis_date": "2025-08-06T16:28:01.672660",
+    "analysis_timestamp": 1754465281,
+    "found_urls_count": 8,
+    "processed_results_count": 8,
+    "results": [
+      {
+        "url": "https://tc-animate.techorus-cdn.com/resize_image/resize_image.php?image=03031410_67c539e0266d9.jpg&width=350",
+        "judgment": "？",
+        "reason": "ページ内容を取得できませんでした",
+        "confidence": "低",
+        "analysis_type": "スクレイピング失敗",
+        "search_method": "部分一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://img2.biggo.com/175x,q75,sj9Qgs9ZwXs2oJmy-jn34o9Fao-xXmJULQb86S0IrDFs/https://im2.book.com.tw/image/getImage?i=https://www.books.com.tw/img/M01/021/04/M010210423.jpg&v=67ce950ak&w=280&h=280",
+        "judgment": "？",
+        "reason": "ページ内容を取得できませんでした",
+        "confidence": "低",
+        "analysis_type": "スクレイピング失敗",
+        "search_method": "部分一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://gw.alicdn.com/imgextra/i1/20727325/O1CN015wqPrT23yuDlDkNWj_!!20727325.jpg_Q75.jpg_.webp",
+        "judgment": "？",
+        "reason": "提供されたのは画像URLのみであり、そのURLが指す具体的な画像の内容や、その画像がWebページ上でどのような文脈（例：商品販売、情報提供、個人利用など）で使用されているかを直接確認できないため、著作権侵害や違法コンテンツの有無を判断することはできません。`alicdn.com`はアリババグループのCDNドメインである可能性が高いですが、それが常に合法的なコンテンツのみを配信しているとは限りません。画像の内容が確認できない限り、判定は困難です。",
+        "confidence": "低",
+        "analysis_type": "スクレイピング + Gemini AI",
+        "search_method": "部分一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://im2.book.com.tw/image/getImage?i=https://www.books.com.tw/img/M01/021/04/M010210423.jpg&v=67ce950ak&w=375&h=375",
+        "judgment": "？",
+        "reason": "ページ内容を取得できませんでした",
+        "confidence": "低",
+        "analysis_type": "スクレイピング失敗",
+        "search_method": "部分一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://times-abema.ismcdn.jp/mwimgs/e/5/375w/img_e558b15d553370e817dade29e89e8842110501.jpg",
+        "judgment": "○",
+        "reason": "提供された画像URLのドメインは「times-abema.ismcdn.jp」です。「abema」は株式会社AbemaTVが運営するインターネットテレビ局「ABEMA」を指し、「ismcdn.jp」はコンテンツ配信ネットワーク（CDN）で、日本の多くのメディアサイトが利用しています。このURLは、ABEMAの関連サイト（例えばAbemaTIMESなど）が正規に配信している画像である可能性が極めて高いです。大手メディアが自社の正規ドメインを通じて公然と著作権侵害や違法コンテンツを配信しているとは考えにくいため、安全なコンテンツと判断します。画像の内容自体は確認できませんが、URLの信頼性から問題はないと推測されます。",
+        "confidence": "低",
+        "analysis_type": "スクレイピング + Gemini AI",
+        "search_method": "部分一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://img.alicdn.com/imgextra/i3/2053490873/O1CN01EaL4uE1IJsnqbuCBM_!!2053490873.jpg_q50s50.jpg",
+        "judgment": "？",
+        "reason": "URLのみでは画像の内容を特定できません。`alicdn.com`はAlibabaグループのCDN（コンテンツデリバリーネットワーク）であり、正当なWebサイトが画像をホストするために利用する一般的なサービスです。\n\n著作権侵害や違法コンテンツであるか否かは、以下の情報によって決まります。\n1.  **画像の内容**: 著作権で保護されたキャラクター、有名人の写真、違法な商品などが含まれているか。\n2.  **画像の利用文脈**: どのようなWebページに表示されているか（例：正規の商品販売ページ、海賊版を販売するサイト、個人のブログなど）。\n\nこのURLだけでは、上記の情報が一切含まれていないため、著作権侵害や違法コンテンツの可能性を判定することはできません。",
+        "confidence": "低",
+        "analysis_type": "スクレイピング + Gemini AI",
+        "search_method": "部分一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://storage.mantan-web.jp/images/2025/02/28/20250228dog00m200081000c/001_size2.jpg",
+        "judgment": "○",
+        "reason": "提示されたURL `https://storage.mantan-web.jp/images/...` は、日本の主要なエンターテイメントニュースサイト「MANTANWEB（まんたんウェブ）」のドメイン（mantan-web.jp）内にある画像ストレージを指しています。MANTANWEBは毎日新聞社が運営する公式のメディアであり、そこで配信される画像は、通常、適切な権利処理（ライセンス取得、自社制作、著作権者の許諾など）がなされていると見なされます。このURL自体に著作権侵害や違法コンテンツの兆候は認められません。",
+        "confidence": "低",
+        "analysis_type": "スクレイピング + Gemini AI",
+        "search_method": "部分一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://img.alicdn.com/imgextra/i2/3214548737/O1CN01esFicM2EPbUdNx3ap_!!4611686018427387649-0-item_pic.jpg",
+        "judgment": "×",
+        "reason": "この画像は、ドラゴンボールの悟空、ONE PIECEのルフィ、ナルト、鬼滅の刃の炭治郎、ポケットモンスターのピカチュウ、スーパーマリオ、スパイダーマン、バットマンなど、多数の人気アニメ、漫画、ゲーム、映画の既存キャラクターを無断で集合させて描かれたイラストです。これらのキャラクターはそれぞれ異なる著作権者が存在しており、通常、各著作権者の許諾なくこのようなイラストを作成し、ウェブ上で公開したり、特に商用目的で利用したりすることは、著作権（複製権、公衆送信権、翻案権など）を侵害する行為に該当します。画像のURLがEコマースサイトでよく使われるドメイン（alicdn.com）であることから、商品画像として利用されている可能性が高く、その場合は明らかな著作権侵害となります。",
+        "confidence": "低",
+        "analysis_type": "スクレイピング + Gemini AI",
+        "search_method": "部分一致",
+        "search_source": "Vision API"
+      }
+    ]
+  },
+  {
+    "history_id": "641703e4-5194-4918-b73f-9a7a19f7bb26",
+    "image_id": "188c859e-d270-42e5-b9be-1370f40866c4",
+    "image_hash": "d9dffb14bd7d894c834b2485ac0cb0d1f31a736211150b7e206e16a0ac7988ac",
+    "original_filename": "00025.pdf",
+    "analysis_date": "2025-08-06T16:28:36.597486",
+    "analysis_timestamp": 1754465316,
+    "found_urls_count": 8,
+    "processed_results_count": 8,
+    "results": [
+      {
+        "url": "https://64.media.tumblr.com/1f7511b361f75d2fb6c6c2d1aa15e711/7bec67a5acfb3765-8c/s540x810/844d51a13254dbca75754ce3d2467a8cf23463fe.jpg",
+        "judgment": "？",
+        "reason": "提供されたURLはTumblrの画像CDNのものであり、具体的な画像の内容が不明であるため、著作権の侵害や違法コンテンツであるかを判断することができません。Tumblrはユーザー投稿型のプラットフォームであるため、著作権侵害にあたるコンテンツが投稿されている可能性もありますが、この情報だけでは特定できません。",
+        "confidence": "低",
+        "analysis_type": "スクレイピング + Gemini AI",
+        "search_method": "部分一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://pbs.twimg.com/media/GvfJDZPWUAA_9e8?format=jpg&name=900x900",
+        "judgment": "？",
+        "reason": "ページ内容を取得できませんでした",
+        "confidence": "低",
+        "analysis_type": "スクレイピング失敗",
+        "search_method": "部分一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://lookaside.instagram.com/seo/google_widget/crawler/?media_id=3673594475008918150",
+        "judgment": "○",
+        "reason": "このInstagram投稿は、「声優グランプリ（seigura.magazine）」という雑誌の公式アカウントによる宣伝活動と見られます。発売される雑誌の内容（前島亜美さんのインタビュー記事、楽曲情報、関連アニメタイトル）を紹介しており、これは通常の広報活動の一環です。著作権を侵害している、または違法なコンテンツを配布しているといった兆候は一切見られません。",
+        "confidence": "低",
+        "analysis_type": "スクレイピング + Gemini AI",
+        "search_method": "部分一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://mw-cds.akamaized.net/MW-Product/988/803/2e7a0a6488b23aab7378f79c9fa1698d58458a87b1ef2c0ff2139cfaa04cca40/RS4A/thumbnail/3bec5e610931ce16f674cd5de7be15a23b1ab00d4e3351957925c844e3d3928f.jpg",
+        "judgment": "？",
+        "reason": "URLはAkamai社のCDN (Content Delivery Network) のものであり、多くの正規のWebサイトがコンテンツ配信に利用しています。そのため、このURL自体が違法なコンテンツを示唆するものではありません。しかし、画像の具体的な内容や、それがどのWebサイトで利用されているか（例：正規のECサイトの商品画像か、無断転載されたものか）を直接確認できないため、著作権侵害や違法コンテンツであるかを断定することはできません。情報が不足しているため、判定は困難です。",
+        "confidence": "低",
+        "analysis_type": "スクレイピング + Gemini AI",
+        "search_method": "部分一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://twitter.com/search?q=%23Wishforyou&src=recent_search_click&f=media",
+        "judgment": "？",
+        "reason": "ページ内容を取得できませんでした",
+        "confidence": "低",
+        "analysis_type": "スクレイピング失敗",
+        "search_method": "関連ページ",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://www.tumbig.com/tag/%E5%A4%A9%E3%81%BF",
+        "judgment": "？",
+        "reason": "ページ内容を取得できませんでした",
+        "confidence": "低",
+        "analysis_type": "スクレイピング失敗",
+        "search_method": "関連ページ",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://x.com/seigura/status/1943243833212342489",
+        "judgment": "○",
+        "reason": "アカウント情報、投稿内容ともに、月刊誌「声優グランプリ」の公式アカウントが、自社の雑誌の発売を告知し、掲載内容（前島亜美さんのインタビュー記事）を紹介する正当な宣伝活動であることが明確です。\n\n1.  **アカウントの正当性:** アカウント名、表示名、プロフィール文に「声優グランプリ公式」と明記されており、フォロワー数や投稿数も非常に多いため、運営元である株式会社イマジカインフォス（雑誌「声優グランプリ」の発行元）による公式アカウントであると判断できます。\n2.  **投稿内容の合法性:** 投稿内容は、雑誌の発売日や掲載されている人物・内容について紹介するものであり、雑誌の販売促進を目的としたものです。添付されている画像も、雑誌の表紙や誌面の一部、宣伝用の撮り下ろし写真であると推測され、出版社自身が著作権を持つか、使用許諾を得て使用している可能性が極めて高いです。\n3.  **著作権侵害の有無:** 公式アカウントが自社の出版物やそれに付随するコンテンツ（記事内容、写真など）を宣伝目的で使用することは、著作権者が自らの権利を行使している行為であり、著作権侵害には該当しません。\n4.  **違法コンテンツの有無:** 投稿内容に、差別、暴力、犯罪助長などの違法コンテンツに該当する表現は一切含まれていません。\n\nこれらの理由から、著作権侵害や違法コンテンツの可能性はなく、安全な投稿であると判断されます。",
+        "confidence": "低",
+        "analysis_type": "X API + Gemini AI",
+        "x_username": "seigura",
+        "x_display_name": "声優グランプリ＠30周年",
+        "x_tweet_text": "声グラ8月号は本日7月10日発売💐\n1stシングル「Wish for you」をリリースする前島亜美さんが登場💙\nTVアニメ『#公女殿下 の家庭教師』のOPである表題曲を中心にそれぞれの楽曲についてお...",
+        "search_method": "関連ページ",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://www.instagram.com/p/DL7OrYjvoKG/",
+        "judgment": "○",
+        "reason": "投稿元のアカウント名「seigura.magazine」が「声優グランプリ」の公式アカウントと推測され、投稿内容も自社雑誌の発売告知およびプロモーションです。特定の声優や楽曲、アニメ作品に言及していますが、これは雑誌記事の内容に関連するものであり、公式による宣伝活動として正当です。著作権侵害や違法コンテンツの配布・助長といった要素は一切見られません。",
+        "confidence": "低",
+        "analysis_type": "スクレイピング + Gemini AI",
+        "search_method": "関連ページ",
+        "search_source": "Vision API"
+      }
+    ]
+  },
+  {
+    "history_id": "de7d397c-57b3-4ba3-a5a2-47390d389ce0",
+    "image_id": "a8c36e2c-f1f8-47d8-9d10-80d44b7d1ecd",
+    "image_hash": "8ef4bdf1a64082fc6170be5ae832b4f4d7c28fee092d0c1d4f17cfd563678fbc",
+    "original_filename": "00026.pdf",
+    "analysis_date": "2025-08-06T16:28:51.753033",
+    "analysis_timestamp": 1754465331,
+    "found_urls_count": 2,
+    "processed_results_count": 2,
+    "results": [
+      {
+        "url": "https://mw-cds.akamaized.net/MW-Product/988/803/2e7a0a6488b23aab7378f79c9fa1698d58458a87b1ef2c0ff2139cfaa04cca40/RS4A/thumbnail/3bec5e610931ce16f674cd5de7be15a23b1ab00d4e3351957925c844e3d3928f.jpg",
+        "judgment": "？",
+        "reason": "提供されたのは画像URLのみであり、その画像がどのウェブサイトの文脈で利用されているか（例えば、公式サイト、ニュースサイト、海賊版サイトなど）を示す情報が一切ありません。画像自体は映画のポスター（「ワイルド・スピード ICE BREAK」に酷似）のように見え、著作物である可能性が高いですが、それが公式に配布されているものなのか、正規のライセンスに基づき使用されているものなのか、あるいは不法にコピー・転載されたものなのかを、このURLと画像単体から判断することは不可能です。そのため、著作権侵害の有無を特定するには情報が不足しています。",
+        "confidence": "低",
+        "analysis_type": "スクレイピング + Gemini AI",
+        "search_method": "部分一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://dmagazine.docomo.ne.jp/article/2e7a0a6488b23aab7378f79c9fa1698d58458a87b1ef2c0ff2139cfaa04cca40/3bec5e610931ce16f674cd5de7be15a23b1ab00d4e3351957925c844e3d3928f/",
+        "judgment": "○",
+        "reason": "記載された情報からは、NTTドコモが提供する正規の電子雑誌読み放題サービス「dマガジン」に関する内容（サービス説明や、そのサービスで配信されている雑誌『声優グランプリ』の紹介）と判断できます。dマガジンは出版社から正式に許諾を得てコンテンツを配信している合法的なサービスであり、このページ内容自体に著作権侵害や違法コンテンツの可能性は認められません。",
+        "confidence": "低",
+        "analysis_type": "スクレイピング + Gemini AI",
+        "search_method": "関連ページ",
+        "search_source": "Vision API"
+      }
+    ]
   }
 ]
