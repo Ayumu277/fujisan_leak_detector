@@ -1345,32 +1345,22 @@ def judge_x_content_with_gemini(x_data: dict) -> dict:
         like_count = public_metrics.get('like_count', 0)
         reply_count = public_metrics.get('reply_count', 0)
 
-        # Gemini用のプロンプトを構築
+        # Gemini用のプロンプトを構築（短縮版）
         prompt = f"""
-以下のX（Twitter）投稿とアカウント情報を分析し、著作権侵害や違法コンテンツの可能性を判定してください。
+【X投稿分析】
+アカウント: @{username} ({display_name})
+フォロワー: {followers_count:,}人
+投稿内容: {tweet_text[:500]}
 
-【アカウント情報】
-- ユーザー名: @{username}
-- 表示名: {display_name}
-- プロフィール: {user_description}
-- フォロワー数: {followers_count:,}
-- フォロー数: {following_count:,}
-- 投稿数: {tweet_count:,}
-
-【投稿内容】
-{tweet_text}
-
-【投稿の反応】
-- リツイート: {retweet_count:,}
-- いいね: {like_count:,}
-- リプライ: {reply_count:,}
+著作権侵害・違法コンテンツを判定してください。
 
 判定基準：
-○（安全）: 公式アカウント、正当な投稿、著作権問題なし
-×（危険）: 明らかな著作権侵害、違法コンテンツ、海賊版配布
-？（不明）: 判定困難、情報不足
+○（安全）: 公式アカウント、正当な投稿
+×（危険）: 著作権侵害、違法コンテンツ、海賊版
+？（不明）: 判定困難
 
-回答形式: "判定:[○/×/?] 理由:[具体的な理由]"
+回答形式: "判定:[○/×/?] 理由:[150字以内の簡潔な理由]"
+必ず150字以内で回答してください。
 """
 
         logger.info("🤖 Gemini AI X投稿判定開始")
@@ -1410,10 +1400,15 @@ def judge_x_content_with_gemini(x_data: dict) -> dict:
                 judgment = "×"
             reason = response_text
 
+        # 理由を300字以内に制限
+        if len(reason) > 300:
+            reason = reason[:297] + "..."
+            logger.info(f"📝 X投稿判定理由を300字に短縮しました")
+
         # 信頼度を設定
         confidence = "高" if judgment in ["○", "×"] else "低"
 
-        logger.info(f"✅ Gemini X投稿判定完了: {judgment} - {reason}")
+        logger.info(f"✅ Gemini X投稿判定完了: {judgment} - {reason[:50]}...")
 
         return {
             "judgment": judgment,
@@ -4339,35 +4334,62 @@ def analyze_url_efficiently(url: str) -> dict | None:
 
 def analyze_url_with_scraping(url: str) -> dict | None:
     """
-    URLをスクレイピングしてGemini AIで判定
+    URLをドメイン分類に基づいて効率的に判定
+    公式ドメイン → 即時○判定（Gemini API不使用）
+    非公式/SNS → Gemini AIで詳細分析
     """
     try:
-        # 信頼できるドメインの事前判定
-        trusted_domains = [
-            'amazon.co.jp', 'amazon.com', 'rakuten.co.jp', 'yahoo.co.jp',
-            'nintendo.com', 'sony.com', 'microsoft.com', 'apple.com',
-            'google.com', 'youtube.com', 'wikipedia.org',
-            'gov.jp', 'go.jp', 'ac.jp', 'ed.jp',
-            'nhk.or.jp', 'asahi.com', 'yomiuri.co.jp', 'mainichi.jp',
-            'nikkei.com', 'sankei.com', 'famitsu.com', 'oricon.co.jp',
-            'natalie.mu', 'animenewsnetwork.com', 'seigura.com'
-        ]
-
         from urllib.parse import urlparse
         parsed = urlparse(url)
         domain = parsed.netloc.lower()
 
-        # 信頼ドメインは事前○判定
-        for trusted in trusted_domains:
-            if trusted in domain:
-                logger.info(f"✅ 信頼ドメインのため事前○判定: {url}")
+        # 1. 公式・信頼ドメインの即時○判定（Gemini API不使用）
+        official_domains = [
+            # 大手EC・公式サイト
+            'amazon.co.jp', 'amazon.com', 'rakuten.co.jp', 'yahoo.co.jp',
+            'mercari.com', 'mercari.jp', 'paypay.ne.jp', 'paypaymall.yahoo.co.jp',
+
+            # 大手企業公式
+            'nintendo.com', 'sony.com', 'microsoft.com', 'apple.com',
+            'google.com', 'youtube.com', 'wikipedia.org',
+
+            # 政府・教育機関
+            'gov.jp', 'go.jp', 'ac.jp', 'ed.jp',
+
+            # 大手メディア・ニュース
+            'nhk.or.jp', 'asahi.com', 'yomiuri.co.jp', 'mainichi.jp',
+            'nikkei.com', 'sankei.com', 'tokyo-np.co.jp',
+
+            # エンタメ・専門メディア
+            'famitsu.com', 'oricon.co.jp', 'natalie.mu',
+            'animenewsnetwork.com', 'seigura.com', 'dengekionline.com',
+
+            # 出版社公式
+            'kadokawa.co.jp', 'shogakukan.co.jp', 'kodansha.co.jp',
+            'shueisha.co.jp', 'hakusensha.co.jp', 'futabasha.co.jp',
+
+            # ゲーム・アニメ公式
+            'square-enix.com', 'bandai.co.jp', 'konami.com',
+            'capcom.com', 'sega.com', 'atlus.com'
+        ]
+
+        for official in official_domains:
+            if official in domain:
+                logger.info(f"✅ 公式ドメインのため即時○判定（Gemini API不使用）: {url}")
                 return {
                     "url": url,
                     "judgment": "○",
-                    "reason": f"信頼できる公式サイト ({trusted})",
+                    "reason": "信頼できる公式サイト",
                     "confidence": "高",
-                    "analysis_type": "信頼ドメイン判定"
+                    "analysis_type": "公式ドメイン即時判定",
+                    "domain_category": "公式サイト"
                 }
+
+        # 2. 非公式・SNS・不明ドメインの詳細分析（Gemini API使用）
+        logger.info(f"🔍 非公式ドメイン検出 - Gemini AIで詳細分析: {url}")
+
+        # ドメインカテゴリを判定
+        domain_category = classify_domain_type(domain)
 
         # スクレイピングしてコンテンツ取得
         content = scrape_page_content(url)
@@ -4377,25 +4399,65 @@ def analyze_url_with_scraping(url: str) -> dict | None:
                 "judgment": "？",
                 "reason": "ページ内容を取得できませんでした",
                 "confidence": "不明",
-                "analysis_type": "スクレイピング失敗"
+                "analysis_type": "スクレイピング失敗",
+                "domain_category": domain_category
             }
 
-        # Gemini AIで判定
-        judgment_result = judge_content_with_gemini(content)
+        # Gemini AIで詳細判定
+        judgment_result = judge_content_with_gemini(content, domain_category)
 
         return {
             "url": url,
             "judgment": judgment_result["judgment"],
             "reason": judgment_result["reason"],
             "confidence": judgment_result["confidence"],
-            "analysis_type": "スクレイピング + Gemini AI"
+            "analysis_type": "Gemini AI詳細分析",
+            "domain_category": domain_category
         }
 
     except Exception as e:
-        logger.error(f"❌ スクレイピング分析エラー {url}: {str(e)}")
+        logger.error(f"❌ URL分析エラー {url}: {str(e)}")
         return None
 
-def judge_content_with_gemini(content: str) -> dict:
+def classify_domain_type(domain: str) -> str:
+    """
+    ドメインのタイプを分類
+    """
+    domain_lower = domain.lower()
+
+    # SNS・ソーシャルメディア
+    if any(sns in domain_lower for sns in [
+        'twitter.com', 'x.com', 'instagram.com', 'facebook.com',
+        'tiktok.com', 'youtube.com', 'pinterest.com', 'tumblr.com',
+        'threads.net', 'discord.com', 'reddit.com'
+    ]):
+        return "SNS・ソーシャルメディア"
+
+    # ブログ・個人サイト
+    elif any(blog in domain_lower for blog in [
+        'blog', 'diary', 'note.', 'hatenablog', 'ameblo', 'fc2',
+        'wordpress', 'blogspot', 'medium.com'
+    ]):
+        return "ブログ・個人サイト"
+
+    # ファイル共有・アップロードサイト
+    elif any(file_share in domain_lower for file_share in [
+        'mediafire', 'mega.nz', 'dropbox', 'drive.google',
+        'onedrive', 'box.com', 'wetransfer'
+    ]):
+        return "ファイル共有サイト"
+
+    # 掲示板・フォーラム
+    elif any(forum in domain_lower for forum in [
+        '2ch', '5ch', 'reddit', 'discord', 'slack'
+    ]):
+        return "掲示板・フォーラム"
+
+    # その他・不明
+    else:
+        return "その他・不明サイト"
+
+def judge_content_with_gemini(content: str, domain_category: str = "不明") -> dict:
     """
     ページコンテンツをGemini AIで判定
     """
@@ -4408,17 +4470,18 @@ def judge_content_with_gemini(content: str) -> dict:
 
     try:
         prompt = f"""
-以下のWebページ内容を分析し、著作権侵害や違法コンテンツの可能性を判定してください。
+【ドメイン分類】{domain_category}
+【ページ内容】{content[:1500]}
 
-【ページ内容】
-{content[:2000]}
+著作権侵害・違法コンテンツを判定してください。
 
 判定基準：
-○（安全）: 公式サイト、正当なコンテンツ、著作権問題なし
-×（危険）: 明らかな著作権侵害、違法コンテンツ、海賊版配布
-？（不明）: 判定困難、情報不足
+○（安全）: 公式サイト、正当なコンテンツ
+×（危険）: 著作権侵害、違法コンテンツ、海賊版
+？（不明）: 判定困難
 
-回答形式: "判定:[○/×/?] 理由:[具体的な理由]"
+回答形式: "判定:[○/×/?] 理由:[150字以内の簡潔な理由]"
+必ず150字以内で回答してください。
 """
 
         logger.info("🤖 Gemini AI判定開始")
@@ -4457,7 +4520,12 @@ def judge_content_with_gemini(content: str) -> dict:
                 judgment = "×"
             reason = response_text
 
-        logger.info(f"✅ Gemini判定完了: {judgment} - {reason}")
+        # 理由を300字以内に制限
+        if len(reason) > 300:
+            reason = reason[:297] + "..."
+            logger.info(f"📝 理由を300字に短縮しました")
+
+        logger.info(f"✅ Gemini判定完了: {judgment} - {reason[:50]}...")
 
         return {
             "judgment": judgment,
