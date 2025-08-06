@@ -21,7 +21,20 @@ import csv
 from urllib.parse import urlparse
 from fastapi.responses import Response
 
+# ログ設定（最初に設定）
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# SerpAPI統合用インポート
+try:
+    import imagehash
+    import requests
+    from serpapi import GoogleSearch
+    SERPAPI_SUPPORT = True
+    logger.info("✅ SerpAPI機能が利用可能です")
+except ImportError:
+    SERPAPI_SUPPORT = False
+    logger.warning("⚠️ SerpAPI関連ライブラリが見つかりません。pip install google-search-results imagehash を実行してください")
 
 # PDF処理用ライブラリ
 try:
@@ -31,11 +44,6 @@ try:
 except ImportError:
     PDF_SUPPORT = False
     logger.warning("⚠️ PDF処理ライブラリが見つかりません。pip install PyMuPDF を実行してください")
-
-
-# ログ設定
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__name__)
 
 # ログ保存用（メモリ内）
 system_logs = []
@@ -67,6 +75,7 @@ app = FastAPI(title="Book Leak Detector", version="1.0.0")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GOOGLE_APPLICATION_CREDENTIALS = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
 X_BEARER_TOKEN = os.getenv("X_BEARER_TOKEN")
+SERP_API_KEY = os.getenv("SERPAPI_KEY")
 
 # Gemini APIの設定
 if GEMINI_API_KEY:
@@ -83,6 +92,8 @@ if not GOOGLE_APPLICATION_CREDENTIALS:
     missing_keys.append("GOOGLE_APPLICATION_CREDENTIALS")
 if not X_BEARER_TOKEN:
     missing_keys.append("X_BEARER_TOKEN (Twitter内容取得用)")
+if not SERP_API_KEY:
+    missing_keys.append("SERPAPI_KEY (SerpAPI逆画像検索用)")
 
 if missing_keys:
     required_missing = [k for k in missing_keys if "精度向上用" not in k and "オプション" not in k]
@@ -95,6 +106,7 @@ if missing_keys:
     print("- GEMINI_API_KEY: Gemini AI用")
     print("- GOOGLE_APPLICATION_CREDENTIALS: Google Vision API用サービスアカウントキー")
     print("- X_BEARER_TOKEN: X API用（Twitter内容取得）")
+    print("- SERPAPI_KEY: SerpAPI用（逆画像検索）")
 else:
     print("✓ 必要なAPI_KEYが正常に設定されています")
 
@@ -185,12 +197,13 @@ def save_history():
         logger.error(f"履歴の保存に失敗: {e}")
 
 def generate_search_method_summary(raw_urls: list) -> dict:
-    """検索方法別の統計情報を生成（Vision API特化版、類似画像除外）"""
+    """検索方法別の統計情報を生成（Vision API + SerpAPI統合版）"""
     summary = {
         "完全一致": 0,
         "部分一致": 0,
         "関連ページ": 0,
         "逆引き検索": 0,
+        "SerpAPI完全一致": 0,
         "高信頼度テキスト": 0,
         "中信頼度テキスト": 0,
         "低信頼度テキスト": 0,
@@ -201,7 +214,7 @@ def generate_search_method_summary(raw_urls: list) -> dict:
         if isinstance(url_data, dict):
             search_method = url_data.get("search_method", "不明")
 
-            # 検索方法を分類（類似画像は除外）
+            # 検索方法を分類（SerpAPI追加）
             if search_method == "完全一致":
                 summary["完全一致"] += 1
             elif search_method == "部分一致":
@@ -210,6 +223,8 @@ def generate_search_method_summary(raw_urls: list) -> dict:
                 summary["関連ページ"] += 1
             elif search_method == "逆引き検索":
                 summary["逆引き検索"] += 1
+            elif search_method == "SerpAPI完全一致":
+                summary["SerpAPI完全一致"] += 1
             elif search_method == "高信頼度テキスト":
                 summary["高信頼度テキスト"] += 1
             elif search_method == "中信頼度テキスト":
@@ -744,27 +759,274 @@ def estimate_related_sites_from_query(search_query: str) -> list[str]:
     # 重複除去
     return list(set(related_sites))
 
+def calculate_multi_hash_similarity(image1: Image.Image, image2: Image.Image) -> Dict:
+    """
+    複数のハッシュアルゴリズムを使用して画像の類似度を計算
+    より高精度な「ほぼ完全一致」判定を実現
+    """
+    try:
+        # 複数のハッシュアルゴリズムで比較
+        phash_dist = imagehash.phash(image1) - imagehash.phash(image2)
+        dhash_dist = imagehash.dhash(image1) - imagehash.dhash(image2)
+        ahash_dist = imagehash.average_hash(image1) - imagehash.average_hash(image2)
+
+        # 総合スコア計算（全てのハッシュが低距離の場合のみ高スコア）
+        total_distance = phash_dist + dhash_dist + ahash_dist
+        max_distance = max(phash_dist, dhash_dist, ahash_dist)
+
+        return {
+            "phash_distance": int(phash_dist),
+            "dhash_distance": int(dhash_dist),
+            "ahash_distance": int(ahash_dist),
+            "total_distance": int(total_distance),
+            "max_distance": int(max_distance),
+            "is_near_exact": phash_dist <= 2 and dhash_dist <= 3 and ahash_dist <= 3 and max_distance <= 3,
+            "similarity_score": max(0, 1.0 - (total_distance / 30.0))  # 30は経験的な最大値
+        }
+    except Exception as e:
+        logger.warning(f"⚠️ ハッシュ計算エラー: {e}")
+        return {
+            "phash_distance": 999,
+            "dhash_distance": 999,
+            "ahash_distance": 999,
+            "total_distance": 999,
+            "max_distance": 999,
+            "is_near_exact": False,
+            "similarity_score": 0.0
+        }
+
+def serpapi_reverse_image_search(input_image_bytes: bytes) -> List[Dict]:
+    """
+    SerpAPI Google逆画像検索で「ほぼ完全一致」の画像のみを取得
+    複数ハッシュアルゴリズムによる高精度判定を実装
+
+    Args:
+        input_image_bytes (bytes): 入力画像のバイトデータ
+
+    Returns:
+        List[Dict]: ほぼ完全一致の画像URLリスト（スコア順ソート済み）
+    """
+    if not SERP_API_KEY or not SERPAPI_SUPPORT:
+        logger.warning("⚠️ SerpAPI機能が利用できません")
+        return []
+
+    temp_file_path = None
+    try:
+        logger.info("🔍 SerpAPI逆画像検索開始（高精度ほぼ完全一致）")
+
+        # 1. 入力画像の前処理とハッシュ計算
+        try:
+            input_image = Image.open(BytesIO(input_image_bytes))
+            if input_image.mode != 'RGB':
+                input_image = input_image.convert('RGB')
+
+            # 画像品質チェック
+            width, height = input_image.size
+            if width < 50 or height < 50:
+                logger.warning("⚠️ 入力画像が小さすぎます（50x50未満）")
+                return []
+
+            logger.info(f"📊 入力画像: {width}x{height}, モード: {input_image.mode}")
+
+        except Exception as e:
+            logger.error(f"❌ 入力画像処理失敗: {str(e)}")
+            return []
+
+        # 2. 高品質な一時ファイル作成（SerpAPI用）
+        os.makedirs(UPLOAD_DIR, exist_ok=True)
+        temp_filename = f"serpapi_temp_{uuid.uuid4().hex}.jpg"
+        temp_file_path = os.path.join(UPLOAD_DIR, temp_filename)
+
+        # 高品質でJPEG保存（SerpAPIの精度向上のため）
+        input_image.save(temp_file_path, 'JPEG', quality=95, optimize=False)
+
+        # 3. 一時ファイルをHTTPで公開
+        base_url = os.getenv("VITE_API_BASE_URL", "http://localhost:8000")
+        image_url = f"{base_url}/uploads/{temp_filename}"
+        logger.info(f"📁 一時画像URL: {image_url}")
+
+        # SerpAPIのURL可用性をチェック
+        try:
+            import requests
+            response = requests.head(image_url, timeout=5)
+            if response.status_code != 200:
+                logger.warning(f"⚠️ 一時画像URLにアクセスできません: {response.status_code}")
+                return []
+        except Exception as e:
+            logger.warning(f"⚠️ 一時画像URL確認エラー: {e}")
+            # 本番環境では継続（ファイアウォール等でHEADリクエストが制限される場合があるため）
+
+        # 4. SerpAPI逆画像検索実行
+        search_params = {
+            "engine": "google_reverse_image",
+            "image_url": image_url,
+            "api_key": SERP_API_KEY,
+            "no_cache": True,  # キャッシュを使用しない（最新結果を取得）
+            "safe": "off"      # セーフサーチを無効化（より多くの結果を取得）
+        }
+
+        search = GoogleSearch(search_params)
+        results = search.get_dict()
+
+        if "error" in results:
+            error_msg = results['error']
+            logger.error(f"❌ SerpAPI エラー: {error_msg}")
+
+            # 特定のエラーの場合は詳細情報を提供
+            if "hasn't returned any results" in error_msg:
+                logger.info("💡 この画像に対してSerpAPIで一致する結果が見つかりませんでした")
+                logger.info("   - 画像が新しすぎる、または非常に特殊な画像の可能性があります")
+                logger.info("   - Vision APIの結果で十分な場合があります")
+            elif "quota" in error_msg.lower() or "limit" in error_msg.lower():
+                logger.warning("⚠️ SerpAPI APIクォータまたはレート制限に達しました")
+
+            return []
+
+        # 5. visual_matchesを取得
+        visual_matches = results.get("visual_matches", [])
+        logger.info(f"🎯 SerpAPIから {len(visual_matches)} 件の候補を取得")
+
+        if not visual_matches:
+            logger.info("💡 SerpAPIで一致する画像が見つかりませんでした")
+
+            # 代替情報をチェック
+            inline_images = results.get("inline_images", [])
+            if inline_images:
+                logger.info(f"📋 代替: inline_images {len(inline_images)} 件発見")
+
+            search_information = results.get("search_information", {})
+            if search_information:
+                logger.info(f"📋 検索情報: {search_information}")
+
+            return []
+
+        # 6. 高精度ハッシュ比較でフィルタリング
+        matched_results = []
+        processed_count = 0
+        max_process = min(20, len(visual_matches))  # 処理数制限（API効率化）
+
+        for i, match in enumerate(visual_matches[:max_process]):
+            thumbnail_url = match.get("thumbnail")
+            page_link = match.get("link")
+            title = match.get("title", "")
+            source = match.get("source", "")
+
+            if not thumbnail_url or not page_link:
+                logger.debug(f"  ⚠️ 候補 {i+1}: サムネイルまたはリンクが不足")
+                continue
+
+            # 信頼できないドメインをスキップ
+            if not is_reliable_domain(page_link):
+                logger.debug(f"  ⏭️ 候補 {i+1}: 信頼できないドメインのためスキップ")
+                continue
+
+            try:
+                logger.debug(f"  🔍 候補 {i+1}/{max_process} 処理中: {source}")
+                processed_count += 1
+
+                # サムネイル画像をメモリ内で処理
+                response = requests.get(thumbnail_url, timeout=15, headers={
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                })
+                response.raise_for_status()
+
+                # サムネイル画像の前処理
+                thumbnail_image = Image.open(BytesIO(response.content))
+                if thumbnail_image.mode != 'RGB':
+                    thumbnail_image = thumbnail_image.convert('RGB')
+
+                # 画像サイズチェック
+                thumb_width, thumb_height = thumbnail_image.size
+                if thumb_width < 50 or thumb_height < 50:
+                    logger.debug(f"  ⚠️ 候補 {i+1}: サムネイルが小さすぎます")
+                    continue
+
+                # 複数ハッシュアルゴリズムで類似度計算
+                similarity = calculate_multi_hash_similarity(input_image, thumbnail_image)
+
+                # 「ほぼ完全一致」の厳密な判定
+                if similarity["is_near_exact"]:
+                    confidence_level = "最高" if similarity["max_distance"] <= 1 else "高"
+
+                    matched_results.append({
+                        "url": page_link,
+                        "search_method": "SerpAPI完全一致",
+                        "search_source": "SerpAPI Reverse Image",
+                        "score": similarity["similarity_score"],
+                        "confidence": confidence_level,
+                        "hash_distances": {
+                            "phash": similarity["phash_distance"],
+                            "dhash": similarity["dhash_distance"],
+                            "ahash": similarity["ahash_distance"],
+                            "total": similarity["total_distance"]
+                        },
+                        "title": title,
+                        "source": source,
+                        "thumbnail_url": thumbnail_url,
+                        "image_size": f"{thumb_width}x{thumb_height}"
+                    })
+                    logger.info(f"  ✅ ほぼ完全一致 {i+1}: 総距離={similarity['total_distance']}, 最大距離={similarity['max_distance']} -> {source}")
+                else:
+                    logger.debug(f"  ❌ 一致せず {i+1}: 総距離={similarity['total_distance']}, 最大距離={similarity['max_distance']}")
+
+            except Exception as e:
+                logger.debug(f"  ⚠️ 候補 {i+1} 処理エラー: {str(e)}")
+                continue
+
+        logger.info(f"✅ SerpAPI検索完了: {processed_count}件処理, {len(matched_results)}件のほぼ完全一致を発見")
+
+        # 結果をスコア順でソート
+        matched_results.sort(key=lambda x: x["score"], reverse=True)
+
+        return matched_results
+
+    except Exception as e:
+        logger.error(f"❌ SerpAPI検索エラー: {str(e)}")
+        return []
+
+    finally:
+        # 一時ファイル削除
+        if temp_file_path and os.path.exists(temp_file_path):
+            try:
+                os.remove(temp_file_path)
+                logger.debug(f"🗑️ 一時ファイル削除: {temp_file_path}")
+            except Exception as e:
+                logger.warning(f"⚠️ 一時ファイル削除失敗: {str(e)}")
+
 def enhanced_image_search_with_reverse(image_content: bytes) -> list[dict]:
     """
-    画像検索に逆検索機能を統合した拡張版
+    画像検索にSerpAPI逆検索機能を統合した拡張版
     """
-    logger.info("🚀 拡張画像検索開始（逆検索機能付き）")
+    logger.info("🚀 拡張画像検索開始（SerpAPI逆検索機能付き）")
 
-    # 1. 通常の画像検索
+    # 1. 通常の画像検索（Vision API）
     primary_results = search_web_for_image(image_content)
 
-    # 2. 逆検索機能を適用
+    # 2. SerpAPI逆画像検索（ほぼ完全一致のみ）
+    serpapi_results = serpapi_reverse_image_search(image_content)
+
+    # 3. 従来の逆検索機能を適用
     reverse_results = reverse_search_from_detected_urls(primary_results)
 
-    # 3. 結果を統合
-    all_results = primary_results + reverse_results
+    # 4. 結果を統合（重複URL除去）
+    all_results = primary_results + serpapi_results + reverse_results
+
+    # URL重複除去
+    seen_urls = set()
+    unique_results = []
+    for result in all_results:
+        url = result.get("url", "")
+        if url and url not in seen_urls:
+            seen_urls.add(url)
+            unique_results.append(result)
 
     logger.info(f"📊 拡張検索結果統計:")
-    logger.info(f"  - 通常検索: {len(primary_results)}件")
-    logger.info(f"  - 逆検索: {len(reverse_results)}件")
-    logger.info(f"  - 合計: {len(all_results)}件")
+    logger.info(f"  - Vision API検索: {len(primary_results)}件")
+    logger.info(f"  - SerpAPI逆検索: {len(serpapi_results)}件")
+    logger.info(f"  - 従来逆検索: {len(reverse_results)}件")
+    logger.info(f"  - 重複除去後合計: {len(unique_results)}件")
 
-    return all_results
+    return unique_results
 
 def search_web_for_image(image_content: bytes) -> list[dict]:
     """
@@ -978,6 +1240,12 @@ def search_web_for_image(image_content: bytes) -> list[dict]:
             similar_count = len(web_detection.visually_similar_images) if web_detection.visually_similar_images else 0
             pages_count = len(web_detection.pages_with_matching_images) if web_detection.pages_with_matching_images else 0
             web_count = full_count + partial_count + similar_count
+
+            # デバッグ情報: 類似画像が多いのに完全・部分一致が0件の場合
+            if similar_count > 0 and full_count == 0 and partial_count == 0:
+                logger.info(f"🔍 デバッグ: 類似画像{similar_count}件あり、完全・部分一致0件")
+                logger.info("   - 画像の品質や解像度が影響している可能性があります")
+                logger.info("   - または、この画像が非常に新しい/特殊な画像の可能性があります")
 
         logger.info(f"📈 Vision API検出結果（WEB_DETECTION特化、類似画像除外）:")
         logger.info(f"  - 完全一致画像: {full_count}件")

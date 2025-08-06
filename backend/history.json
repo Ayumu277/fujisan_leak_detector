@@ -3114,5 +3114,516 @@
         "search_source": "Vision API"
       }
     ]
+  },
+  {
+    "history_id": "4fb56f5f-00e3-459d-8335-fa597918c333",
+    "image_id": "812fb94a-6ad6-4bef-8cb5-f43f1fc38755",
+    "image_hash": "b70a58a9b3250e633b10b9f17435b498d00344a10ce63edb6caa082b64c09989",
+    "original_filename": "00022.pdf",
+    "analysis_date": "2025-08-06T19:28:54.697662",
+    "analysis_timestamp": 1754476134,
+    "found_urls_count": 4,
+    "processed_results_count": 4,
+    "results": [
+      {
+        "url": "https://lookaside.instagram.com/seo/google_widget/crawler/?media_id=3673584311565046280",
+        "judgment": "？",
+        "reason": "Instagramの投稿であり、具体的な画像の内容や著作権の所在が不明なため、著作権侵害や違法コンテンツであるかを判断できません。肖像権侵害の可能性も考慮されますが、情報が不足しています。",
+        "confidence": "高",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "SNS・ソーシャルメディア",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://www.instagram.com/p/DAIvlgDzA9j/?hl=en",
+        "judgment": "○",
+        "reason": "Instagramの一般的な投稿であり、提供された情報からは具体的な著作権侵害や違法コンテンツを示す要素が見当たらないため、通常のSNSコンテンツと判断されます。",
+        "confidence": "低",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "SNS・ソーシャルメディア",
+        "search_method": "関連ページ",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://www.instagram.com/p/DL7MXogSpKg/",
+        "judgment": "？",
+        "reason": "Instagram投稿のテキスト情報のみでは、具体的な画像や動画の著作権状況や違法コンテンツの有無を判断できないため、判定困難です。",
+        "confidence": "低",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "SNS・ソーシャルメディア",
+        "search_method": "関連ページ",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://www.threads.com/@precure_paradise/post/DL7o8VDPSbf/%E3%81%AF%E3%81%AA%E3%81%82%E3%81%84%EB%8B%98precure_paradise%EC%9D%98-%EA%B2%8C%EC%8B%9C%EB%AC%BC",
+        "judgment": "？",
+        "reason": "具体的な投稿内容が不明なため、著作権侵害や違法性を判断できません。ユーザー名が特定の作品を連想させますが、その投稿が公式なものか、許諾されたものか、あるいは侵害に当たるものかを確認する情報が欠けています。",
+        "confidence": "低",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "その他・不明サイト",
+        "search_method": "関連ページ",
+        "search_source": "Vision API"
+      }
+    ]
+  },
+  {
+    "history_id": "0e69ed0c-7198-49b0-9970-9a27aa087d3a",
+    "image_id": "0c72324a-f452-4926-a675-6e0b8579226f",
+    "image_hash": "834792ceb51fdac329e401927ab6b5b9de871e4fcd87bd728452b1b06dd1b46d",
+    "original_filename": "00023.pdf",
+    "analysis_date": "2025-08-06T19:28:56.486441",
+    "analysis_timestamp": 1754476136,
+    "found_urls_count": 0,
+    "processed_results_count": 0,
+    "results": []
+  },
+  {
+    "history_id": "fcf01cf0-c889-4bb5-99aa-52ecd278a22e",
+    "image_id": "d0879cf2-7899-4e2f-9598-395bb14fc1aa",
+    "image_hash": "fb6e18d9f302e82010a0c7a3039331c962988cfbc76d665babf1621fd45aa637",
+    "original_filename": "00024.pdf",
+    "analysis_date": "2025-08-06T19:29:23.843823",
+    "analysis_timestamp": 1754476163,
+    "found_urls_count": 8,
+    "processed_results_count": 8,
+    "results": [
+      {
+        "url": "https://tc-animate.techorus-cdn.com/resize_image/resize_image.php?image=03031410_67c539e0266d9.jpg&width=350",
+        "judgment": "？",
+        "reason": "ページ内容を取得できませんでした",
+        "confidence": "低",
+        "analysis_type": "スクレイピング失敗",
+        "domain_category": "その他・不明サイト",
+        "search_method": "部分一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://img2.biggo.com/175x,q75,sj9Qgs9ZwXs2oJmy-jn34o9Fao-xXmJULQb86S0IrDFs/https://im2.book.com.tw/image/getImage?i=https://www.books.com.tw/img/M01/021/04/M010210423.jpg&v=67ce950ak&w=280&h=280",
+        "judgment": "？",
+        "reason": "ページ内容を取得できませんでした",
+        "confidence": "低",
+        "analysis_type": "スクレイピング失敗",
+        "domain_category": "その他・不明サイト",
+        "search_method": "部分一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://gw.alicdn.com/imgextra/i1/20727325/O1CN015wqPrT23yuDlDkNWj_!!20727325.jpg_Q75.jpg_.webp",
+        "judgment": "？",
+        "reason": "CDN経由で配信されている画像であり、元コンテンツの提供元や利用目的が不明です。画像内容だけでは、著作権の有無や侵害状況を判断する情報が不足しています。",
+        "confidence": "低",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "その他・不明サイト",
+        "search_method": "部分一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://im2.book.com.tw/image/getImage?i=https://www.books.com.tw/img/M01/021/04/M010210423.jpg&v=67ce950ak&w=375&h=375",
+        "judgment": "？",
+        "reason": "ページ内容を取得できませんでした",
+        "confidence": "低",
+        "analysis_type": "スクレイピング失敗",
+        "domain_category": "その他・不明サイト",
+        "search_method": "部分一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://times-abema.ismcdn.jp/mwimgs/e/5/375w/img_e558b15d553370e817dade29e89e8842110501.jpg",
+        "judgment": "○",
+        "reason": "画像はAbema Timesの公式CDN（times-abema.ismcdn.jp）から配信されており、正規のメディアサイトが使用するコンテンツと判断できます。著作権侵害や違法コンテンツに該当する可能性は低いと考えられます。",
+        "confidence": "低",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "その他・不明サイト",
+        "search_method": "部分一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://img.alicdn.com/imgextra/i3/2053490873/O1CN01EaL4uE1IJsnqbuCBM_!!2053490873.jpg_q50s50.jpg",
+        "judgment": "？",
+        "reason": "画像は人気アニメキャラクターのフィギュア写真ですが、そのフィギュアが正規ライセンス品か、または著作権を侵害する非正規品であるかを画像URL単体では判断できません。そのため、著作権侵害・違法コンテンツであるかの判定は困難です。",
+        "confidence": "低",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "その他・不明サイト",
+        "search_method": "部分一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://storage.mantan-web.jp/images/2025/02/28/20250228dog00m200081000c/001_size2.jpg",
+        "judgment": "○",
+        "reason": "MANTANWEB（まんたんウェブ）は毎日新聞社が運営する公式エンタメニュースサイトです。このURLはそのドメインからの画像であり、通常、適切な権利処理がなされた正当なコンテンツと判断されます。",
+        "confidence": "低",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "その他・不明サイト",
+        "search_method": "部分一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://img.alicdn.com/imgextra/i2/3214548737/O1CN01esFicM2EPbUdNx3ap_!!4611686018427387649-0-item_pic.jpg",
+        "judgment": "？",
+        "reason": "URLはAlibabaのCDNドメインからの画像を示していますが、画像の内容を直接確認できないため、著作権侵害や違法コンテンツであるかを判断する情報が不足しています。ホスティング元が違法であるとは断定できません。",
+        "confidence": "低",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "その他・不明サイト",
+        "search_method": "部分一致",
+        "search_source": "Vision API"
+      }
+    ]
+  },
+  {
+    "history_id": "61d7e62e-ea86-4da6-8c84-edee17eb25e0",
+    "image_id": "489d4742-8333-456b-a95b-45d277a27b23",
+    "image_hash": "d9dffb14bd7d894c834b2485ac0cb0d1f31a736211150b7e206e16a0ac7988ac",
+    "original_filename": "00025.pdf",
+    "analysis_date": "2025-08-06T19:29:51.843118",
+    "analysis_timestamp": 1754476191,
+    "found_urls_count": 8,
+    "processed_results_count": 8,
+    "results": [
+      {
+        "url": "https://64.media.tumblr.com/1f7511b361f75d2fb6c6c2d1aa15e711/7bec67a5acfb3765-8c/s540x810/844d51a13254dbca75754ce3d2467a8cf23463fe.jpg",
+        "judgment": "？",
+        "reason": "Tumblr上の個人による二次創作画像と見られるため、著作権者の許諾の有無が不明です。現時点で著作権侵害や違法コンテンツ、海賊版と断定する明確な根拠がないため、判定は困難です。",
+        "confidence": "低",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "SNS・ソーシャルメディア",
+        "search_method": "部分一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://pbs.twimg.com/media/GvfJDZPWUAA_9e8?format=jpg&name=900x900",
+        "judgment": "？",
+        "reason": "ページ内容を取得できませんでした",
+        "confidence": "低",
+        "analysis_type": "スクレイピング失敗",
+        "domain_category": "その他・不明サイト",
+        "search_method": "部分一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://lookaside.instagram.com/seo/google_widget/crawler/?media_id=3673594475008918150",
+        "judgment": "○",
+        "reason": "「声優グランプリ」の公式Instagramアカウントによる、自社発行雑誌の発売告知と内容紹介であり、正当な宣伝活動です。著作権侵害や違法なコンテンツに該当する点は見当たりません。",
+        "confidence": "低",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "SNS・ソーシャルメディア",
+        "search_method": "部分一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://mw-cds.akamaized.net/MW-Product/988/803/2e7a0a6488b23aab7378f79c9fa1698d58458a87b1ef2c0ff2139cfaa04cca40/RS4A/thumbnail/3bec5e610931ce16f674cd5de7be15a23b1ab00d4e3351957925c844e3d3928f.jpg",
+        "judgment": "？",
+        "reason": "画像の内容が確認できないため、著作権侵害や違法コンテンツであるかを判断できません。URLはCDNのものであり、正規サイトでも利用されるため、これだけでは判定材料が不足しています。",
+        "confidence": "低",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "その他・不明サイト",
+        "search_method": "部分一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://twitter.com/search?q=%23Wishforyou&src=recent_search_click&f=media",
+        "judgment": "？",
+        "reason": "ページ内容を取得できませんでした",
+        "confidence": "低",
+        "analysis_type": "スクレイピング失敗",
+        "domain_category": "SNS・ソーシャルメディア",
+        "search_method": "関連ページ",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://www.tumbig.com/tag/%E5%A4%A9%E3%81%BF",
+        "judgment": "？",
+        "reason": "ページ内容を取得できませんでした",
+        "confidence": "低",
+        "analysis_type": "スクレイピング失敗",
+        "domain_category": "その他・不明サイト",
+        "search_method": "関連ページ",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://x.com/seigura/status/1943243833212342489",
+        "judgment": "○",
+        "reason": "声優グランプリ公式アカウントが、自社発行の雑誌「声優グランプリ」の発売告知を行っています。掲載内容の紹介は正当な宣伝活動であり、著作権者が自身のコンテンツを宣伝しているため、著作権侵害や違法性はありません。",
+        "confidence": "低",
+        "analysis_type": "X API + Gemini AI",
+        "x_username": "seigura",
+        "x_display_name": "声優グランプリ＠30周年",
+        "x_tweet_text": "声グラ8月号は本日7月10日発売💐\n1stシングル「Wish for you」をリリースする前島亜美さんが登場💙\nTVアニメ『#公女殿下 の家庭教師』のOPである表題曲を中心にそれぞれの楽曲についてお...",
+        "search_method": "関連ページ",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://www.instagram.com/p/CzdQi8rP53F/",
+        "judgment": "○",
+        "reason": "「声優グランプリ」の公式Instagramアカウントによる、自社発行雑誌の掲載内容に関する宣伝投稿であり、正当な情報提供です。著作権侵害や違法性は認められません。",
+        "confidence": "低",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "SNS・ソーシャルメディア",
+        "search_method": "関連ページ",
+        "search_source": "Vision API"
+      }
+    ]
+  },
+  {
+    "history_id": "ffbb08ff-3fb6-4210-b9e7-1e807d06d0f3",
+    "image_id": "4071090c-9db7-472c-96e0-779e27151750",
+    "image_hash": "8ef4bdf1a64082fc6170be5ae832b4f4d7c28fee092d0c1d4f17cfd563678fbc",
+    "original_filename": "00026.pdf",
+    "analysis_date": "2025-08-06T19:30:01.359632",
+    "analysis_timestamp": 1754476201,
+    "found_urls_count": 2,
+    "processed_results_count": 2,
+    "results": [
+      {
+        "url": "https://mw-cds.akamaized.net/MW-Product/988/803/2e7a0a6488b23aab7378f79c9fa1698d58458a87b1ef2c0ff2139cfaa04cca40/RS4A/thumbnail/3bec5e610931ce16f674cd5de7be15a23b1ab00d4e3351957925c844e3d3928f.jpg",
+        "judgment": "？",
+        "reason": "画像URLはCDN経由であり、具体的な画像内容が不明です。そのため、著作権の帰属や利用許諾の有無を確認できず、著作権侵害の可否を判断することができません。",
+        "confidence": "低",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "その他・不明サイト",
+        "search_method": "部分一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://dmagazine.docomo.ne.jp/article/2e7a0a6488b23aab7378f79c9fa1698d58458a87b1ef2c0ff2139cfaa04cca40/3bec5e610931ce16f674cd5de7be15a23b1ab00d4e3351957925c844e3d3928f/",
+        "judgment": "○",
+        "reason": "dマガジンはNTTドコモが提供する正規の電子雑誌サービスであり、ページ内容はそのサービス紹介や解説と判断できます。違法なコンテンツや著作権侵害の兆候は一切見られないため、安全です。",
+        "confidence": "低",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "その他・不明サイト",
+        "search_method": "関連ページ",
+        "search_source": "Vision API"
+      }
+    ]
+  },
+  {
+    "history_id": "aef61078-72ad-4b3e-b0fb-5dc4006d4d00",
+    "image_id": "4734db29-1d69-4214-abc0-1f18a32860f6",
+    "image_hash": "b70a58a9b3250e633b10b9f17435b498d00344a10ce63edb6caa082b64c09989",
+    "original_filename": "00022.pdf",
+    "analysis_date": "2025-08-06T19:54:33.300092",
+    "analysis_timestamp": 1754477673,
+    "found_urls_count": 1,
+    "processed_results_count": 1,
+    "results": [
+      {
+        "url": "https://lookaside.instagram.com/seo/google_widget/crawler/?media_id=3673584311565046280",
+        "judgment": "？",
+        "reason": "投稿内容が特定の人物名と絵文字のみで、写真の著作権元や性質（公式、ファン撮影、無断転載など）が不明なため、この情報だけでは著作権侵害や違法コンテンツであるかを判断できません。",
+        "confidence": "高",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "SNS・ソーシャルメディア",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      }
+    ]
+  },
+  {
+    "history_id": "1982620e-aaca-4670-8ed5-485b42e8514e",
+    "image_id": "308ec387-b78c-4141-a992-533dd3595250",
+    "image_hash": "834792ceb51fdac329e401927ab6b5b9de871e4fcd87bd728452b1b06dd1b46d",
+    "original_filename": "00023.pdf",
+    "analysis_date": "2025-08-06T19:54:59.420249",
+    "analysis_timestamp": 1754477699,
+    "found_urls_count": 0,
+    "processed_results_count": 0,
+    "results": []
+  },
+  {
+    "history_id": "44b0bcd3-1a87-484f-bb33-8ae9163a1d73",
+    "image_id": "ce2a383c-cf20-4a5e-accf-0423e6731172",
+    "image_hash": "fb6e18d9f302e82010a0c7a3039331c962988cfbc76d665babf1621fd45aa637",
+    "original_filename": "00024.pdf",
+    "analysis_date": "2025-08-06T19:55:38.892193",
+    "analysis_timestamp": 1754477738,
+    "found_urls_count": 8,
+    "processed_results_count": 8,
+    "results": [
+      {
+        "url": "https://tc-animate.techorus-cdn.com/resize_image/resize_image.php?image=03031410_67c539e0266d9.jpg&width=350",
+        "judgment": "？",
+        "reason": "ページ内容を取得できませんでした",
+        "confidence": "低",
+        "analysis_type": "スクレイピング失敗",
+        "domain_category": "その他・不明サイト",
+        "search_method": "部分一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://img2.biggo.com/175x,q75,sj9Qgs9ZwXs2oJmy-jn34o9Fao-xXmJULQb86S0IrDFs/https://im2.book.com.tw/image/getImage?i=https://www.books.com.tw/img/M01/021/04/M010210423.jpg&v=67ce950ak&w=280&h=280",
+        "judgment": "？",
+        "reason": "ページ内容を取得できませんでした",
+        "confidence": "低",
+        "analysis_type": "スクレイピング失敗",
+        "domain_category": "その他・不明サイト",
+        "search_method": "部分一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://gw.alicdn.com/imgextra/i1/20727325/O1CN015wqPrT23yuDlDkNWj_!!20727325.jpg_Q75.jpg_.webp",
+        "judgment": "？",
+        "reason": "画像内容が確認できないため、著作権侵害や違法コンテンツであるかを判断できません。URLは大手ECサイトのCDNのものであり、コンテンツ自体が問題あると断定する情報がありません。",
+        "confidence": "低",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "その他・不明サイト",
+        "search_method": "部分一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://im2.book.com.tw/image/getImage?i=https://www.books.com.tw/img/M01/021/04/M010210423.jpg&v=67ce950ak&w=375&h=375",
+        "judgment": "？",
+        "reason": "ページ内容を取得できませんでした",
+        "confidence": "低",
+        "analysis_type": "スクレイピング失敗",
+        "domain_category": "その他・不明サイト",
+        "search_method": "部分一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://times-abema.ismcdn.jp/mwimgs/e/5/375w/img_e558b15d553370e817dade29e89e8842110501.jpg",
+        "judgment": "○",
+        "reason": "ABEMA TIMESのCDNドメインからの画像であり、合法的なメディアサイトのコンテンツの一部であると判断できます。著作権侵害や違法コンテンツの兆候は見当たりません。",
+        "confidence": "低",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "その他・不明サイト",
+        "search_method": "部分一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://img.alicdn.com/imgextra/i3/2053490873/O1CN01EaL4uE1IJsnqbuCBM_!!2053490873.jpg_q50s50.jpg",
+        "judgment": "？",
+        "reason": "画像URLはAlibabaのCDNのものであり、画像内容が不明なため、著作権侵害や違法コンテンツであるかを判断できません。合法的なコンテンツの可能性も高く、画像内容の確認なしには断定不可です。",
+        "confidence": "低",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "その他・不明サイト",
+        "search_method": "部分一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://storage.mantan-web.jp/images/2025/02/28/20250228dog00m200081000c/001_size2.jpg",
+        "judgment": "○",
+        "reason": "MANTANWEBは毎日新聞社が運営する公式のエンタメニュースサイトです。URLも同サイトのドメイン内であり、掲載されている画像は正規に利用されていると判断できます。",
+        "confidence": "低",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "その他・不明サイト",
+        "search_method": "部分一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://img.alicdn.com/imgextra/i2/3214548737/O1CN01esFicM2EPbUdNx3ap_!!4611686018427387649-0-item_pic.jpg",
+        "judgment": "？",
+        "reason": "画像URLのみでは具体的な内容を特定できず、著作権侵害や違法コンテンツであるかを判断する情報が不足しています。AlibabaのCDNからの画像であり、内容次第で合法・違法どちらの可能性もありますが、現状では判断できません。",
+        "confidence": "低",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "その他・不明サイト",
+        "search_method": "部分一致",
+        "search_source": "Vision API"
+      }
+    ]
+  },
+  {
+    "history_id": "f21d8954-bdbb-44af-b930-7ccee09848a5",
+    "image_id": "a0a7f7de-36e1-4388-b04a-3fdd599110f6",
+    "image_hash": "d9dffb14bd7d894c834b2485ac0cb0d1f31a736211150b7e206e16a0ac7988ac",
+    "original_filename": "00025.pdf",
+    "analysis_date": "2025-08-06T19:56:48.205693",
+    "analysis_timestamp": 1754477808,
+    "found_urls_count": 8,
+    "processed_results_count": 8,
+    "results": [
+      {
+        "url": "https://64.media.tumblr.com/1f7511b361f75d2fb6c6c2d1aa15e711/7bec67a5acfb3765-8c/s540x810/844d51a13254dbca75754ce3d2467a8cf23463fe.jpg",
+        "judgment": "？",
+        "reason": "画像の内容を直接確認できないため、著作権侵害や違法コンテンツであるかを判断できません。SNS・ソーシャルメディア上のユーザー投稿画像であり、その合法性はコンテンツ内容に依存します。",
+        "confidence": "低",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "SNS・ソーシャルメディア",
+        "search_method": "部分一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://pbs.twimg.com/media/GvfJDZPWUAA_9e8?format=jpg&name=900x900",
+        "judgment": "？",
+        "reason": "ページ内容を取得できませんでした",
+        "confidence": "低",
+        "analysis_type": "スクレイピング失敗",
+        "domain_category": "その他・不明サイト",
+        "search_method": "部分一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://lookaside.instagram.com/seo/google_widget/crawler/?media_id=3673594475008918150",
+        "judgment": "○",
+        "reason": "雑誌「声優グランプリ」の公式Instagramアカウントによる、自社雑誌の最新号発売告知と掲載内容の紹介であり、正当なコンテンツです。著作権侵害や違法な要素は見当たりません。",
+        "confidence": "低",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "SNS・ソーシャルメディア",
+        "search_method": "部分一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://mw-cds.akamaized.net/MW-Product/988/803/2e7a0a6488b23aab7378f79c9fa1698d58458a87b1ef2c0ff2139cfaa04cca40/RS4A/thumbnail/3bec5e610931ce16f674cd5de7be15a23b1ab00d4e3351957925c844e3d3928f.jpg",
+        "judgment": "？",
+        "reason": "画像の内容が確認できないため、著作権の有無やコンテンツの提供元を特定できません。Akamai CDNのURLは配信経路を示すのみで、コンテンツの合法性や違法性を判断する情報が不足しています。",
+        "confidence": "低",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "その他・不明サイト",
+        "search_method": "部分一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://twitter.com/search?q=%23Wishforyou&src=recent_search_click&f=media",
+        "judgment": "？",
+        "reason": "ページ内容を取得できませんでした",
+        "confidence": "低",
+        "analysis_type": "スクレイピング失敗",
+        "domain_category": "SNS・ソーシャルメディア",
+        "search_method": "関連ページ",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://www.instagram.com/seigura.magazine/",
+        "judgment": "○",
+        "reason": "「声優グランプリ」の公式Instagramアカウントであり、雑誌の宣伝や情報発信を目的としているため、正当なコンテンツと判断できます。著作権侵害や違法コンテンツの可能性は低いと推測されます。",
+        "confidence": "低",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "SNS・ソーシャルメディア",
+        "search_method": "関連ページ",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://www.tumbig.com/tag/%E5%A4%A9%E3%81%BF",
+        "judgment": "？",
+        "reason": "ページ内容を取得できませんでした",
+        "confidence": "低",
+        "analysis_type": "スクレイピング失敗",
+        "domain_category": "その他・不明サイト",
+        "search_method": "関連ページ",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://x.com/seigura/status/1943243833212342489",
+        "judgment": "○",
+        "reason": "声優グランプリ公式アカウントによる自社発行雑誌の宣伝投稿であり、掲載アーティストの紹介です。公式が自社コンテンツを宣伝しており、著作権侵害や違法性はありません。",
+        "confidence": "低",
+        "analysis_type": "X API + Gemini AI",
+        "x_username": "seigura",
+        "x_display_name": "声優グランプリ＠30周年",
+        "x_tweet_text": "声グラ8月号は本日7月10日発売💐\n1stシングル「Wish for you」をリリースする前島亜美さんが登場💙\nTVアニメ『#公女殿下 の家庭教師』のOPである表題曲を中心にそれぞれの楽曲についてお...",
+        "search_method": "関連ページ",
+        "search_source": "Vision API"
+      }
+    ]
+  },
+  {
+    "history_id": "21fa0f60-7643-4344-8795-9eee996d7faf",
+    "image_id": "7d942a58-944a-4940-9a4d-83fdcde1754e",
+    "image_hash": "8ef4bdf1a64082fc6170be5ae832b4f4d7c28fee092d0c1d4f17cfd563678fbc",
+    "original_filename": "00026.pdf",
+    "analysis_date": "2025-08-06T19:56:52.770991",
+    "analysis_timestamp": 1754477812,
+    "found_urls_count": 0,
+    "processed_results_count": 0,
+    "results": []
   }
 ]
