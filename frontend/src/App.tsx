@@ -2008,9 +2008,11 @@ function App() {
                                             { key: 'all', label: '全て', count: results.length },
                                             { key: '完全一致', label: '完全一致', count: (searchSummary.search_methods as any)['完全一致'] || 0 },
                                             { key: '部分一致', label: '部分一致', count: (searchSummary.search_methods as any)['部分一致'] || 0 },
-
-      { key: '逆引き検索', label: '逆引き検索', count: (searchSummary.search_methods as any)['逆引き検索'] || 0 },
-      { key: '画像のみURL', label: '画像のみURL', count: (searchSummary.search_methods as any)['画像のみURL'] || 0 }
+                                            { key: 'ラベル検出', label: 'ラベル検出', count: ((searchSummary.search_methods as any)['高信頼度ラベル'] || 0) + ((searchSummary.search_methods as any)['中信頼度ラベル'] || 0) + ((searchSummary.search_methods as any)['低信頼度ラベル'] || 0) },
+                                            { key: 'オブジェクト検出', label: 'オブジェクト検出', count: ((searchSummary.search_methods as any)['高信頼度オブジェクト'] || 0) + ((searchSummary.search_methods as any)['中信頼度オブジェクト'] || 0) + ((searchSummary.search_methods as any)['低信頼度オブジェクト'] || 0) },
+                                            { key: 'テキスト検出', label: 'テキスト検出', count: ((searchSummary.search_methods as any)['高信頼度テキスト'] || 0) + ((searchSummary.search_methods as any)['中信頼度テキスト'] || 0) + ((searchSummary.search_methods as any)['低信頼度テキスト'] || 0) },
+                                            { key: '逆引き検索', label: '逆引き検索', count: (searchSummary.search_methods as any)['逆引き検索'] || 0 },
+                                            { key: '画像のみURL', label: '画像のみURL', count: (searchSummary.search_methods as any)['画像のみURL'] || 0 }
                                           ].map(tab => (
                                             <button
                                               key={tab.key}
@@ -2485,9 +2487,11 @@ function App() {
                           'all': results,
                           '完全一致': results.filter(r => r.search_method === '完全一致'),
                           '部分一致': results.filter(r => r.search_method === '部分一致'),
-
-          '逆引き検索': results.filter(r => r.search_method && r.search_method.includes('逆引き検索')),
-        '画像のみURL': results.filter(r => r.search_method && r.search_method.includes('画像のみURL'))
+                          'ラベル検出': results.filter(r => r.search_method && (r.search_method.includes('ラベル'))),
+                          'オブジェクト検出': results.filter(r => r.search_method && (r.search_method.includes('オブジェクト'))),
+                          'テキスト検出': results.filter(r => r.search_method && (r.search_method.includes('テキスト'))),
+                          '逆引き検索': results.filter(r => r.search_method && r.search_method.includes('逆引き検索')),
+                          '画像のみURL': results.filter(r => r.search_method && r.search_method.includes('画像のみURL'))
                         }
 
                         const currentResults = searchMethodGroups[activeSearchMethodTab as keyof typeof searchMethodGroups] || []
@@ -2515,9 +2519,11 @@ function App() {
                                 { key: 'all', label: '全て', count: results.length },
                                 { key: '完全一致', label: '完全一致', count: (searchSummary.search_methods as any)['完全一致'] || 0 },
                                 { key: '部分一致', label: '部分一致', count: (searchSummary.search_methods as any)['部分一致'] || 0 },
-
-      { key: '逆引き検索', label: '逆引き検索', count: (searchSummary.search_methods as any)['逆引き検索'] || 0 },
-      { key: '画像のみURL', label: '画像のみURL', count: (searchSummary.search_methods as any)['画像のみURL'] || 0 }
+                                { key: 'ラベル検出', label: 'ラベル検出', count: ((searchSummary.search_methods as any)['高信頼度ラベル'] || 0) + ((searchSummary.search_methods as any)['中信頼度ラベル'] || 0) + ((searchSummary.search_methods as any)['低信頼度ラベル'] || 0) },
+                                { key: 'オブジェクト検出', label: 'オブジェクト検出', count: ((searchSummary.search_methods as any)['高信頼度オブジェクト'] || 0) + ((searchSummary.search_methods as any)['中信頼度オブジェクト'] || 0) + ((searchSummary.search_methods as any)['低信頼度オブジェクト'] || 0) },
+                                { key: 'テキスト検出', label: 'テキスト検出', count: ((searchSummary.search_methods as any)['高信頼度テキスト'] || 0) + ((searchSummary.search_methods as any)['中信頼度テキスト'] || 0) + ((searchSummary.search_methods as any)['低信頼度テキスト'] || 0) },
+                                { key: '逆引き検索', label: '逆引き検索', count: (searchSummary.search_methods as any)['逆引き検索'] || 0 },
+                                { key: '画像のみURL', label: '画像のみURL', count: (searchSummary.search_methods as any)['画像のみURL'] || 0 }
                               ].map(tab => (
                                 <button
                                   key={tab.key}

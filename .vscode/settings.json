@@ -13,5 +13,6 @@
     "python.analysis.indexing": true,
     "files.associations": {
         "*.py": "python"
-    }
+    },
+    "kiroAgent.configureMCP": "Disabled"
 }

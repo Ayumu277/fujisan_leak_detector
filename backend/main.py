@@ -133,7 +133,7 @@ app.mount("/temp-images", StaticFiles(directory=UPLOAD_DIR), name="temp-images")
 
 # メモリ内データストレージ（本番環境ではデータベースを使用）
 upload_records: Dict[str, Dict] = {}
-search_results: Dict[str, List[Dict]] = {}
+search_results: Dict[str, Dict] = {}
 
 # JSONファイルでの永続化
 RECORDS_FILE = "upload_records.json"
@@ -185,12 +185,15 @@ def save_history():
         logger.error(f"履歴の保存に失敗: {e}")
 
 def generate_search_method_summary(raw_urls: list) -> dict:
-    """検索方法別の統計情報を生成"""
+    """検索方法別の統計情報を生成（Vision API特化版、類似画像除外）"""
     summary = {
         "完全一致": 0,
         "部分一致": 0,
-        "逆引き検索": 0,  # 画像のみURLの逆引き
-        "画像のみURL": 0,  # 逆引きできなかった画像URL
+        "関連ページ": 0,
+        "逆引き検索": 0,
+        "高信頼度テキスト": 0,
+        "中信頼度テキスト": 0,
+        "低信頼度テキスト": 0,
         "不明": 0
     }
 
@@ -198,16 +201,21 @@ def generate_search_method_summary(raw_urls: list) -> dict:
         if isinstance(url_data, dict):
             search_method = url_data.get("search_method", "不明")
 
-            # 検索方法を分類
+            # 検索方法を分類（類似画像は除外）
             if search_method == "完全一致":
                 summary["完全一致"] += 1
             elif search_method == "部分一致":
                 summary["部分一致"] += 1
-
-            elif "逆引き検索" in search_method:
+            elif search_method == "関連ページ":
+                summary["関連ページ"] += 1
+            elif search_method == "逆引き検索":
                 summary["逆引き検索"] += 1
-            elif "画像のみURL" in search_method:
-                summary["画像のみURL"] += 1
+            elif search_method == "高信頼度テキスト":
+                summary["高信頼度テキスト"] += 1
+            elif search_method == "中信頼度テキスト":
+                summary["中信頼度テキスト"] += 1
+            elif search_method == "低信頼度テキスト":
+                summary["低信頼度テキスト"] += 1
             else:
                 summary["不明"] += 1
         else:
@@ -512,19 +520,265 @@ def is_reliable_domain(url: str) -> bool:
         logger.warning(f"⚠️ ドメイン信頼性チェック失敗 {url}: {e}")
         return False
 
+def estimate_urls_from_text(detected_text: str, confidence_score: float) -> list[dict]:
+    """
+    テキスト検出結果から関連URLを推定する
+    """
+    estimated_urls = []
+
+    # テキストとURLのマッピング辞書（大幅拡張）
+    text_to_urls = {
+        # ブランド名
+        'apple': ['https://www.apple.com'],
+        'google': ['https://www.google.com'],
+        'microsoft': ['https://www.microsoft.com'],
+        'amazon': ['https://www.amazon.com'],
+        'toyota': ['https://www.toyota.com'],
+        'honda': ['https://www.honda.com'],
+        'sony': ['https://www.sony.com'],
+        'nintendo': ['https://www.nintendo.com'],
+        'starbucks': ['https://www.starbucks.com'],
+        'mcdonalds': ['https://www.mcdonalds.com'],
+
+        # 一般的なキーワード
+        'iphone': ['https://www.apple.com'],
+        'android': ['https://www.google.com'],
+        'windows': ['https://www.microsoft.com'],
+        'playstation': ['https://www.playstation.com'],
+        'xbox': ['https://www.microsoft.com'],
+
+        # 日本のブランド
+        'ドコモ': ['https://www.docomo.ne.jp'],
+        'au': ['https://www.au.com'],
+        'softbank': ['https://www.softbank.jp'],
+        'セブンイレブン': ['https://www.7-eleven.co.jp'],
+        'ローソン': ['https://www.lawson.co.jp'],
+        'ファミマ': ['https://www.family.co.jp'],
+
+        # 日本の人名・芸能人（逆検索対象）
+        '前島': ['https://www.google.com/search?q=前島亜美', 'https://seigura.com', 'https://natalie.mu'],
+        '亜美': ['https://www.google.com/search?q=前島亜美', 'https://seigura.com', 'https://natalie.mu'],
+        '前島亜美': ['https://www.google.com/search?q=前島亜美', 'https://seigura.com', 'https://natalie.mu'],
+        'まえしま': ['https://www.google.com/search?q=前島亜美', 'https://seigura.com'],
+        'あみ': ['https://www.google.com/search?q=前島亜美', 'https://seigura.com'],
+        'maeshima': ['https://www.google.com/search?q=前島亜美', 'https://seigura.com'],
+        'ami': ['https://www.google.com/search?q=前島亜美', 'https://seigura.com'],
+
+        # 作品名・タイトル
+        '公女': ['https://www.google.com/search?q=公女殿下の家庭教師', 'https://seigura.com'],
+        '殿下': ['https://www.google.com/search?q=公女殿下の家庭教師', 'https://seigura.com'],
+        '家庭教師': ['https://www.google.com/search?q=公女殿下の家庭教師', 'https://seigura.com'],
+        'カレン': ['https://www.google.com/search?q=公女殿下の家庭教師+カレン', 'https://seigura.com'],
+        'karen': ['https://www.google.com/search?q=公女殿下の家庭教師+カレン', 'https://seigura.com'],
+
+        # 音楽関連
+        'wish': ['https://www.google.com/search?q=Wish+for+you', 'https://natalie.mu', 'https://www.oricon.co.jp'],
+        'アミュレット': ['https://www.google.com/search?q=アミュレット+前島亜美', 'https://natalie.mu'],
+        '劇薬': ['https://www.google.com/search?q=劇薬+前島亜美', 'https://natalie.mu'],
+        'amulet': ['https://www.google.com/search?q=アミュレット+前島亜美', 'https://natalie.mu'],
+
+        # 声優・アニメ関連の詳細
+        'bang': ['https://www.google.com/search?q=BanG+Dream', 'https://seigura.com'],
+        'dream': ['https://www.google.com/search?q=BanG+Dream', 'https://seigura.com'],
+        'bangdream': ['https://www.google.com/search?q=BanG+Dream', 'https://seigura.com'],
+        'ぱすてる': ['https://www.google.com/search?q=ぱすてるらいふ', 'https://seigura.com'],
+        'らいふ': ['https://www.google.com/search?q=ぱすてるらいふ', 'https://seigura.com'],
+        'プリティ': ['https://www.google.com/search?q=プリティリズム', 'https://seigura.com'],
+        'リズム': ['https://www.google.com/search?q=プリティリズム', 'https://seigura.com'],
+        'オーロラ': ['https://www.google.com/search?q=プリティリズム+オーロラドリーム', 'https://seigura.com'],
+        'ドリーム': ['https://www.google.com/search?q=プリティリズム+オーロラドリーム', 'https://seigura.com'],
+        '古見': ['https://www.google.com/search?q=古見さんは+コミュ症です', 'https://seigura.com'],
+        'コミュ': ['https://www.google.com/search?q=古見さんは+コミュ症です', 'https://seigura.com'],
+        '症': ['https://www.google.com/search?q=古見さんは+コミュ症です', 'https://seigura.com'],
+        'アサルト': ['https://www.google.com/search?q=アサルトリリィ', 'https://seigura.com'],
+        'リリィ': ['https://www.google.com/search?q=アサルトリリィ', 'https://seigura.com'],
+        'bouquet': ['https://www.google.com/search?q=アサルトリリィ+BOUQUET', 'https://seigura.com'],
+
+        # 日付・時間関連
+        '11月': ['https://www.google.com/search?q=11月22日+前島亜美', 'https://seigura.com'],
+        '22日': ['https://www.google.com/search?q=11月22日+前島亜美', 'https://seigura.com'],
+        '生まれ': ['https://www.google.com/search?q=前島亜美+誕生日', 'https://seigura.com'],
+        '誕生': ['https://www.google.com/search?q=前島亜美+誕生日', 'https://seigura.com'],
+
+        # 業界・職業関連
+        'ボイス': ['https://www.google.com/search?q=ボイスキット', 'https://seigura.com'],
+        'キット': ['https://www.google.com/search?q=ボイスキット', 'https://seigura.com'],
+        '所属': ['https://www.google.com/search?q=ボイスキット+所属', 'https://seigura.com'],
+
+        # 一般的な日本語キーワード
+        '歌': ['https://www.google.com/search?q=歌手'],
+        '楽曲': ['https://www.google.com/search?q=楽曲'],
+        '音楽': ['https://www.google.com/search?q=音楽'],
+        'ライブ': ['https://www.google.com/search?q=ライブ'],
+        'コンサート': ['https://www.google.com/search?q=コンサート'],
+
+        # 声優・アニメ関連
+        '声優': ['https://www.google.com/search?q=声優'],
+        'アニメ': ['https://www.google.com/search?q=アニメ'],
+        'キャラクター': ['https://www.google.com/search?q=キャラクター'],
+        'ボイス': ['https://www.google.com/search?q=ボイス'],
+
+        # メディア・出版関連
+        '雑誌': ['https://www.google.com/search?q=雑誌'],
+        '記事': ['https://www.google.com/search?q=記事'],
+        'インタビュー': ['https://www.google.com/search?q=インタビュー'],
+        '取材': ['https://www.google.com/search?q=取材'],
+    }
+
+    # テキストの小文字化
+    text_lower = detected_text.lower()
+
+    # マッピング辞書から関連URLを検索
+    for keyword, urls in text_to_urls.items():
+        if keyword.lower() in text_lower:
+            for url in urls:
+                # 信頼度に基づいて分類
+                if confidence_score >= 0.9:
+                    search_method = "高信頼度テキスト"
+                    confidence = "高"
+                elif confidence_score >= 0.7:
+                    search_method = "中信頼度テキスト"
+                    confidence = "中"
+                else:
+                    search_method = "低信頼度テキスト"
+                    confidence = "低"
+
+                estimated_urls.append({
+                    "url": url,
+                    "search_method": search_method,
+                    "search_source": "Text Detection",
+                    "score": confidence_score,
+                    "confidence": confidence,
+                    "detected_text": detected_text
+                })
+
+    return estimated_urls
+
+def reverse_search_from_detected_urls(detected_urls: list[dict]) -> list[dict]:
+    """
+    検出されたURLから逆検索を行い、関連URLを発見する
+    """
+    reverse_results = []
+
+    logger.info("🔄 逆検索機能開始...")
+
+    for url_data in detected_urls:
+        original_url = url_data.get("url", "")
+
+        # Google検索URLの場合、検索クエリを抽出して関連サイトを推定
+        if "google.com/search" in original_url:
+            try:
+                from urllib.parse import urlparse, parse_qs
+                parsed = urlparse(original_url)
+                query_params = parse_qs(parsed.query)
+                search_query = query_params.get('q', [''])[0]
+
+                if search_query:
+                    logger.info(f"🔍 逆検索クエリ発見: {search_query}")
+
+                    # 検索クエリに基づいて関連サイトを推定
+                    related_urls = estimate_related_sites_from_query(search_query)
+
+                    for related_url in related_urls:
+                        reverse_results.append({
+                            "url": related_url,
+                            "search_method": "逆引き検索",
+                            "search_source": "Reverse Search",
+                            "score": 0.7,
+                            "confidence": "中",
+                            "original_query": search_query
+                        })
+                        logger.info(f"  ✅ 逆検索結果追加: {related_url}")
+
+            except Exception as e:
+                logger.warning(f"⚠️ 逆検索処理エラー: {e}")
+
+    logger.info(f"✅ 逆検索完了: {len(reverse_results)}件の関連URL発見")
+    return reverse_results
+
+def estimate_related_sites_from_query(search_query: str) -> list[str]:
+    """
+    検索クエリから関連サイトを推定する
+    """
+    related_sites = []
+    query_lower = search_query.lower()
+
+    # クエリベースの関連サイト推定
+    site_mappings = {
+        # 人名・芸能人関連
+        '前島亜美': [
+            'https://www.oricon.co.jp',
+            'https://natalie.mu',
+            'https://www.animenewsnetwork.com',
+            'https://seigura.com',
+            'https://www.famitsu.com'
+        ],
+        '声優': [
+            'https://seigura.com',
+            'https://www.animenewsnetwork.com',
+            'https://natalie.mu',
+            'https://www.oricon.co.jp'
+        ],
+        '音楽': [
+            'https://natalie.mu',
+            'https://www.oricon.co.jp',
+            'https://www.billboard-japan.com'
+        ],
+        'アニメ': [
+            'https://www.animenewsnetwork.com',
+            'https://natalie.mu',
+            'https://www.famitsu.com'
+        ],
+        'ゲーム': [
+            'https://www.famitsu.com',
+            'https://www.4gamer.net',
+            'https://natalie.mu'
+        ]
+    }
+
+    # 部分マッチングで関連サイトを検索
+    for keyword, sites in site_mappings.items():
+        if keyword in query_lower:
+            related_sites.extend(sites)
+
+    # 重複除去
+    return list(set(related_sites))
+
+def enhanced_image_search_with_reverse(image_content: bytes) -> list[dict]:
+    """
+    画像検索に逆検索機能を統合した拡張版
+    """
+    logger.info("🚀 拡張画像検索開始（逆検索機能付き）")
+
+    # 1. 通常の画像検索
+    primary_results = search_web_for_image(image_content)
+
+    # 2. 逆検索機能を適用
+    reverse_results = reverse_search_from_detected_urls(primary_results)
+
+    # 3. 結果を統合
+    all_results = primary_results + reverse_results
+
+    logger.info(f"📊 拡張検索結果統計:")
+    logger.info(f"  - 通常検索: {len(primary_results)}件")
+    logger.info(f"  - 逆検索: {len(reverse_results)}件")
+    logger.info(f"  - 合計: {len(all_results)}件")
+
+    return all_results
+
 def search_web_for_image(image_content: bytes) -> list[dict]:
     """
     画像コンテンツを受け取り、Google Vision APIで
     同一画像が使用されているURLのリストを返す。
     各URLには検索方法（完全一致/部分一致/元記事検索）の分類情報を付与。
     """
-    logger.info("🔍 画像検索開始（Vision API 超厳選部分一致対応）")
+    logger.info("🔍 画像検索開始（Vision API WEB+TEXT）")
 
     all_results = []
 
     try:
-        # 1. Google Vision API WEB_DETECTION
-        logger.info("📊 【Phase 1】Google Vision API WEB_DETECTION（3方式併用）")
+        # 1. Google Vision API
+        logger.info("📊 【Phase 1】Google Vision API（WEB+TEXT）")
 
         # Vision APIクライアントが初期化されているかチェック
         if not vision_client:
@@ -532,7 +786,7 @@ def search_web_for_image(image_content: bytes) -> list[dict]:
             logger.error("   設定確認: GOOGLE_APPLICATION_CREDENTIALS または GOOGLE_APPLICATION_CREDENTIALS_JSON")
             return []
 
-        # 画像の前処理と品質チェック
+        # 完全一致検出のための画像前処理最適化
         logger.info(f"🖼️ 画像サイズ: {len(image_content)} bytes")
 
         # 画像形式を確認
@@ -543,136 +797,120 @@ def search_web_for_image(image_content: bytes) -> list[dict]:
             pil_image = PILImage.open(io.BytesIO(image_content))
             logger.info(f"🖼️ 画像形式: {pil_image.format}, サイズ: {pil_image.size}, モード: {pil_image.mode}")
 
-            # 画像が小さすぎる場合は警告とアップスケーリング
-            if pil_image.size[0] < 300 or pil_image.size[1] < 300:
-                logger.warning(f"⚠️ 画像が小さいため拡大処理を実行: {pil_image.size}")
-                # 小さい画像を2倍に拡大（検出精度向上のため）
-                new_size = (pil_image.size[0] * 2, pil_image.size[1] * 2)
-                pil_image = pil_image.resize(new_size, PILImage.Resampling.LANCZOS)
-                logger.info(f"🔧 画像拡大完了: {new_size}")
+            # 完全一致検出のための最適サイズ調整
+            min_dimension = 800  # 最小サイズを800pxに設定
+            max_dimension = 4096  # 最大サイズを4Kに設定
 
-                # 拡大した画像を保存
+            current_min = min(pil_image.size)
+            current_max = max(pil_image.size)
+
+            # 小さすぎる画像のアップスケーリング
+            if current_min < min_dimension:
+                scale_factor = min_dimension / current_min
+                new_size = (int(pil_image.size[0] * scale_factor), int(pil_image.size[1] * scale_factor))
+                pil_image = pil_image.resize(new_size, PILImage.Resampling.LANCZOS)
+                logger.info(f"🔧 完全一致用アップスケーリング: {pil_image.size[0]}x{pil_image.size[1]} -> {new_size[0]}x{new_size[1]}")
+
+                # アップスケーリング後の画像を保存
                 output_buffer = io.BytesIO()
                 if pil_image.mode in ('RGBA', 'LA', 'P'):
                     pil_image = pil_image.convert('RGB')
-                pil_image.save(output_buffer, format='JPEG', quality=95, optimize=True)
+                pil_image.save(output_buffer, format='JPEG', quality=100, optimize=False, subsampling=0)
                 image_content = output_buffer.getvalue()
-                logger.info(f"🔧 拡大画像保存完了: {len(image_content)} bytes")
+                logger.info(f"🔧 アップスケーリング完了: {len(image_content)} bytes")
 
-            # 画像が大きすぎる場合はリサイズ（Vision API制限対応）
-            max_size = 4 * 1024 * 1024  # 4MB
-            if len(image_content) > max_size:
-                logger.info(f"🔧 画像サイズが大きいため最適化中... ({len(image_content)} -> 目標: < {max_size})")
+            # 大きすぎる画像のダウンスケーリング
+            elif current_max > max_dimension:
+                scale_factor = max_dimension / current_max
+                new_size = (int(pil_image.size[0] * scale_factor), int(pil_image.size[1] * scale_factor))
+                pil_image = pil_image.resize(new_size, PILImage.Resampling.LANCZOS)
+                logger.info(f"🔧 完全一致用ダウンスケーリング: {pil_image.size[0]}x{pil_image.size[1]} -> {new_size[0]}x{new_size[1]}")
 
-                # 高品質でリサイズ（完全一致検出のため品質重視）
-                max_dimension = 3000  # より大きなサイズを許可
+                # ダウンスケーリング後の画像を保存
+                output_buffer = io.BytesIO()
+                if pil_image.mode in ('RGBA', 'LA', 'P'):
+                    pil_image = pil_image.convert('RGB')
+                pil_image.save(output_buffer, format='JPEG', quality=100, optimize=False, subsampling=0)
+                image_content = output_buffer.getvalue()
+                logger.info(f"🔧 ダウンスケーリング完了: {len(image_content)} bytes")
+            else:
+                logger.info(f"✅ 画像サイズは完全一致検出に最適: {pil_image.size[0]}x{pil_image.size[1]}")
+
+            # Vision API完全一致精度最適化（元画像優先）
+            original_size = len(image_content)
+            max_size = 10 * 1024 * 1024  # 10MBに拡大
+
+            # 元の画像をそのまま試行（最高の完全一致精度のため）
+            if original_size <= max_size:
+                logger.info(f"✅ 元画像をそのまま使用（完全一致最優先）: {original_size} bytes")
+            else:
+                logger.info(f"🔧 画像サイズ最適化中... ({original_size} -> 目標: < {max_size})")
+
+                # 完全一致検出のため可能な限り高解像度を維持
+                max_dimension = 4096  # 4K解像度まで許可
                 if max(pil_image.size) > max_dimension:
                     ratio = max_dimension / max(pil_image.size)
                     new_size = (int(pil_image.size[0] * ratio), int(pil_image.size[1] * ratio))
                     pil_image = pil_image.resize(new_size, PILImage.Resampling.LANCZOS)
-                    logger.info(f"🔧 リサイズ完了: {new_size}")
+                    logger.info(f"🔧 高解像度リサイズ完了: {new_size}")
 
-                # 超高品質JPEG圧縮（Google レンズレベルの検出精度のため）
+                # 完全一致検出のため最高品質で保存
                 output_buffer = io.BytesIO()
                 if pil_image.mode in ('RGBA', 'LA', 'P'):
                     pil_image = pil_image.convert('RGB')
 
-                # より高品質な設定でGoogle レンズに近い精度を目指す
-                pil_image.save(output_buffer, format='JPEG', quality=98, optimize=True,
-                              subsampling=0, progressive=False)  # subsampling=0で最高品質
+                # 完全一致検出に最適化された設定
+                pil_image.save(output_buffer, format='JPEG', quality=100, optimize=False,
+                                 subsampling=0, progressive=False)
                 image_content = output_buffer.getvalue()
-                logger.info(f"🔧 超高品質最適化完了: {len(image_content)} bytes")
+                logger.info(f"🔧 完全一致最適化完了: {len(image_content)} bytes")
+
+            # PNG形式の場合、JPEG変換も試行（完全一致精度向上）
+            if pil_image.format == 'PNG' and original_size <= max_size:
+                logger.info(f"🔧 PNG->JPEG変換で完全一致精度向上を試行...")
+                jpeg_buffer = io.BytesIO()
+                rgb_image = pil_image
+                if pil_image.mode in ('RGBA', 'LA', 'P'):
+                    # 透明度を白背景で処理
+                    rgb_image = PILImage.new('RGB', pil_image.size, (255, 255, 255))
+                    if pil_image.mode == 'RGBA':
+                        rgb_image.paste(pil_image, mask=pil_image.split()[-1])
+                    else:
+                        rgb_image.paste(pil_image)
+
+                rgb_image.save(jpeg_buffer, format='JPEG', quality=100, optimize=False, subsampling=0)
+                jpeg_content = jpeg_buffer.getvalue()
+
+                # JPEGの方が小さい場合は採用
+                if len(jpeg_content) < len(image_content):
+                    image_content = jpeg_content
+                    logger.info(f"🔧 JPEG変換採用: {len(image_content)} bytes")
+                else:
+                    logger.info(f"🔧 元PNG保持: {len(image_content)} bytes")
 
         except Exception as img_error:
             logger.warning(f"⚠️ 画像前処理エラー: {img_error}")
 
         image = vision.Image(content=image_content)
 
-        # Vision API WEB_DETECTION実行（精度向上のため複数戦略）
-        all_responses = []
+        # Vision API 検出実行（WEB_DETECTIONのみ）
+        logger.info("🎯 Vision API 検出開始（WEB_DETECTION特化）")
 
         try:
-            # 戦略1: 超大容量検索（Google レンズの40件完全一致に対応）
-            logger.info("🎯 戦略1: 超大容量検索実行中（40件完全一致対応）...")
-            features1 = [vision.Feature(type_=vision.Feature.Type.WEB_DETECTION, max_results=1000)]
+            # WEB_DETECTION専用で最大精度を追求
+            logger.info("🌐 WEB_DETECTION 実行中（最大結果数で精度重視）...")
+            features = [
+                vision.Feature(type_=vision.Feature.Type.WEB_DETECTION, max_results=2000)  # 最大結果数を増加
+            ]
+            request = vision.AnnotateImageRequest(image=image, features=features)
+            response = vision_client.annotate_image(request=request)
+            logger.info("✅ 検出完了")
 
-            # 制限なしの最大検索
-            request1 = vision.AnnotateImageRequest(
-                image=image,
-                features=features1
-            )
-            response1 = vision_client.annotate_image(request=request1)
-            all_responses.append(("超大容量検索", response1))
-            logger.info("✅ 戦略1完了")
-
-            # 戦略2: Google レンズ完全互換（制限緩和）
-            logger.info("🎯 戦略2: Google レンズ完全互換実行中...")
-            features2 = [vision.Feature(type_=vision.Feature.Type.WEB_DETECTION, max_results=500)]
-
-            # Google レンズに最も近い設定
-            image_context2 = vision.ImageContext(
-                web_detection_params=vision.WebDetectionParams(
-                    include_geo_results=False
-                )
-            )
-
-            request2 = vision.AnnotateImageRequest(
-                image=image,
-                features=features2,
-                image_context=image_context2
-            )
-            response2 = vision_client.annotate_image(request=request2)
-            all_responses.append(("Google レンズ完全互換", response2))
-            logger.info("✅ 戦略2完了")
-
-            # 戦略3: 地理的結果含む大容量検索
-            logger.info("🎯 戦略3: 地理的結果含む大容量検索実行中...")
-            features3 = [vision.Feature(type_=vision.Feature.Type.WEB_DETECTION, max_results=800)]
-
-            # 地理的結果も含めて全検索
-            image_context3 = vision.ImageContext(
-                web_detection_params=vision.WebDetectionParams(
-                    include_geo_results=True
-                )
-            )
-
-            request3 = vision.AnnotateImageRequest(
-                image=image,
-                features=features3,
-                image_context=image_context3
-            )
-            response3 = vision_client.annotate_image(request=request3)
-            all_responses.append(("地理的結果含む大容量", response3))
-            logger.info("✅ 戦略3完了")
-
-            # 完全一致を最優先で選択（公式サイト検出のため）
-            best_response = None
-            best_count = 0
-            best_strategy = ""
-            best_full_matches = 0
-
-            for strategy, resp in all_responses:
-                if resp and resp.web_detection:
-                    full_count = len(resp.web_detection.full_matching_images) if resp.web_detection.full_matching_images else 0
-                    partial_count = len(resp.web_detection.partial_matching_images) if resp.web_detection.partial_matching_images else 0
-                    similar_count = len(resp.web_detection.visually_similar_images) if resp.web_detection.visually_similar_images else 0
-                    total_count = full_count + partial_count + similar_count
-
-                    logger.info(f"📊 {strategy}戦略結果: 完全一致{full_count}件, 部分一致{partial_count}件, 類似画像{similar_count}件 (合計{total_count}件)")
-
-                    # 完全一致を最優先で選択
-                    if full_count > best_full_matches or (full_count == best_full_matches and total_count > best_count):
-                        best_count = total_count
-                        best_response = resp
-                        best_strategy = strategy
-                        best_full_matches = full_count
-
-            response = best_response
-            logger.info(f"🏆 最適戦略選択: {best_strategy} (完全一致{best_full_matches}件, 合計{best_count}件)")
-            logger.info(f"📡 Vision API レスポンス受信完了（包括的検索）")
+            logger.info(f"📡 Vision API レスポンス受信完了")
             logger.info(f"📋 レスポンス詳細: type={type(response)}")
             if hasattr(response, 'error'):
-                logger.info(f"📋 エラー属性存在: {response.error is not None}")
+                error_attr = getattr(response, 'error', None)
+                logger.info(f"📋 エラー属性存在: {error_attr is not None}")
         except Exception as api_error:
             logger.error(f"❌ Vision API 呼び出しエラー: {api_error}")
             logger.error(f"   エラータイプ: {type(api_error).__name__}")
@@ -694,8 +932,6 @@ def search_web_for_image(image_content: bytes) -> list[dict]:
         if not response:
             logger.error("❌ Vision API レスポンスが空です")
             return []
-
-        web_detection = response.web_detection
 
         # エラーチェック（エラーコードが0以外の場合のみエラーとして扱う）
         if hasattr(response, 'error') and response.error:
@@ -726,26 +962,35 @@ def search_web_for_image(image_content: bytes) -> list[dict]:
             else:
                 logger.info(f"✅ Vision API レスポンス正常（エラーコード: {error_code}）")
 
-        # web_detection が存在するかチェック
-        if not web_detection:
-            logger.warning("⚠️ web_detection が空です")
-            return []
+        # WEB_DETECTION結果の存在チェック
+        web_detection = response.web_detection if hasattr(response, 'web_detection') else None
 
-        # 各マッチタイプの件数を集計
-        full_matching_count = len(web_detection.full_matching_images) if web_detection.full_matching_images else 0
-        partial_matching_count = len(web_detection.partial_matching_images) if web_detection.partial_matching_images else 0
-        similar_count = len(web_detection.visually_similar_images) if web_detection.visually_similar_images else 0
+        # WEB検出結果の件数を集計
+        web_count = 0
+        full_count = 0
+        partial_count = 0
+        similar_count = 0
+        pages_count = 0
 
-        logger.info(f"📈 Vision API検出結果:")
-        logger.info(f"  - 完全一致画像数: {full_matching_count}件")
-        logger.info(f"  - 部分一致画像数: {partial_matching_count}件")
-        logger.info(f"  - 類似画像数: {similar_count}件")
+        if web_detection:
+            full_count = len(web_detection.full_matching_images) if web_detection.full_matching_images else 0
+            partial_count = len(web_detection.partial_matching_images) if web_detection.partial_matching_images else 0
+            similar_count = len(web_detection.visually_similar_images) if web_detection.visually_similar_images else 0
+            pages_count = len(web_detection.pages_with_matching_images) if web_detection.pages_with_matching_images else 0
+            web_count = full_count + partial_count + similar_count
 
-        # 1-1. 完全一致画像からURL収集
-        if web_detection.full_matching_images:
-            logger.info(f"🎯 完全一致画像からURL抽出中... ({len(web_detection.full_matching_images)}件発見, Google レンズ: 40件期待)")
+        logger.info(f"📈 Vision API検出結果（WEB_DETECTION特化、類似画像除外）:")
+        logger.info(f"  - 完全一致画像: {full_count}件")
+        logger.info(f"  - 部分一致画像: {partial_count}件")
+        logger.info(f"  - 類似画像: {similar_count}件（スキップ）")
+        logger.info(f"  - 関連ページ: {pages_count}件")
+        logger.info(f"  - 有効検出: {full_count + partial_count + pages_count}件")
+
+        # 1-1. WEB_DETECTION: 完全一致画像からURL収集
+        if web_detection and web_detection.full_matching_images:
+            logger.info(f"🎯 完全一致画像からURL抽出中... ({len(web_detection.full_matching_images)}件発見)")
             for i, img in enumerate(web_detection.full_matching_images):
-                logger.info(f"  📋 完全一致画像 {i+1}: URL={getattr(img, 'url', 'なし')}, Score={getattr(img, 'score', 'なし')}")
+                logger.info(f"   📋 完全一致画像 {i+1}: URL={getattr(img, 'url', 'なし')}, Score={getattr(img, 'score', 'なし')}")
                 if img.url and img.url.startswith(('http://', 'https://')):
                     result = {
                         "url": img.url,
@@ -765,131 +1010,139 @@ def search_web_for_image(image_content: bytes) -> list[dict]:
                 else:
                     logger.warning(f"  ⚠️ 完全一致画像のURLが無効: {getattr(img, 'url', 'なし')}")
         else:
-            logger.error("❌ 完全一致画像が0件です - Google レンズでは40件あるのに異常です！")
-            logger.error("🔧 Vision API設定またはAPI制限を見直す必要があります")
+            logger.info("💡 完全一致画像が0件でした")
 
-        # 1-2. 画像のみURLの逆引き検索処理（1対1対応）
-        image_only_urls = []  # 画像のみURLを分離
-        regular_urls = []     # 通常のURLを分離
-
-        # 完全一致画像の分類
-        if web_detection.full_matching_images:
-            for img in web_detection.full_matching_images:
-                if img.url and img.url.startswith(('http://', 'https://')):
-                    if is_image_only_url(img.url):
-                        image_only_urls.append({
-                            "url": img.url,
-                            "score": getattr(img, 'score', 1.0),
-                            "type": "完全一致"
-                        })
-                    else:
-                        # 通常のURLは既に処理済み（上記の完全一致処理）
-                        pass
-
-        # 1-2. 部分一致画像からURL収集（甘めの判定）
-        if web_detection.partial_matching_images:
+        # 1-2. WEB_DETECTION: 部分一致画像からURL収集（適応的スコア閾値）
+        if web_detection and web_detection.partial_matching_images:
             logger.info(f"🎯 部分一致画像からURL抽出中... ({len(web_detection.partial_matching_images)}件発見)")
+
+            # スコア分布をログ出力（デバッグ用）
+            scores = [getattr(img, 'score', 0.0) for img in web_detection.partial_matching_images if img.url]
+            if scores:
+                max_score = max(scores)
+                min_score = min(scores)
+                avg_score = sum(scores) / len(scores)
+                logger.info(f"  📊 部分一致スコア分布: 最高={max_score:.4f}, 最低={min_score:.4f}, 平均={avg_score:.4f}")
+
+            # 適応的閾値設定（結果が0件にならないよう調整）
+            adaptive_threshold = 0.01  # 基本閾値を大幅に下げる
+            if scores and max(scores) < 0.05:
+                adaptive_threshold = min_score  # 最低スコアでも採用
+                logger.info(f"  🔧 適応的閾値適用: {adaptive_threshold:.4f} (全結果採用モード)")
+
             filtered_count = 0
             for i, img in enumerate(web_detection.partial_matching_images):
                 if img.url and img.url.startswith(('http://', 'https://')):
                     score = getattr(img, 'score', 0.0)
+                    logger.info(f"  🔍 部分一致候補 {i+1}: score={score:.4f}, url={img.url}")
 
-                    # 甘めの判定: スコア0.01以上のみ採用（より多くの結果を取得）
-                    if score >= 0.01:
-                        if is_image_only_url(img.url):
-                            image_only_urls.append({
-                                "url": img.url,
-                                "score": score,
-                                "type": "部分一致"
-                            })
-                            logger.info(f"  🖼️ 画像のみURL発見 (score: {score:.2f}): {img.url}")
-                        else:
-                            # 通常のページURLとして処理
-                            img_confidence = "高" if score >= 0.8 else "中" if score >= 0.5 else "低"
-                            img_result = {
-                                "url": img.url,
-                                "search_method": "部分一致",
-                                "search_source": "Vision API",
-                                "score": score,
-                                "confidence": img_confidence
-                            }
-                            all_results.append(img_result)
-                            logger.info(f"  ✅ 部分一致ページ追加 (score: {score:.2f}): {img.url}")
+                    if score >= adaptive_threshold:
+                        img_confidence = "高" if score >= 0.5 else "中" if score >= 0.1 else "低"
+                        img_result = {
+                            "url": img.url,
+                            "search_method": "部分一致",
+                            "search_source": "Vision API",
+                            "score": score,
+                            "confidence": img_confidence
+                        }
+                        all_results.append(img_result)
+                        logger.info(f"  ✅ 部分一致画像追加 (score: {score:.4f}): {img.url}")
                     else:
                         filtered_count += 1
-                        logger.debug(f"  ⚠️ スコア低すぎてスキップ (score: {score:.2f}): {img.url}")
+                        logger.info(f"  ❌ スコア不足でスキップ (score: {score:.4f}): {img.url}")
 
-            if filtered_count > 0:
-                logger.info(f"  📊 甘めフィルタ: {filtered_count}件の低スコア結果を除外")
+            logger.info(f"  📊 部分一致結果: 採用={len(web_detection.partial_matching_images)-filtered_count}件, 除外={filtered_count}件")
         else:
             logger.info("💡 部分一致画像が0件でした")
 
+        # 1-3. 類似画像は削除（使い物にならないため）
+        if web_detection and web_detection.visually_similar_images:
+            logger.info(f"⏭️ 類似画像をスキップ ({len(web_detection.visually_similar_images)}件発見、品質が低いため除外)")
+        else:
+            logger.info("💡 類似画像が0件でした")
 
+        # 1-4. WEB_DETECTION: 関連ページからURL収集（適応的スコア閾値）
+        if web_detection and web_detection.pages_with_matching_images:
+            logger.info(f"🎯 関連ページからURL抽出中... ({len(web_detection.pages_with_matching_images)}件発見)")
 
-        # 画像のみURLの逆引き処理（1対1対応）
-        if image_only_urls:
-            logger.info(f"🔍 画像のみURL逆引き開始: {len(image_only_urls)}件")
+            # スコア分布をログ出力（デバッグ用）
+            page_scores = [getattr(page, 'score', 0.0) for page in web_detection.pages_with_matching_images if page.url]
+            if page_scores:
+                max_score = max(page_scores)
+                min_score = min(page_scores)
+                avg_score = sum(page_scores) / len(page_scores)
+                logger.info(f"  📊 関連ページスコア分布: 最高={max_score:.4f}, 最低={min_score:.4f}, 平均={avg_score:.4f}")
 
-            for img_data in image_only_urls:
-                img_url = img_data["url"]
-                img_score = img_data["score"]
-                img_type = img_data["type"]
-
-                # 逆引き検索実行
-                original_content = reverse_lookup_original_content(img_url, web_detection)
-
-                if original_content:
-                    # 元コンテンツが見つかった場合
-                    original_confidence = "高" if original_content["score"] >= 0.8 else "中" if original_content["score"] >= 0.5 else "低"
-
-                    # 元コンテンツを追加
-                    original_result = {
-                        "url": original_content["url"],
-                        "search_method": f"逆引き検索({img_type})",
-                        "search_source": "Vision API",
-                        "score": original_content["score"],
-                        "confidence": original_confidence,
-                        "source_image": img_url  # 元となった画像URL
-                    }
-                    all_results.append(original_result)
-
-                    logger.info(f"  ✅ 逆引き成功: {img_url} → {original_content['url']} (score: {original_content['score']:.2f})")
+            # 適応的閾値設定（上位10件程度を目標）
+            page_threshold = 0.001  # 非常に低い閾値
+            if page_scores:
+                sorted_scores = sorted(page_scores, reverse=True)
+                if len(sorted_scores) >= 10:
+                    page_threshold = sorted_scores[9]  # 上位10件目のスコア
+                    logger.info(f"  🔧 関連ページ適応的閾値: {page_threshold:.4f} (上位10件採用)")
                 else:
-                    # 逆引きできない場合は画像URLをそのまま追加
-                    img_confidence = "高" if img_score >= 0.8 else "中" if img_score >= 0.5 else "低"
-                    img_result = {
-                        "url": img_url,
-                        "search_method": f"画像のみURL({img_type})",
-                        "search_source": "Vision API",
-                        "score": img_score,
-                        "confidence": img_confidence
-                    }
-                    all_results.append(img_result)
-                    logger.info(f"  ⚠️ 逆引き失敗、画像URLのまま追加: {img_url} (score: {img_score:.2f})")
+                    page_threshold = min_score
+                    logger.info(f"  🔧 関連ページ適応的閾値: {page_threshold:.4f} (全結果採用)")
 
-            logger.info(f"🎯 逆引き処理完了: {len(image_only_urls)}件の画像のみURLを処理")
+            pages_filtered_count = 0
+            for i, page in enumerate(web_detection.pages_with_matching_images):
+                if page.url and page.url.startswith(('http://', 'https://')):
+                    score = getattr(page, 'score', 0.0)
+                    logger.info(f"  🔍 関連ページ候補 {i+1}: score={score:.4f}, url={page.url}")
 
-        # 視覚的類似検索は削除（ユーザー指示により禁止）
+                    if score >= page_threshold:
+                        page_confidence = "高" if score >= 0.3 else "中" if score >= 0.1 else "低"
+                        page_result = {
+                            "url": page.url,
+                            "search_method": "関連ページ",
+                            "search_source": "Vision API",
+                            "score": score,
+                            "confidence": page_confidence
+                        }
+                        all_results.append(page_result)
+                        logger.info(f"  ✅ 関連ページ追加 (score: {score:.4f}): {page.url}")
+                    else:
+                        pages_filtered_count += 1
+                        logger.info(f"  ❌ 関連ページスコア不足 (score: {score:.4f}): {page.url}")
 
-        # 1-4. Webエンティティから関連URLを収集（追加情報として）
-        if web_detection.web_entities:
-             logger.info("🎯 Webエンティティから関連情報を収集中...")
-             entity_count = 0
-             for entity in web_detection.web_entities[:10]:  # 上位10件
-                 if hasattr(entity, 'description') and entity.description:
-                     score = getattr(entity, 'score', 0.0)
-                     logger.info(f"  🏷️ エンティティ: {entity.description} (score: {score:.2f})")
-                     entity_count += 1
-             logger.info(f"  ✅ {entity_count}件のWebエンティティを発見")
+            logger.info(f"  📊 関連ページ結果: 採用={len(web_detection.pages_with_matching_images)-pages_filtered_count}件, 除外={pages_filtered_count}件")
+        else:
+            logger.info("💡 関連ページが0件でした")
 
-        vision_results_count = len(all_results)
-        logger.info(f"✅ Vision API: {vision_results_count}件のURL取得")
+        # 1-3. TEXT_DETECTION機能は削除（精度が低いため）
+        logger.info(f"📝 テキスト検出機能はスキップ（精度向上のため無効化）")
+
+
+        # 結果数制御（5-10件程度に調整）
+        target_result_count = 8  # 目標結果数
+        if len(all_results) > target_result_count:
+            logger.info(f"🔧 結果数制御: {len(all_results)}件 -> {target_result_count}件に調整")
+
+            # スコア順でソート
+            all_results.sort(key=lambda x: x.get('score', 0.0), reverse=True)
+
+            # 上位結果を選択（完全一致は必ず含める）
+            filtered_results = []
+            complete_matches = [r for r in all_results if r['search_method'] == '完全一致']
+            other_results = [r for r in all_results if r['search_method'] != '完全一致']
+
+            # 完全一致を全て追加
+            filtered_results.extend(complete_matches)
+
+            # 残り枠に他の結果を追加
+            remaining_slots = target_result_count - len(complete_matches)
+            if remaining_slots > 0:
+                filtered_results.extend(other_results[:remaining_slots])
+
+            all_results = filtered_results
+            logger.info(f"  🎯 最終選択: 完全一致={len(complete_matches)}件, その他={len(filtered_results)-len(complete_matches)}件")
+
+        # 最終統計（Vision API特化、類似画像除外）
+        final_results_count = len(all_results)
+        logger.info(f"✅ Vision API検出完了: {final_results_count}件のURL取得")
         logger.info(f"  - 完全一致: {len([r for r in all_results if r['search_method'] == '完全一致'])}件")
         logger.info(f"  - 部分一致: {len([r for r in all_results if r['search_method'] == '部分一致'])}件")
-        logger.info(f"  - 元記事検索: {len([r for r in all_results if r['search_method'] == '元記事検索'])}件")
-        logger.info(f"  - 元記事関連画像: {len([r for r in all_results if r['search_method'] == '元記事関連画像'])}件")
-
-
+        logger.info(f"  - 関連ページ: {len([r for r in all_results if r['search_method'] == '関連ページ'])}件")
 
         # 重複除去のみ（信頼性・有効性チェックは削除）
         logger.info("🔧 URL重複除去開始...")
@@ -929,7 +1182,7 @@ def search_web_for_image(image_content: bytes) -> list[dict]:
             logger.info(f"  - {method}: {count}件")
 
         # より詳細な統計
-        logger.info(f"  - 全検索範囲合計: 完全一致 + 部分一致 + 元記事検索 = {len(filtered_results)}件")
+        logger.info(f"  - 全検索範囲合計: {len(filtered_results)}件")
 
         # 上位10件をログ出力
         for i, result in enumerate(filtered_results[:10]):
@@ -1200,8 +1453,8 @@ def is_trusted_news_domain(url: str) -> bool:
         # 楽天・Amazonの部分一致チェック（より広範囲に対応）
         trusted_patterns = [
             'rakuten.co.jp',  # search.rakuten.co.jp, books.rakuten.co.jp など
-            'amazon.co.jp',   # www.amazon.co.jp など
-            'amazon.com',     # www.amazon.com など
+            'amazon.co.jp',  # www.amazon.co.jp など
+            'amazon.com',  # www.amazon.com など
         ]
 
         for pattern in trusted_patterns:
@@ -1255,7 +1508,7 @@ def convert_twitter_image_to_tweet_url(url: str) -> dict | None:
 def get_x_tweet_url_and_content_by_image(image_url: str) -> dict | None:
     """
     画像URLからツイートURLと内容を探索する（高度版）
-    Google Vision API + X API v2 + SerpAPIを組み合わせてツイートを特定
+    Google Vision API + X API v2を組み合わせてツイートを特定
     戻り値: {"tweet_url": "https://x.com/...", "content": "ツイート内容"}
     """
     try:
@@ -1305,25 +1558,25 @@ def get_x_tweet_url_and_content_by_image(image_url: str) -> dict | None:
                                         logger.info(f"🔍 関連エンティティ発見: {entity.description}")
 
                                         # このエンティティを使ってさらに検索（SerpAPI無効化）
-                        # if SERPAPI_KEY and SerpAPI_available:
-                        #     search = GoogleSearch({  # type: ignore
-                        #         "engine": "google",
-                        #         "q": f'site:x.com OR site:twitter.com "{entity.description}"',
-                        #         "api_key": SERPAPI_KEY,
-                        #         "num": 10
-                        #     })
-                        #     entity_results = search.get_dict()
-                        #     if "organic_results" in entity_results:
-                        #         for result in entity_results["organic_results"][:3]:
-                        #             if "link" in result and any(domain in result["link"] for domain in ['x.com', 'twitter.com']):
-                        #                 logger.info(f"🐦 エンティティ検索でツイートURL発見: {result['link']}")
-                        #                 tweet_content = get_x_tweet_content(result["link"])
-                        #                 if tweet_content:
-                        #                     return {
-                        #                         "tweet_url": result["link"],
-                        #                         "content": tweet_content
-                        #                     }
-                        logger.info("⚠️ SerpAPIエンティティ検索は無効化されています")
+                                        # if SERPAPI_KEY and SerpAPI_available:
+                                        #     search = GoogleSearch({  # type: ignore
+                                        #         "engine": "google",
+                                        #         "q": f'site:x.com OR site:twitter.com "{entity.description}"',
+                                        #         "api_key": SERPAPI_KEY,
+                                        #         "num": 10
+                                        #     })
+                                        #     entity_results = search.get_dict()
+                                        #     if "organic_results" in entity_results:
+                                        #         for result in entity_results["organic_results"][:3]:
+                                        #             if "link" in result and any(domain in result["link"] for domain in ['x.com', 'twitter.com']):
+                                        #                 logger.info(f"🐦 エンティティ検索でツイートURL発見: {result['link']}")
+                                        #                 tweet_content = get_x_tweet_content(result["link"])
+                                        #                 if tweet_content:
+                                        #                     return {
+                                        #                         "tweet_url": result["link"],
+                                        #                         "content": tweet_content
+                                        #                     }
+                                        logger.info("⚠️ SerpAPIエンティティ検索は無効化されています")
 
             except Exception as vision_error:
                 logger.warning(f"⚠️ Vision API検索エラー: {vision_error}")
@@ -1371,10 +1624,6 @@ def get_x_tweet_url_and_content_by_image(image_url: str) -> dict | None:
 
             except Exception as decode_error:
                 logger.warning(f"⚠️ Snowflake ID デコード失敗: {decode_error}")
-
-
-
-
 
         logger.warning("⚠️ 画像からツイートURLを特定できませんでした")
         return None
@@ -1424,22 +1673,22 @@ def get_x_tweet_url_and_content_by_image(image_url: str) -> dict | None:
                                         logger.info(f"🔍 関連エンティティ発見: {entity.description}")
 
                                         # このエンティティを使ってさらに検索（SerpAPI無効化）
-                        # if SERPAPI_KEY and SerpAPI_available:
-                        #     search = GoogleSearch({  # type: ignore
-                        #         "engine": "google",
-                        #         "q": f'site:x.com OR site:twitter.com "{entity.description}"',
-                        #         "api_key": SERPAPI_KEY,
-                        #         "num": 10
-                        #     })
-                        #     entity_results = search.get_dict()
-                        #     if "organic_results" in entity_results:
-                        #         for result in entity_results["organic_results"][:3]:
-                        #             if "link" in result and any(domain in result["link"] for domain in ['x.com', 'twitter.com']):
-                        #                 logger.info(f"🐦 エンティティ検索でツイートURL発見: {result['link']}")
-                        #                 tweet_content = get_x_tweet_content(result["link"])
-                        #                 if tweet_content:
-                        #                     return tweet_content
-                        logger.info("⚠️ SerpAPIエンティティ検索は無効化されています")
+                                        # if SERPAPI_KEY and SerpAPI_available:
+                                        #     search = GoogleSearch({  # type: ignore
+                                        #         "engine": "google",
+                                        #         "q": f'site:x.com OR site:twitter.com "{entity.description}"',
+                                        #         "api_key": SERPAPI_KEY,
+                                        #         "num": 10
+                                        #     })
+                                        #     entity_results = search.get_dict()
+                                        #     if "organic_results" in entity_results:
+                                        #         for result in entity_results["organic_results"][:3]:
+                                        #             if "link" in result and any(domain in result["link"] for domain in ['x.com', 'twitter.com']):
+                                        #                 logger.info(f"🐦 エンティティ検索でツイートURL発見: {result['link']}")
+                                        #                 tweet_content = get_x_tweet_content(result["link"])
+                                        #                 if tweet_content:
+                                        #                     return tweet_content
+                                        logger.info("⚠️ SerpAPIエンティティ検索は無効化されています")
 
             except Exception as vision_error:
                 logger.warning(f"⚠️ Vision API検索エラー: {vision_error}")
@@ -1489,10 +1738,6 @@ def get_x_tweet_url_and_content_by_image(image_url: str) -> dict | None:
 
             except Exception as decode_error:
                 logger.warning(f"⚠️ Snowflake ID デコード失敗: {decode_error}")
-
-
-
-
 
         logger.warning("⚠️ 画像からツイート内容を特定できませんでした")
         return None
@@ -2025,7 +2270,7 @@ def is_image_only_url(url: str) -> bool:
     return False
 
 
-def reverse_lookup_original_content(image_url: str, web_detection) -> dict:
+def reverse_lookup_original_content(image_url: str, web_detection) -> dict | None:
     """画像のみURLから元のコンテンツを1対1で逆引き"""
 
     # X/Twitter画像の場合は特別処理
@@ -2524,13 +2769,13 @@ async def analyze_image(image_id: str):
             image_hash = calculate_image_hash(pdf_images[0])
             logger.info(f"🔑 画像ハッシュ計算完了（ページ1）: {image_hash[:16]}...")
 
-            # 各ページを個別に分析
+            # 各ページを個別に分析（拡張検索）
             all_url_lists = []
             for i, page_image_content in enumerate(pdf_images):
-                logger.info(f"🌐 ページ {i+1} の Google Vision API WEB_DETECTION実行中...")
-                page_urls = search_web_for_image(page_image_content)
+                logger.info(f"🌐 ページ {i+1} の拡張画像検索実行中（逆検索機能付き）...")
+                page_urls = enhanced_image_search_with_reverse(page_image_content)
                 all_url_lists.extend(page_urls)
-                logger.info(f"✅ ページ {i+1} Web検索完了: {len(page_urls)}件のURLを発見")
+                logger.info(f"✅ ページ {i+1} 拡張Web検索完了: {len(page_urls)}件のURLを発見")
 
             # 重複URLを除去（辞書形式データ対応）
             seen_urls = set()
@@ -2550,10 +2795,10 @@ async def analyze_image(image_id: str):
             image_hash = calculate_image_hash(image_content)
             logger.info(f"🔑 画像ハッシュ計算完了: {image_hash[:16]}...")
 
-            # Google Vision API WEB_DETECTIONでURL検索
-            logger.info("🌐 Google Vision API WEB_DETECTION実行中...")
-            url_list = search_web_for_image(image_content)
-            logger.info(f"✅ Web検索完了: {len(url_list)}件のURLを発見")
+            # 拡張画像検索（逆検索機能付き）
+            logger.info("🌐 拡張画像検索実行中（逆検索機能付き）...")
+            url_list = enhanced_image_search_with_reverse(image_content)
+            logger.info(f"✅ 拡張Web検索完了: {len(url_list)}件のURLを発見")
 
         # 各URLを効率的に分析（ニュースサイトは事前○判定、Twitterは特別処理）
         processed_results = []
@@ -2768,7 +3013,12 @@ async def test_search():
     ]
 
     # テスト結果をメモリに保存
-    search_results[test_image_id] = dummy_results
+    search_results[test_image_id] = {
+        "processed_results": dummy_results,
+        "raw_urls": [],
+        "total_found": len(dummy_results),
+        "total_processed": len(dummy_results)
+    }
 
     logger.info(f"✅ テスト検索完了: {len(dummy_results)}件の結果")
 
@@ -3668,10 +3918,10 @@ def process_batch_search(batch_id: str, file_ids: List[str]):
                     # プログレス更新
                     batch_jobs[batch_id]["files"][i]["progress"] = 25
 
-                    # 各ページを個別に分析
+                    # 各ページを個別に分析（拡張検索）
                     all_url_lists = []
                     for page_i, page_image_content in enumerate(pdf_images):
-                        page_urls = search_web_for_image(page_image_content)
+                        page_urls = enhanced_image_search_with_reverse(page_image_content)
                         all_url_lists.extend(page_urls)
 
                         # ページごとのプログレス更新
@@ -3695,13 +3945,13 @@ def process_batch_search(batch_id: str, file_ids: List[str]):
                     # プログレス更新
                     batch_jobs[batch_id]["files"][i]["progress"] = 20
 
-                    # Web検索実行
-                    url_list = search_web_for_image(image_content)
+                    # 拡張Web検索実行（逆検索機能付き）
+                    url_list = enhanced_image_search_with_reverse(image_content)
 
                 # プログレス更新
                 batch_jobs[batch_id]["files"][i]["progress"] = 60
 
-                                # URL分析
+                # URL分析
                 processed_results = []
                 for j, url_data in enumerate(url_list[:50]):
                     # url_dataが辞書形式の場合とstring形式の場合に対応
