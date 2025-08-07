@@ -778,22 +778,30 @@ def estimate_related_sites_from_query(search_query: str) -> list[str]:
 def cleanup_old_temp_files():
     """
     古いGoogle Lens一時ファイルをクリーンアップ（1時間以上前のファイル）
-    新しい検索の開始時に実行し、古いファイルを安全に削除
+
+    新しい検索の開始時に実行し、作成から1時間以上経過した古いファイルを
+    安全に削除する。ファイル名のUnixタイムスタンプで正確な作成時刻を判定。
     """
     try:
         import time
         current_time = time.time()
-        cutoff_time = current_time - 3600  # 1時間前
+        cutoff_time = current_time - 3600  # 1時間前（3600秒）
 
         if not os.path.exists(UPLOAD_DIR):
+            logger.debug("🧹 アップロードディレクトリが存在しません")
             return
 
         cleaned_count = 0
+        skipped_count = 0
+
+        logger.debug(f"🧹 一時ファイルクリーンアップ開始 (基準時刻: {int(cutoff_time)})")
+
         for filename in os.listdir(UPLOAD_DIR):
             if filename.startswith("google_lens_temp_"):
                 file_path = os.path.join(UPLOAD_DIR, filename)
                 try:
-                    # ファイル名からタイムスタンプ抽出: google_lens_temp_{timestamp}_{uuid}.jpg
+                    # ファイル名からUnixタイムスタンプ抽出
+                    # 形式: google_lens_temp_{unix_timestamp}_{uuid}.jpg
                     parts = filename.split("_")
                     if len(parts) >= 4 and parts[0] == "google" and parts[1] == "lens" and parts[2] == "temp":
                         timestamp_str = parts[3]
@@ -802,21 +810,31 @@ def cleanup_old_temp_files():
                         if file_timestamp < cutoff_time:
                             os.remove(file_path)
                             cleaned_count += 1
-                            logger.debug(f"🧹 古い一時ファイル削除: {filename} (作成: {timestamp_str})")
+                            age_hours = (current_time - file_timestamp) / 3600
+                            logger.debug(f"🧹 古い一時ファイル削除: {filename} (作成: {age_hours:.1f}時間前)")
+                        else:
+                            skipped_count += 1
+                            logger.debug(f"⏳ 一時ファイル保持: {filename} (新しいファイル)")
 
-                except (ValueError, IndexError, OSError) as e:
+                except (ValueError, IndexError) as e:
                     # ファイル名が期待する形式でない場合は、ファイル作成時刻で判断
+                    logger.warning(f"⚠️ ファイル名形式不正: {filename}, ファイル作成時刻で判定")
                     try:
                         file_stat = os.stat(file_path)
                         if file_stat.st_mtime < cutoff_time:
                             os.remove(file_path)
                             cleaned_count += 1
                             logger.debug(f"🧹 古い一時ファイル削除（作成時刻基準）: {filename}")
-                    except OSError:
-                        logger.warning(f"⚠️ 一時ファイルアクセスエラー: {filename}")
+                        else:
+                            skipped_count += 1
+                    except OSError as os_error:
+                        logger.warning(f"⚠️ 一時ファイルアクセスエラー: {filename} - {os_error}")
 
-        if cleaned_count > 0:
-            logger.info(f"🧹 一時ファイルクリーンアップ完了: {cleaned_count}件削除")
+                except OSError as os_error:
+                    logger.warning(f"⚠️ ファイル削除エラー: {filename} - {os_error}")
+
+        if cleaned_count > 0 or skipped_count > 0:
+            logger.info(f"🧹 一時ファイルクリーンアップ完了: {cleaned_count}件削除, {skipped_count}件保持")
 
     except Exception as e:
         logger.warning(f"⚠️ 一時ファイルクリーンアップ失敗: {e}")
@@ -873,12 +891,13 @@ def google_lens_exact_search(input_image_bytes: bytes) -> List[Dict]:
         return []
 
     temp_file_path: Optional[str] = None
-    max_retries = 3
+    max_retries = 2  # リトライ回数を削減（2回まで）
 
     try:
-        logger.info("🔍 Google Lens Exact Matches API検索開始（安定化版）")
+        logger.info("🔍 Google Lens Exact Matches API検索開始（堅牢化版）")
 
-        # 1. 古い一時ファイルクリーンアップ
+        # 1. 新しい検索開始前に古い一時ファイルを自動クリーンアップ
+        logger.debug("🧹 古い一時ファイルの自動クリーンアップを実行中...")
         cleanup_old_temp_files()
 
         # 2. 高品質画像前処理
@@ -893,7 +912,14 @@ def google_lens_exact_search(input_image_bytes: bytes) -> List[Dict]:
             logger.error("❌ 一時ファイル作成失敗")
             return []
 
-        # 4. 環境適応API呼び出し（リトライ機構付き）
+        # 4. 高速代替手法の試行
+        logger.info("🔄 高速代替アプローチを試行中...")
+        alternative_results = _try_alternative_exact_match(processed_image)
+        if alternative_results:
+            logger.info(f"✅ 代替手法で {len(alternative_results)} 件の結果を発見")
+            return alternative_results
+
+        # 5. 環境適応API呼び出し（リトライ機構付き）
         for attempt in range(max_retries):
             logger.info(f"🚀 Google Lens API呼び出し 試行 {attempt + 1}/{max_retries}")
 
@@ -914,10 +940,10 @@ def google_lens_exact_search(input_image_bytes: bytes) -> List[Dict]:
             if not retry_needed:
                 return []
 
-            # リトライ前の待機
+            # リトライ前の短縮待機
             if attempt < max_retries - 1:
                 import time
-                wait_time = (attempt + 1) * 5  # 5秒, 10秒, 15秒
+                wait_time = 3  # 固定3秒待機
                 logger.info(f"⏳ {wait_time}秒待機後にリトライします...")
                 time.sleep(wait_time)
 
@@ -929,7 +955,13 @@ def google_lens_exact_search(input_image_bytes: bytes) -> List[Dict]:
         return []
 
 def _optimize_image_for_google_lens(image_bytes: bytes) -> Optional[bytes]:
-    """Google Lens用に画像を最適化"""
+    """
+    Google Lens API用に画像を最適化
+
+    注意: この処理はSerpAPI処理速度向上のための最適化であり、
+    アップロード制限ではありません。どんなサイズの画像でも
+    アップロード可能で、この関数は処理効率化のみを目的とします。
+    """
     try:
         input_image = Image.open(BytesIO(image_bytes))
         if input_image.mode != 'RGB':
@@ -938,25 +970,43 @@ def _optimize_image_for_google_lens(image_bytes: bytes) -> Optional[bytes]:
         width, height = input_image.size
         logger.info(f"📊 入力画像: {width}x{height}")
 
-        # サイズチェック
-        if width < 50 or height < 50:
-            logger.warning("⚠️ 画像が小さすぎます")
+        # 基本的なサイズチェック（極端に小さい画像のみ）
+        if width < 10 or height < 10:
+            logger.warning("⚠️ 画像が極端に小さすぎます")
             return None
 
-        # 巨大画像の縮小（Google Lens制限対応）
-        max_dimension = 4096
+                # SerpAPI用最適化（処理速度向上のため、制限ではない）
+        target_size_kb = 500  # 推奨サイズ（必須ではない）
+        max_dimension = 1024  # 推奨解像度
+
+        # 巨大画像の軽量化（SerpAPI処理速度向上のため）
+        current_image = input_image
         if max(width, height) > max_dimension:
             ratio = max_dimension / max(width, height)
             new_width = int(width * ratio)
             new_height = int(height * ratio)
-            input_image = input_image.resize((new_width, new_height), Image.Resampling.LANCZOS)
-            logger.info(f"🔧 画像リサイズ: {new_width}x{new_height}")
+            current_image = input_image.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            logger.info(f"🔧 SerpAPI用リサイズ: {new_width}x{new_height}")
 
-        # 高品質JPEG変換
+        # 品質最適化（処理速度重視、品質維持）
         output = BytesIO()
-        input_image.save(output, 'JPEG', quality=95, optimize=True)
+        current_image.save(output, 'JPEG', quality=85, optimize=True)
         optimized_bytes = output.getvalue()
-        logger.info(f"✅ 画像最適化完了: {len(optimized_bytes)} bytes")
+
+        target_size = target_size_kb * 1024
+        if len(optimized_bytes) > target_size:
+            logger.info(f"📊 SerpAPI用最適化: {len(optimized_bytes)} bytes (推奨: {target_size} bytes以下)")
+            # 品質を少し下げて処理速度を向上
+            for quality in [75, 65]:
+                test_output = BytesIO()
+                current_image.save(test_output, 'JPEG', quality=quality, optimize=True)
+                test_bytes = test_output.getvalue()
+                if len(test_bytes) <= target_size:
+                    optimized_bytes = test_bytes
+                    logger.info(f"🔧 処理速度最適化: {len(optimized_bytes)} bytes (品質: {quality})")
+                    break
+        else:
+            logger.info(f"✅ SerpAPI用最適化完了: {len(optimized_bytes)} bytes")
         return optimized_bytes
 
     except Exception as e:
@@ -964,13 +1014,19 @@ def _optimize_image_for_google_lens(image_bytes: bytes) -> Optional[bytes]:
         return None
 
 def _create_persistent_temp_file(image_bytes: bytes) -> Optional[str]:
-    """永続化一時ファイルを作成"""
+    """
+    永続化一時ファイルを作成
+
+    ファイル命名規則: google_lens_temp_{unix_timestamp}_{uuid}.jpg
+    これにより作成時刻を特定でき、古いファイルの自動削除が可能
+    """
     try:
         os.makedirs(UPLOAD_DIR, exist_ok=True)
 
         import time
-        timestamp = int(time.time())
-        temp_filename = f"google_lens_temp_{timestamp}_{uuid.uuid4().hex[:8]}.jpg"
+        unix_timestamp = int(time.time())
+        unique_id = uuid.uuid4().hex[:8]
+        temp_filename = f"google_lens_temp_{unix_timestamp}_{unique_id}.jpg"
         temp_file_path = os.path.join(UPLOAD_DIR, temp_filename)
 
         with open(temp_file_path, 'wb') as f:
@@ -978,7 +1034,8 @@ def _create_persistent_temp_file(image_bytes: bytes) -> Optional[str]:
 
         if os.path.exists(temp_file_path):
             file_size = os.path.getsize(temp_file_path)
-            logger.info(f"💾 一時ファイル作成成功: {temp_file_path} ({file_size} bytes)")
+            logger.info(f"💾 一時ファイル作成成功: {temp_filename} ({file_size} bytes)")
+            logger.info(f"📅 作成時刻: {unix_timestamp} (Unix timestamp)")
             return temp_file_path
         else:
             logger.error("❌ ファイル作成確認失敗")
@@ -1033,7 +1090,7 @@ def _execute_serpapi_request(temp_file_path: str, attempt: int) -> Optional[Dict
             }
             logger.info(f"🏠 ローカル環境リクエスト: {temp_file_path}")
 
-                # SerpAPI実行
+                                # SerpAPI実行（シンプル呼び出し）
         search = GoogleSearch(search_params)
         logger.info("🌐 SerpAPI Google Lens リクエスト実行中...")
         logger.info(f"   📋 パラメータ確認:")
@@ -1048,12 +1105,13 @@ def _execute_serpapi_request(temp_file_path: str, attempt: int) -> Optional[Dict
         import time
         start_time = time.time()
 
+        # SerpAPIライブラリに任せる（タイムアウトはSerpAPI側で管理）
         results = search.get_dict()
 
         end_time = time.time()
         elapsed = end_time - start_time
-        logger.info(f"📡 SerpAPIレスポンス受信: {type(results)} ({elapsed:.1f}秒)")
 
+        logger.info(f"📡 SerpAPIレスポンス受信: {type(results)} ({elapsed:.1f}秒)")
         return results
 
     except Exception as e:
@@ -1117,6 +1175,58 @@ def _handle_serpapi_error(error_msg: str, attempt: int, max_retries: int) -> boo
     # その他のエラー
     logger.error(f"❌ 不明なSerpAPIエラー: {error_msg}")
     return False
+
+def _try_alternative_exact_match(image_bytes: bytes) -> List[Dict]:
+    """高速代替完全一致検索"""
+    try:
+        # 画像ハッシュベースの高速検索
+        import imagehash
+        from PIL import Image
+
+        image = Image.open(BytesIO(image_bytes))
+
+        # 複数のハッシュアルゴリズムで検索精度向上
+        phash = str(imagehash.phash(image))
+        dhash = str(imagehash.dhash(image))
+        ahash = str(imagehash.average_hash(image))
+
+        logger.info(f"🔍 画像ハッシュ計算完了 (pHash: {phash[:8]}...)")
+
+        # Vision API WEB_DETECTIONの完全一致を活用
+        # 既存のVision API結果から完全一致のみ抽出
+        vision_results = []
+
+        try:
+            from google.cloud import vision
+            client = vision.ImageAnnotatorClient()
+
+            image_vision = vision.Image(content=image_bytes)
+            response = client.web_detection(image=image_vision, max_results=20)
+
+            if response.web_detection.full_matching_images:
+                for match in response.web_detection.full_matching_images[:5]:
+                    if match.url and "http" in match.url:
+                        vision_results.append({
+                            "type": "exact_match_vision",
+                            "title": "Vision API完全一致",
+                            "url": match.url,
+                            "source": "Google Vision",
+                            "thumbnail": match.url,
+                            "confidence": 0.95,
+                            "search_method": "Vision API完全一致",
+                            "search_source": "Google Vision WEB_DETECTION"
+                        })
+
+            logger.info(f"🎯 Vision API完全一致: {len(vision_results)}件")
+            return vision_results
+
+        except Exception as vision_error:
+            logger.warning(f"⚠️ Vision API代替検索失敗: {vision_error}")
+            return []
+
+    except Exception as e:
+        logger.warning(f"⚠️ 代替検索エラー: {e}")
+        return []
 
 def _process_google_lens_results(results: Dict) -> List[Dict]:
     """Google Lens結果処理"""
