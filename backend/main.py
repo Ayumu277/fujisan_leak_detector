@@ -388,32 +388,59 @@ def validate_image_file(file: UploadFile) -> bool:
 
 def convert_pdf_to_images(pdf_content: bytes) -> List[bytes]:
     """
-    PDFファイルを画像のリストに変換する
-    各ページを個別の画像として返す
+    PDFファイルを画像のリストに変換する（軽量化版）
+    メモリ使用量を削減し、Renderの制限に対応
     """
     images = []
     pdf_document = None
 
     try:
-        # 方法1: PyMuPDF (fitz) を使用
+        # メモリ使用量チェック
+        pdf_size_mb = len(pdf_content) / (1024 * 1024)
+        if pdf_size_mb > 10:  # 10MB以上は処理を制限
+            logger.warning(f"⚠️ PDF サイズが大きすぎます: {pdf_size_mb:.1f}MB")
+            logger.info("💡 処理を軽量化します")
+
+        # 方法1: PyMuPDF (fitz) を使用（軽量化版）
         if 'fitz' in globals():
-            logger.info("🔄 PyMuPDF でPDFを画像に変換中...")
+            logger.info("🔄 PyMuPDF でPDFを画像に変換中（軽量化版）...")
             pdf_document = fitz.open(stream=pdf_content, filetype="pdf")
-            page_count = pdf_document.page_count  # close前に取得
+            page_count = pdf_document.page_count
             logger.info(f"📄 PDF総ページ数: {page_count}")
 
-            for page_num in range(page_count):
-                page = pdf_document[page_num]
-                # 高品質でPDFページを画像に変換 (PyMuPDF 1.26.3対応)
-                pix = page.get_pixmap(dpi=200)  # type: ignore # DPIで品質指定
-                img_data = pix.tobytes("png")
-                images.append(img_data)
-                logger.info(f"📄 ページ {page_num + 1} を画像に変換完了")
+            # 最初のページのみ処理（メモリ節約）
+            max_pages = 1  # 1ページのみ処理
+            actual_pages = min(page_count, max_pages)
+
+            if page_count > max_pages:
+                logger.info(f"💡 メモリ節約のため最初の{max_pages}ページのみ処理します")
+
+            for page_num in range(actual_pages):
+                try:
+                    page = pdf_document[page_num]
+
+                    # DPIを下げてメモリ使用量を削減
+                    dpi = 150 if pdf_size_mb > 5 else 200
+                    pix = page.get_pixmap(dpi=dpi)  # type: ignore
+
+                    # JPEG形式で圧縮してメモリ節約
+                    img_data = pix.tobytes("jpeg", jpg_quality=85)
+                    images.append(img_data)
+
+                    logger.info(f"📄 ページ {page_num + 1} を画像に変換完了 (DPI: {dpi})")
+
+                    # ページ処理後にメモリクリア
+                    pix = None
+                    page = None
+
+                except Exception as page_error:
+                    logger.warning(f"⚠️ ページ {page_num + 1} 変換失敗: {page_error}")
+                    continue
 
             return images
 
     except Exception as e:
-        logger.warning(f"⚠️ PyMuPDF変換失敗: {e}")
+        logger.error(f"❌ PDF変換エラー: {e}")
         return []
 
     finally:
@@ -425,8 +452,17 @@ def convert_pdf_to_images(pdf_content: bytes) -> List[bytes]:
             except Exception as e:
                 logger.warning(f"⚠️ PDF文書クローズ失敗: {e}")
 
-        # メモリ最適化
+        # 強制的にメモリクリア
+        import gc
         gc.collect()
+
+        # メモリ使用量をログ出力（デバッグ用）
+        try:
+            import psutil
+            memory_usage = psutil.Process().memory_info().rss / 1024 / 1024  # MB
+            logger.debug(f"🧹 メモリクリア完了 (現在使用量: {memory_usage:.1f}MB)")
+        except ImportError:
+            logger.debug("🧹 メモリクリア完了")
 
     logger.error("❌ PDFを画像に変換できませんでした")
     return []
@@ -3456,6 +3492,11 @@ def process_batch_search(batch_id: str, file_ids: List[str]):
             logger.info(f"📊 バッチ進捗: {i+1}/{len(file_ids)} ({((i+1)/len(file_ids)*100):.1f}%)")
 
             try:
+                # タイムアウト対策：処理時間制限
+                import time
+                start_time = time.time()
+                max_processing_time = 25  # 25秒制限（Renderの30秒制限を考慮）
+
                 # 既存の分析ロジックを使用
                 if file_id not in upload_records:
                     batch_jobs[batch_id]["files"][i]["status"] = "error"
@@ -3473,9 +3514,14 @@ def process_batch_search(batch_id: str, file_ids: List[str]):
                 # プログレス更新
                 batch_jobs[batch_id]["files"][i]["progress"] = 10
 
+                # 処理時間チェック
+                if time.time() - start_time > max_processing_time:
+                    raise Exception(f"処理時間制限（{max_processing_time}秒）を超過しました")
+
                 # ファイル種別に応じて処理を分岐
                 if file_type == "pdf":
-                    # PDFの場合：各ページを画像に変換して処理
+                    # PDFの場合：軽量化処理
+                    logger.info("📄 PDF処理開始（軽量化モード）")
                     pdf_images = convert_pdf_to_images(file_content)
                     if not pdf_images:
                         raise Exception("PDFから画像を抽出できませんでした")
@@ -3486,15 +3532,28 @@ def process_batch_search(batch_id: str, file_ids: List[str]):
                     # プログレス更新
                     batch_jobs[batch_id]["files"][i]["progress"] = 25
 
-                    # 各ページを個別に分析（拡張検索）
+                    # 処理時間チェック
+                    if time.time() - start_time > max_processing_time:
+                        raise Exception(f"PDF処理で時間制限を超過しました")
+
+                    # 最初のページのみ分析（軽量化）
+                    logger.info("💡 軽量化のため最初のページのみ分析します")
                     all_url_lists = []
-                    for page_i, page_image_content in enumerate(pdf_images):
-                        page_urls = enhanced_image_search_with_reverse(page_image_content)
+
+                    if pdf_images:
+                        page_image_content = pdf_images[0]  # 最初のページのみ
+
+                        # 処理時間チェック
+                        if time.time() - start_time > max_processing_time:
+                            logger.warning("⚠️ 時間制限のため画像検索をスキップします")
+                            page_urls = []
+                        else:
+                            page_urls = enhanced_image_search_with_reverse(page_image_content)
+
                         all_url_lists.extend(page_urls)
 
-                        # ページごとのプログレス更新
-                        page_progress = 25 + (page_i + 1) * 35 // len(pdf_images)
-                        batch_jobs[batch_id]["files"][i]["progress"] = min(page_progress, 60)
+                        # プログレス更新
+                        batch_jobs[batch_id]["files"][i]["progress"] = 60
 
                     # 重複URLを除去（辞書形式データ対応）
                     seen_urls = set()
