@@ -4421,5 +4421,57 @@
         "search_source": "Vision API"
       }
     ]
+  },
+  {
+    "history_id": "7976ed23-0423-48ca-96df-4f7df0bba7a5",
+    "image_id": "4bcfd8a8-05c3-486a-823c-9d95d255cc22",
+    "image_hash": "b70a58a9b3250e633b10b9f17435b498d00344a10ce63edb6caa082b64c09989",
+    "original_filename": "00022.pdf",
+    "analysis_date": "2025-08-07T15:38:00.561192",
+    "analysis_timestamp": 1754548680,
+    "found_urls_count": 4,
+    "processed_results_count": 4,
+    "results": [
+      {
+        "url": "https://lookaside.instagram.com/seo/google_widget/crawler/?media_id=3673584311565046280",
+        "judgment": "？",
+        "reason": "提供された情報がテキストのみで、具体的な画像内容が不明なため、著作権や肖像権の侵害有無を判断できません。Instagramは一般的なSNSであり、この情報だけでは違法コンテンツと断定できません。",
+        "confidence": "高",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "SNS・ソーシャルメディア",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://www.instagram.com/p/DAIvlgDzA9j/?hl=en",
+        "judgment": "○",
+        "reason": "Instagramの投稿であり、提供された情報からは具体的な写真や動画の内容が不明ですが、「Kaorin 🥰💕💕💕」というテキストといいね数・コメント数のみでは、著作権侵害や違法コンテンツであると判断できる兆候が見当たらないため、安全と判定します。",
+        "confidence": "低",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "SNS・ソーシャルメディア",
+        "search_method": "関連ページ",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://www.instagram.com/p/DL7MXogSpKg/",
+        "judgment": "？",
+        "reason": "Instagramの投稿タイトルと説明のみでは、具体的な画像や動画の有無やその内容が不明です。人物の名前が挙げられているだけでは、著作権侵害や違法コンテンツとは判断できないため、判定困難です。",
+        "confidence": "低",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "SNS・ソーシャルメディア",
+        "search_method": "関連ページ",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://www.threads.com/@precure_paradise/post/DL7o8VDPSbf/%E3%81%AF%E3%81%AA%E3%81%82%E3%81%84%EB%8B%98precure_paradise%EC%9D%98-%EA%B2%8C%EC%8B%9C%EB%AC%BC",
+        "judgment": "？",
+        "reason": "タイトルは個人アカウントによる投稿を示唆し、プリキュア関連の可能性はあるが、具体的なコンテンツ内容が不明。ファン活動か著作権侵害かは判断できず、情報不足のため判定困難。",
+        "confidence": "低",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "その他・不明サイト",
+        "search_method": "関連ページ",
+        "search_source": "Vision API"
+      }
+    ]
   }
 ]

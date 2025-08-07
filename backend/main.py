@@ -778,7 +778,7 @@ def estimate_related_sites_from_query(search_query: str) -> list[str]:
 def calculate_multi_hash_similarity(image1: Image.Image, image2: Image.Image) -> Dict:
     """
     複数のハッシュアルゴリズムを使用して画像の類似度を計算
-    より高精度な「ほぼ完全一致」判定を実現
+    より高精度な「完全一致」判定を実現
     """
     try:
         # 複数のハッシュアルゴリズムで比較
@@ -904,22 +904,30 @@ def google_lens_exact_search(input_image_bytes: bytes) -> List[Dict]:
         # エラーチェック
         if "error" in results:
             error_msg = results["error"]
-            logger.error(f"❌ Google Lens API エラー: {error_msg}")
+            logger.error(f"❌ SerpAPI Google Lens エラー: {error_msg}")
 
             # 特定のエラーの場合は詳細情報を提供
             if "hasn't returned any results" in error_msg:
-                logger.info("💡 この画像に対してGoogle Lensで一致する結果が見つかりませんでした")
-                logger.info("   - 画像が新しすぎる、または非常に特殊な画像の可能性があります")
-                logger.info("   - Vision APIの結果で十分な場合があります")
+                logger.info("💡 SerpAPI Google Lensで一致する結果が見つかりませんでした")
+                logger.info("   ✅ これは正常な動作です（この画像に完全一致がない）")
+                logger.info("   📊 Google Vision APIの結果を使用します")
+                # エラーではなく、結果が無いだけなので空の配列を返す
+                return []
             elif "quota" in error_msg.lower() or "limit" in error_msg.lower():
-                logger.warning("⚠️ Google Lens API クォータまたはレート制限に達しました")
-
-            return []
+                logger.warning("⚠️ SerpAPI クォータ制限に達しました")
+                logger.info("   📊 Google Vision APIの結果のみ使用します")
+                return []
+            elif "invalid" in error_msg.lower() or "parameter" in error_msg.lower():
+                logger.error("❌ SerpAPI パラメータエラー - API設定を確認してください")
+                return []
+            else:
+                logger.error(f"❌ SerpAPI 不明なエラー: {error_msg}")
+                return []
 
         # 5. exact_matchesを取得
         exact_matches = results.get("exact_matches", [])
         logger.info(f"🎯 Google Lens Exact Matchesから {len(exact_matches)} 件の候補を取得")
-        
+
         # デバッグ: レスポンス全体をログ出力（機密情報を除く）
         if not exact_matches and "error" not in results:
             logger.warning(f"⚠️ Google Lens APIレスポンス詳細: {results}")
@@ -1038,9 +1046,9 @@ def enhanced_image_search_with_reverse(image_content: bytes) -> list[dict]:
             seen_urls.add(url)
             all_results.append(result)
 
-    logger.info(f"📊 3つの取得経路結果統計:")
+    logger.info(f"📊 画像検索結果統計:")
     logger.info(f"  - Google Vision API: {len(vision_results)}件（完全一致・部分一致）")
-    logger.info(f"  - Google Lens API: {len(google_lens_results)}件（完全一致）")
+    logger.info(f"  - SerpAPI Google Lens: {len(google_lens_results)}件（完全一致）") 
     logger.info(f"  - 重複除去後合計: {len(all_results)}件")
 
     return all_results

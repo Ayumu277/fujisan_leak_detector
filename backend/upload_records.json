@@ -4141,5 +4141,29 @@
     "found_urls_count": 97,
     "processed_results_count": 50,
     "image_hash": "cd620b02e9af45f51ab58eadd315f9740b84561cb699272cf5e8e45a5e3c3594"
+  },
+  "4bcfd8a8-05c3-486a-823c-9d95d255cc22": {
+    "id": "4bcfd8a8-05c3-486a-823c-9d95d255cc22",
+    "original_filename": "00022.pdf",
+    "saved_filename": "4bcfd8a8-05c3-486a-823c-9d95d255cc22.pdf",
+    "file_path": "uploads/4bcfd8a8-05c3-486a-823c-9d95d255cc22.pdf",
+    "content_type": "application/pdf",
+    "file_size": 6769766,
+    "upload_time": "2025-08-07T15:37:30.594242",
+    "status": "uploaded",
+    "batch_upload": true,
+    "file_type": "pdf"
+  },
+  "e8c05c2f-0bfa-44f8-86a5-721c3979f67e": {
+    "id": "e8c05c2f-0bfa-44f8-86a5-721c3979f67e",
+    "original_filename": "00025.pdf",
+    "saved_filename": "e8c05c2f-0bfa-44f8-86a5-721c3979f67e.pdf",
+    "file_path": "uploads/e8c05c2f-0bfa-44f8-86a5-721c3979f67e.pdf",
+    "content_type": "application/pdf",
+    "file_size": 2120451,
+    "upload_time": "2025-08-07T15:37:30.919244",
+    "status": "uploaded",
+    "batch_upload": true,
+    "file_type": "pdf"
   }
 }
