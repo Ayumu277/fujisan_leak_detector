@@ -26,16 +26,14 @@ from fastapi.responses import Response
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# SerpAPI統合用インポート
+# 画像処理用ライブラリ（オプション）
 try:
     import imagehash
-    import requests
-    from serpapi import GoogleSearch
-    SERPAPI_SUPPORT = True
-    logger.info("✅ SerpAPI機能が利用可能です")
+    IMAGEHASH_SUPPORT = True
+    logger.info("✅ 画像ハッシュ機能が利用可能です")
 except ImportError:
-    SERPAPI_SUPPORT = False
-    logger.warning("⚠️ SerpAPI関連ライブラリが見つかりません。pip install google-search-results imagehash を実行してください")
+    IMAGEHASH_SUPPORT = False
+    logger.info("💡 画像ハッシュライブラリは利用できません（オプション機能）")
 
 # PDF処理用ライブラリ
 try:
@@ -76,7 +74,7 @@ app = FastAPI(title="Book Leak Detector", version="1.0.0")
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GOOGLE_APPLICATION_CREDENTIALS = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
 X_BEARER_TOKEN = os.getenv("X_BEARER_TOKEN")
-SERP_API_KEY = os.getenv("SERPAPI_KEY")
+# 環境変数設定完了
 
 # Gemini APIの設定
 if GEMINI_API_KEY:
@@ -93,8 +91,7 @@ if not GOOGLE_APPLICATION_CREDENTIALS:
     missing_keys.append("GOOGLE_APPLICATION_CREDENTIALS")
 if not X_BEARER_TOKEN:
     missing_keys.append("X_BEARER_TOKEN (Twitter内容取得用)")
-if not SERP_API_KEY:
-    missing_keys.append("SERPAPI_KEY (SerpAPI逆画像検索用)")
+# 必要なキーのチェック完了
 
 if missing_keys:
     required_missing = [k for k in missing_keys if "精度向上用" not in k and "オプション" not in k]
@@ -107,7 +104,7 @@ if missing_keys:
     print("- GEMINI_API_KEY: Gemini AI用")
     print("- GOOGLE_APPLICATION_CREDENTIALS: Google Vision API用サービスアカウントキー")
     print("- X_BEARER_TOKEN: X API用（Twitter内容取得）")
-    print("- SERPAPI_KEY: SerpAPI用（逆画像検索）")
+# 必要なAPI設定説明完了
 else:
     print("✓ 必要なAPI_KEYが正常に設定されています")
 
@@ -839,490 +836,40 @@ def cleanup_old_temp_files():
     except Exception as e:
         logger.warning(f"⚠️ 一時ファイルクリーンアップ失敗: {e}")
 
-def calculate_multi_hash_similarity(image1: Image.Image, image2: Image.Image) -> Dict:
-    """
-    複数のハッシュアルゴリズムを使用して画像の類似度を計算
-    より高精度な「完全一致」判定を実現
-    """
-    try:
-        # 複数のハッシュアルゴリズムで比較
-        phash_dist = imagehash.phash(image1) - imagehash.phash(image2)
-        dhash_dist = imagehash.dhash(image1) - imagehash.dhash(image2)
-        ahash_dist = imagehash.average_hash(image1) - imagehash.average_hash(image2)
-
-        # 総合スコア計算（全てのハッシュが低距離の場合のみ高スコア）
-        total_distance = phash_dist + dhash_dist + ahash_dist
-        max_distance = max(phash_dist, dhash_dist, ahash_dist)
-
-        return {
-            "phash_distance": int(phash_dist),
-            "dhash_distance": int(dhash_dist),
-            "ahash_distance": int(ahash_dist),
-            "total_distance": int(total_distance),
-            "max_distance": int(max_distance),
-            "is_near_exact": phash_dist <= 2 and dhash_dist <= 3 and ahash_dist <= 3 and max_distance <= 3,
-            "similarity_score": max(0, 1.0 - (total_distance / 30.0))  # 30は経験的な最大値
-        }
-    except Exception as e:
-        logger.warning(f"⚠️ ハッシュ計算エラー: {e}")
-        return {
-            "phash_distance": 999,
-            "dhash_distance": 999,
-            "ahash_distance": 999,
-            "total_distance": 999,
-            "max_distance": 999,
-            "is_near_exact": False,
-            "similarity_score": 0.0
-        }
-
-
-def google_lens_exact_search(input_image_bytes: bytes) -> List[Dict]:
-    """
-    SerpAPI Google Lens Exact Matches API - 完全安定化版
-
-    Args:
-        input_image_bytes (bytes): 入力画像のバイトデータ
-
-    Returns:
-        List[Dict]: Google Lens完全一致のURLリスト
-    """
-    if not SERP_API_KEY or not SERPAPI_SUPPORT:
-        logger.warning("⚠️ SerpAPI機能が利用できません")
-        return []
-
-    temp_file_path: Optional[str] = None
-    max_retries = 2  # リトライ回数を削減（2回まで）
-
-    try:
-        logger.info("🔍 Google Lens Exact Matches API検索開始（堅牢化版）")
-
-        # 1. 新しい検索開始前に古い一時ファイルを自動クリーンアップ
-        logger.debug("🧹 古い一時ファイルの自動クリーンアップを実行中...")
-        cleanup_old_temp_files()
-
-        # 2. 高品質画像前処理
-        processed_image = _optimize_image_for_google_lens(input_image_bytes)
-        if not processed_image:
-            logger.error("❌ 画像前処理失敗")
-            return []
-
-        # 3. 永続化一時ファイル作成
-        temp_file_path = _create_persistent_temp_file(processed_image)
-        if not temp_file_path:
-            logger.error("❌ 一時ファイル作成失敗")
-            return []
-
-        # ===== Google Lens機能を一時停止 =====
-        # 複雑すぎるため、Google Vision APIのみに絞って安定化を図る
-        logger.info("⏸️ Google Lens機能は一時停止中（Vision APIのみ使用）")
-        return []
-
-        # # 4. 高速代替手法の試行
-        # logger.info("🔄 高速代替アプローチを試行中...")
-        # alternative_results = _try_alternative_exact_match(processed_image)
-        # if alternative_results:
-        #     logger.info(f"✅ 代替手法で {len(alternative_results)} 件の結果を発見")
-        #     return alternative_results
-
-        # # 5. 環境適応API呼び出し（リトライ機構付き）
-        # for attempt in range(max_retries):
-        #     logger.info(f"🚀 Google Lens API呼び出し 試行 {attempt + 1}/{max_retries}")
-
-        #     # API呼び出し実行
-        #     results = _execute_serpapi_request(temp_file_path, attempt)
-
-        #     if results is None:
-        #         continue  # 次の試行へ
-
-        #     # 成功時の処理
-        #     if "error" not in results:
-        #         return _process_google_lens_results(results)
-
-        #     # エラー処理
-        #     error_msg = results.get("error", "")
-        #     retry_needed = _handle_serpapi_error(error_msg, attempt, max_retries)
-
-        #     if not retry_needed:
-        #         return []
-
-        #     # リトライ前の短縮待機
-        #     if attempt < max_retries - 1:
-        #         import time
-        #         wait_time = 3  # 固定3秒待機
-        #         logger.info(f"⏳ {wait_time}秒待機後にリトライします...")
-        #         time.sleep(wait_time)
-
-        logger.error("❌ 全ての試行が失敗しました")
-        return []
-
-    except Exception as e:
-        logger.error(f"❌ Google Lens検索致命的エラー: {str(e)}")
-        return []
-
-def _optimize_image_for_google_lens(image_bytes: bytes) -> Optional[bytes]:
-    """
-    Google Lens API用に画像を最適化
-
-    注意: この処理はSerpAPI処理速度向上のための最適化であり、
-    アップロード制限ではありません。どんなサイズの画像でも
-    アップロード可能で、この関数は処理効率化のみを目的とします。
-    """
-    try:
-        input_image = Image.open(BytesIO(image_bytes))
-        if input_image.mode != 'RGB':
-            input_image = input_image.convert('RGB')
-
-        width, height = input_image.size
-        logger.info(f"📊 入力画像: {width}x{height}")
-
-        # 基本的なサイズチェック（極端に小さい画像のみ）
-        if width < 10 or height < 10:
-            logger.warning("⚠️ 画像が極端に小さすぎます")
-            return None
-
-                # SerpAPI用最適化（処理速度向上のため、制限ではない）
-        target_size_kb = 500  # 推奨サイズ（必須ではない）
-        max_dimension = 1024  # 推奨解像度
-
-        # 巨大画像の軽量化（SerpAPI処理速度向上のため）
-        current_image = input_image
-        if max(width, height) > max_dimension:
-            ratio = max_dimension / max(width, height)
-            new_width = int(width * ratio)
-            new_height = int(height * ratio)
-            current_image = input_image.resize((new_width, new_height), Image.Resampling.LANCZOS)
-            logger.info(f"🔧 SerpAPI用リサイズ: {new_width}x{new_height}")
-
-        # 品質最適化（処理速度重視、品質維持）
-        output = BytesIO()
-        current_image.save(output, 'JPEG', quality=85, optimize=True)
-        optimized_bytes = output.getvalue()
-
-        target_size = target_size_kb * 1024
-        if len(optimized_bytes) > target_size:
-            logger.info(f"📊 SerpAPI用最適化: {len(optimized_bytes)} bytes (推奨: {target_size} bytes以下)")
-            # 品質を少し下げて処理速度を向上
-            for quality in [75, 65]:
-                test_output = BytesIO()
-                current_image.save(test_output, 'JPEG', quality=quality, optimize=True)
-                test_bytes = test_output.getvalue()
-                if len(test_bytes) <= target_size:
-                    optimized_bytes = test_bytes
-                    logger.info(f"🔧 処理速度最適化: {len(optimized_bytes)} bytes (品質: {quality})")
-                    break
-        else:
-            logger.info(f"✅ SerpAPI用最適化完了: {len(optimized_bytes)} bytes")
-        return optimized_bytes
-
-    except Exception as e:
-        logger.error(f"❌ 画像最適化エラー: {e}")
-        return None
-
-def _create_persistent_temp_file(image_bytes: bytes) -> Optional[str]:
-    """
-    永続化一時ファイルを作成
-
-    ファイル命名規則: google_lens_temp_{unix_timestamp}_{uuid}.jpg
-    これにより作成時刻を特定でき、古いファイルの自動削除が可能
-    """
-    try:
-        os.makedirs(UPLOAD_DIR, exist_ok=True)
-
-        import time
-        unix_timestamp = int(time.time())
-        unique_id = uuid.uuid4().hex[:8]
-        temp_filename = f"google_lens_temp_{unix_timestamp}_{unique_id}.jpg"
-        temp_file_path = os.path.join(UPLOAD_DIR, temp_filename)
-
-        with open(temp_file_path, 'wb') as f:
-            f.write(image_bytes)
-
-        if os.path.exists(temp_file_path):
-            file_size = os.path.getsize(temp_file_path)
-            logger.info(f"💾 一時ファイル作成成功: {temp_filename} ({file_size} bytes)")
-            logger.info(f"📅 作成時刻: {unix_timestamp} (Unix timestamp)")
-            return temp_file_path
-        else:
-            logger.error("❌ ファイル作成確認失敗")
-            return None
-
-    except Exception as e:
-        logger.error(f"❌ 一時ファイル作成エラー: {e}")
-        return None
-
-def _execute_serpapi_request(temp_file_path: str, attempt: int) -> Optional[Dict]:
-    """SerpAPI リクエスト実行"""
-    try:
-        # 環境検出
-        render_url = os.getenv("RENDER_EXTERNAL_URL")
-        is_render = os.getenv("RENDER") == "true" or os.getenv("RENDER_SERVICE_ID") is not None
-
-        if render_url or is_render:
-            # 本番環境
-            if render_url:
-                base_url = render_url.rstrip('/')
-            else:
-                base_url = "https://fujisan-leak-detector.onrender.com"  # フォールバック
-
-            temp_filename = os.path.basename(temp_file_path)
-            image_url = f"{base_url}/uploads/{temp_filename}"
-
-            # URLアクセス確認（推奨、失敗しても続行）
-            accessibility_ok = _verify_image_accessibility(image_url, attempt)
-            if not accessibility_ok:
-                logger.warning(f"⚠️ 画像URLアクセス確認失敗（試行 {attempt + 1}）- SerpAPIで再試行")
-            else:
-                logger.info(f"✅ 画像URLアクセス確認成功（試行 {attempt + 1}）")
-
-            search_params = {
-                "engine": "google_lens",
-                "type": "exact_matches",
-                "url": image_url,
-                "api_key": SERP_API_KEY,
-                "no_cache": True,
-                "safe": "off"
-            }
-            logger.info(f"🌐 本番環境リクエスト: {image_url}")
-        else:
-            # ローカル環境
-            search_params = {
-                "engine": "google_lens",
-                "type": "exact_matches",
-                "image": temp_file_path,
-                "api_key": SERP_API_KEY,
-                "no_cache": True,
-                "safe": "off"
-            }
-            logger.info(f"🏠 ローカル環境リクエスト: {temp_file_path}")
-
-                                # SerpAPI実行（シンプル呼び出し）
-        search = GoogleSearch(search_params)
-        logger.info("🌐 SerpAPI Google Lens リクエスト実行中...")
-        logger.info(f"   📋 パラメータ確認:")
-        logger.info(f"     - Engine: {search_params.get('engine')}")
-        logger.info(f"     - Type: {search_params.get('type')}")
-        if "url" in search_params:
-            logger.info(f"     - Image URL: {search_params['url'][:100]}...")
-        else:
-            logger.info(f"     - Image File: {search_params['image']}")
-
-        # API呼び出しタイマー
-        import time
-        start_time = time.time()
-
-        # SerpAPIライブラリに任せる（タイムアウトはSerpAPI側で管理）
-        results = search.get_dict()
-
-        end_time = time.time()
-        elapsed = end_time - start_time
-
-        logger.info(f"📡 SerpAPIレスポンス受信: {type(results)} ({elapsed:.1f}秒)")
-        return results
-
-    except Exception as e:
-        logger.error(f"❌ SerpAPI実行エラー（試行 {attempt + 1}）: {str(e)}")
-        return None
-
-def _verify_image_accessibility(image_url: str, attempt: int) -> bool:
-    """画像URLアクセス確認（高速化版）"""
-    try:
-        import httpx
-        # タイムアウトを短縮: 10秒固定（Renderの応答遅延を考慮）
-        timeout = 10.0
-
-        logger.info(f"🧪 画像アクセステスト開始（{timeout}秒制限）")
-
-        with httpx.Client(timeout=timeout) as client:
-            response = client.head(image_url)
-            if response.status_code == 200:
-                logger.info(f"✅ アクセステスト成功: HTTP {response.status_code}")
-                content_type = response.headers.get('content-type', '不明')
-                content_length = response.headers.get('content-length', '不明')
-                logger.info(f"   📋 Content-Type: {content_type}, Size: {content_length}")
-                return True
-            else:
-                logger.warning(f"⚠️ アクセステスト失敗: HTTP {response.status_code}")
-                return False
-
-    except Exception as e:
-        logger.warning(f"⚠️ アクセステストタイムアウト: {e}")
-        logger.info(f"   💡 Renderサーバー遅延の可能性 - SerpAPI側では成功する可能性があります")
-        return False
-
-def _handle_serpapi_error(error_msg: str, attempt: int, max_retries: int) -> bool:
-    """SerpAPIエラーハンドリング（リトライ判定）"""
-    logger.error(f"❌ SerpAPI エラー: {error_msg}")
-
-    # 結果なし（正常）
-    if "hasn't returned any results" in error_msg:
-        logger.info("💡 Google Lensで完全一致画像が見つかりませんでした（正常）")
-        return False
-
-    # クォータ制限
-    if "quota" in error_msg.lower() or "limit" in error_msg.lower():
-        logger.warning("⚠️ SerpAPI クォータ制限")
-        return False
-
-    # パラメータエラー
-    if "invalid" in error_msg.lower() or "parameter" in error_msg.lower():
-        logger.error("❌ SerpAPI パラメータエラー")
-        return False
-
-    # 一時的な問題（リトライ対象）
-    if "couldn't get valid results" in error_msg.lower() or "try again later" in error_msg.lower():
-        if attempt < max_retries - 1:
-            logger.warning(f"⚠️ 一時的な問題（リトライ {attempt + 1}/{max_retries}）")
-            return True
-        else:
-            logger.error("❌ 最大リトライ回数に達しました")
-            return False
-
-    # その他のエラー
-    logger.error(f"❌ 不明なSerpAPIエラー: {error_msg}")
-    return False
-
-def _try_alternative_exact_match(image_bytes: bytes) -> List[Dict]:
-    """高速代替完全一致検索"""
-    try:
-        # 画像ハッシュベースの高速検索
-        import imagehash
-        from PIL import Image
-
-        image = Image.open(BytesIO(image_bytes))
-
-        # 複数のハッシュアルゴリズムで検索精度向上
-        phash = str(imagehash.phash(image))
-        dhash = str(imagehash.dhash(image))
-        ahash = str(imagehash.average_hash(image))
-
-        logger.info(f"🔍 画像ハッシュ計算完了 (pHash: {phash[:8]}...)")
-
-        # Vision API WEB_DETECTIONの完全一致を活用
-        # 既存のVision API結果から完全一致のみ抽出
-        vision_results = []
-
-        try:
-            from google.cloud import vision
-            client = vision.ImageAnnotatorClient()
-
-            image_vision = vision.Image(content=image_bytes)
-            response = client.web_detection(image=image_vision, max_results=20)
-
-            if response.web_detection.full_matching_images:
-                for match in response.web_detection.full_matching_images[:5]:
-                    if match.url and "http" in match.url:
-                        vision_results.append({
-                            "type": "exact_match_vision",
-                            "title": "Vision API完全一致",
-                            "url": match.url,
-                            "source": "Google Vision",
-                            "thumbnail": match.url,
-                            "confidence": 0.95,
-                            "search_method": "Vision API完全一致",
-                            "search_source": "Google Vision WEB_DETECTION"
-                        })
-
-            logger.info(f"🎯 Vision API完全一致: {len(vision_results)}件")
-            return vision_results
-
-        except Exception as vision_error:
-            logger.warning(f"⚠️ Vision API代替検索失敗: {vision_error}")
-            return []
-
-    except Exception as e:
-        logger.warning(f"⚠️ 代替検索エラー: {e}")
-        return []
-
-def _process_google_lens_results(results: Dict) -> List[Dict]:
-    """Google Lens結果処理"""
-    try:
-        exact_matches = results.get("exact_matches", [])
-        logger.info(f"🎯 Google Lens Exact Matches: {len(exact_matches)} 件")
-
-        if not exact_matches:
-            logger.info("💡 完全一致する画像が見つかりませんでした")
-            return []
-
-        processed_results = []
-        for i, match in enumerate(exact_matches):
-            try:
-                link = match.get("link", "")
-                if not link:
-                    continue
-
-                result = {
-                    "url": link,
-                    "title": match.get("title", "タイトルなし"),
-                    "source": match.get("source", "ソース不明"),
-                    "position": match.get("position", i + 1),
-                    "thumbnail": match.get("thumbnail", ""),
-                    "search_method": "Google Lens完全一致",
-                    "search_source": "Google Lens Exact Matches",
-                    "confidence": "high",
-                    "score": 1.0,
-                    "actual_image_width": match.get("actual_image_width", 0),
-                    "actual_image_height": match.get("actual_image_height", 0)
-                }
-
-                # オプション情報
-                if match.get("price"):
-                    result["price"] = match["price"]
-                    result["extracted_price"] = match.get("extracted_price", 0)
-                    result["in_stock"] = match.get("in_stock", False)
-                if match.get("date"):
-                    result["date"] = match["date"]
-
-                processed_results.append(result)
-                logger.info(f"✅ 完全一致 {i+1}: {result['title'][:50]}...")
-
-            except Exception as e:
-                logger.debug(f"⚠️ 結果処理エラー {i+1}: {str(e)}")
-                continue
-
-        logger.info(f"✅ Google Lens検索完了: {len(processed_results)}件の完全一致")
-        return processed_results
-
-    except Exception as e:
-        logger.error(f"❌ 結果処理エラー: {str(e)}")
-        return []
+# 画像検索関数群
 
 def enhanced_image_search_with_reverse(image_content: bytes) -> list[dict]:
     """
-    3つの取得経路による画像検索
-    1. Google Vision API: 完全一致と部分一致のみ
-    2. Google Lens API: 完全一致
-    3. （textdetectionと逆引き検索は除去）
+    画像検索に逆検索機能を統合した版
     """
-    logger.info("🚀 3つの取得経路による画像検索開始")
+    logger.info("🚀 拡張画像検索開始（逆検索機能付き）")
 
-    # 1. Google Vision API検索（完全一致と部分一致のみ）
-    vision_results = search_web_for_image(image_content)
+    # 1. 通常の画像検索（Vision API）
+    primary_results = search_web_for_image(image_content)
 
-    # 2. Google Lens Exact Matches API検索
-    google_lens_results = google_lens_exact_search(image_content)
+    # 2. 従来の逆検索機能を適用
+    reverse_results = reverse_search_from_detected_urls(primary_results)
 
-    # 3. 結果を統合（重複URL除去、Google Lens優先）
-    all_results = []
+    # 3. 結果を統合（重複URL除去）
+    all_results = primary_results + reverse_results
 
-    # Google Lens結果を先に追加（優先度高）
+    # URL重複除去
     seen_urls = set()
-    for result in google_lens_results:
+    unique_results = []
+    for result in all_results:
         url = result.get("url", "")
         if url and url not in seen_urls:
             seen_urls.add(url)
-            all_results.append(result)
+            unique_results.append(result)
 
-    # Vision API結果を追加（重複チェック）
-    for result in vision_results:
-        url = result.get("url", "")
-        if url and url not in seen_urls:
-            seen_urls.add(url)
-            all_results.append(result)
+    logger.info(f"📊 拡張検索結果統計:")
+    logger.info(f"  - Vision API検索: {len(primary_results)}件")
+    logger.info(f"  - 従来逆検索: {len(reverse_results)}件")
+    logger.info(f"  - 重複除去後合計: {len(unique_results)}件")
 
-    logger.info(f"📊 画像検索結果統計:")
-    logger.info(f"🔍 検索結果: Vision API {len(vision_results)}件")
+    return unique_results
 
-    return all_results
+# Vision API画像検索関数
 
 def search_web_for_image(image_content: bytes) -> list[dict]:
     """
@@ -1781,7 +1328,7 @@ def is_reliable_domain_relaxed(url: str) -> bool:
         logger.warning(f"⚠️ ドメイン信頼性チェック失敗 {url}: {e}")
         return True  # エラーの場合は通す
 
-# search_with_serpapi関数を削除
+# X API関連関数
 
 def get_x_tweet_content(tweet_url: str) -> dict | None:
     """
@@ -2155,8 +1702,7 @@ def convert_twitter_image_to_tweet_url(url: str) -> dict | None:
         if 'pbs.twimg.com' in parsed.netloc:
             logger.info(f"🐦 Twitter画像URL検出: {url}")
 
-            # X APIまたはSerpAPIが利用可能な場合、ツイート検索を試行
-            # if X_BEARER_TOKEN or (SERPAPI_KEY and SerpAPI_available): # SERPAPI_KEY をコメントアウト
+            # X APIが利用可能な場合、ツイート検索を試行
             if X_BEARER_TOKEN:
                 tweet_result = get_x_tweet_url_and_content_by_image(url)
                 if tweet_result:
@@ -2232,26 +1778,7 @@ def get_x_tweet_url_and_content_by_image(image_url: str) -> dict | None:
                                     if any(keyword in description for keyword in ['twitter', 'tweet', 'x.com']):
                                         logger.info(f"🔍 関連エンティティ発見: {entity.description}")
 
-                                        # このエンティティを使ってさらに検索（SerpAPI無効化）
-                                        # if SERPAPI_KEY and SerpAPI_available:
-                                        #     search = GoogleSearch({  # type: ignore
-                                        #         "engine": "google",
-                                        #         "q": f'site:x.com OR site:twitter.com "{entity.description}"',
-                                        #         "api_key": SERPAPI_KEY,
-                                        #         "num": 10
-                                        #     })
-                                        #     entity_results = search.get_dict()
-                                        #     if "organic_results" in entity_results:
-                                        #         for result in entity_results["organic_results"][:3]:
-                                        #             if "link" in result and any(domain in result["link"] for domain in ['x.com', 'twitter.com']):
-                                        #                 logger.info(f"🐦 エンティティ検索でツイートURL発見: {result['link']}")
-                                        #                 tweet_content = get_x_tweet_content(result["link"])
-                                        #                 if tweet_content:
-                                        #                     return {
-                                        #                         "tweet_url": result["link"],
-                                        #                         "content": tweet_content
-                                        #                     }
-                                        logger.info("⚠️ SerpAPIエンティティ検索は無効化されています")
+                                        # エンティティベースの検索は現在無効化されています
 
             except Exception as vision_error:
                 logger.warning(f"⚠️ Vision API検索エラー: {vision_error}")
@@ -2443,7 +1970,7 @@ def get_x_tweet_url_and_content_by_image(image_url: str) -> dict | None:
 
 # 画像特徴ベース検索関数は削除（Vision API WEB_DETECTIONを使用）
 
-# SerpAPI関連の関数は削除（Vision API WEB_DETECTIONを使用）
+# Vision API WEB_DETECTION機能を使用
 
 @app.get("/")
 async def root():
