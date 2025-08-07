@@ -1444,22 +1444,36 @@ def judge_x_content_with_gemini(x_data: dict) -> dict:
         like_count = public_metrics.get('like_count', 0)
         reply_count = public_metrics.get('reply_count', 0)
 
-        # Gemini用のプロンプトを構築（短縮版）
+        # Gemini用のプロンプトを構築（改善版）
         prompt = f"""
 【X投稿分析】
 アカウント: @{username} ({display_name})
-フォロワー: {followers_count:,}人
+フォロワー: {followers_count:,}人 | 投稿数: {tweet_count:,}
 投稿内容: {tweet_text[:500]}
+プロフィール: {user_description[:200]}
 
-著作権侵害・違法コンテンツを判定してください。
+以下の明確な基準でX投稿を判定してください：
 
-判定基準：
-○（安全）: 公式アカウント、正当な投稿
-×（危険）: 著作権侵害、違法コンテンツ、海賊版
-？（不明）: 判定困難
+■○（合法・問題なし）の基準：
+・公式アカウント（出版社、作者、声優事務所等）
+・個人の好意的な感想・応援・レビュー
+・正当な引用範囲内での紹介・宣伝
+・ファンアートの非営利投稿
 
-回答形式: "判定:[○/×/?] 理由:[150字以内の簡潔な理由]"
-必ず150字以内で回答してください。
+■×（違法・問題あり）の基準：
+・海賊版・違法コンテンツの拡散
+・著作権侵害画像の無断投稿
+・明確な誹謗中傷・悪口が主目的
+・違法ダウンロードサイトへの誘導
+
+■？（要確認）の基準：
+・画像のみで文脈が不明
+・商用利用の可能性があるグレーゾーン
+・二次創作の商用販売
+
+【重要】フォロワー数や認証マークも考慮し、公式性を判断してください。
+
+回答形式: "判定:[○/×/?] 理由:[具体的な判定根拠を100字以内]"
 """
 
         logger.info("🤖 Gemini AI X投稿判定開始")
@@ -2628,6 +2642,40 @@ async def get_system_logs():
         "timestamp": datetime.now().isoformat()
     }
 
+@app.post("/test-judgment")
+async def test_judgment_system(request: dict):
+    """
+    改善された判定システムのテスト用エンドポイント
+    """
+    try:
+        test_url = request.get("url", "")
+        if not test_url:
+            raise HTTPException(status_code=400, detail="URLが指定されていません")
+
+        logger.info(f"🧪 判定システムテスト開始: {test_url}")
+
+        # 改善された判定システムでテスト
+        result = analyze_url(test_url)
+
+        if result:
+            return {
+                "success": True,
+                "test_url": test_url,
+                "result": result,
+                "timestamp": datetime.now().isoformat()
+            }
+        else:
+            return {
+                "success": False,
+                "test_url": test_url,
+                "error": "URL分析に失敗しました",
+                "timestamp": datetime.now().isoformat()
+            }
+
+    except Exception as e:
+        logger.error(f"❌ 判定システムテストエラー: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"テストエラー: {str(e)}")
+
 def generate_evidence_hash(data: dict) -> str:
     """
     証拠データのハッシュ値を生成（改ざん防止用）
@@ -3738,7 +3786,32 @@ def analyze_url_efficiently(url: str) -> dict | None:
     try:
         logger.info(f"🔄 URL分析開始: {url}")
 
-        # X (Twitter) URLの特別処理
+        # 1. ドメインベース事前判定（高速化）
+        pre_judgment = pre_judge_by_domain(url)
+        if pre_judgment:
+            logger.info(f"⚡ 事前判定完了: {pre_judgment['judgment']} - {pre_judgment['reason']}")
+            return {
+                "url": url,
+                "judgment": pre_judgment["judgment"],
+                "reason": pre_judgment["reason"],
+                "confidence": pre_judgment["confidence"],
+                "analysis_type": "ドメインベース事前判定"
+            }
+
+        # 2. アクセス可能性チェック（404/503等を事前除外）
+        access_status = check_url_accessibility(url)
+        if not access_status["accessible"]:
+            logger.info(f"🚫 アクセス不可サイト: {access_status['status_code']} - {url}")
+            return {
+                "url": url,
+                "judgment": "アクセス不可",
+                "reason": f"HTTP {access_status['status_code']}: {access_status['error']}",
+                "confidence": "確定",
+                "analysis_type": "アクセス可能性チェック",
+                "status_code": access_status["status_code"]
+            }
+
+        # 3. X (Twitter) URLの特別処理
         if 'twitter.com' in url or 'x.com' in url:
             logger.info(f"🐦 X URL検出 - API経由で詳細分析: {url}")
 
@@ -3764,7 +3837,7 @@ def analyze_url_efficiently(url: str) -> dict | None:
                 logger.warning(f"⚠️ X API取得失敗、スクレイピングにフォールバック: {url}")
                 return analyze_url_with_scraping(url)
 
-        # その他のURLは通常のスクレイピング分析
+        # 4. その他のURLは通常のスクレイピング分析
         else:
             return analyze_url_with_scraping(url)
 
@@ -3897,9 +3970,152 @@ def classify_domain_type(domain: str) -> str:
     else:
         return "その他・不明サイト"
 
+# 高信頼度ドメイン（自動○判定）
+TRUSTED_DOMAINS = {
+    # 出版社公式
+    'kodansha.co.jp', 'shueisha.co.jp', 'shogakukan.co.jp', 'kadokawa.co.jp',
+    'hakusensha.co.jp', 'akitashoten.co.jp', 'futabasha.co.jp',
+    # EC・書店
+    'amazon.co.jp', 'amazon.com', 'rakuten.co.jp', 'bookwalker.jp',
+    'honto.jp', 'kinokuniya.co.jp', 'tsutaya.co.jp', 'yodobashi.com',
+    # ニュース・メディア
+    'natalie.mu', 'animeanime.jp', 'oricon.co.jp', 'mantan-web.jp',
+    'comic-natalie.mu', 'itmedia.co.jp', 'famitsu.com',
+    # 公式配信
+    'netflix.com', 'primevideo.com', 'crunchyroll.com', 'funimation.com'
+}
+
+# 要注意ドメイン（自動×判定）
+SUSPICIOUS_DOMAINS = {
+    # 海賊版の典型パターン
+    'manga', 'raw', 'zip', 'torrent', 'download', 'free',
+    # 怪しいTLD
+    '.tk', '.ml', '.ga', '.cf', '.pw'
+}
+
+# 要注意キーワード（×判定の根拠）
+NEGATIVE_KEYWORDS = {
+    '無料ダウンロード', 'zip', 'rar', '海賊版', '違法', 'torrent',
+    'raw manga', 'free download', '無断転載', '盗用', 'パクリ'
+}
+
+def generate_judgment_statistics(results: list) -> dict:
+    """
+    判定結果の統計情報を生成（アクセス不可サイトを分離）
+    """
+    stats = {
+        "○": 0,  # 合法・問題なし
+        "×": 0,  # 違法・問題あり
+        "？": 0,  # 要確認
+        "アクセス不可": 0,  # 404/503等
+        "total": len(results)
+    }
+
+    for result in results:
+        judgment = result.get("judgment", "？")
+        if judgment in stats:
+            stats[judgment] += 1
+        else:
+            stats["？"] += 1  # 不明な判定は？に分類
+
+    return stats
+
+def check_url_accessibility(url: str) -> dict:
+    """
+    URLのアクセス可能性をチェック（404/503等を事前除外）
+    """
+    try:
+        import httpx
+        with httpx.Client(timeout=10.0, follow_redirects=True) as client:
+            response = client.head(url, headers={
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            })
+
+            if 200 <= response.status_code < 300:
+                return {
+                    "accessible": True,
+                    "status_code": response.status_code,
+                    "error": None
+                }
+            elif response.status_code in [404, 403, 503, 500, 502, 504]:
+                return {
+                    "accessible": False,
+                    "status_code": response.status_code,
+                    "error": f"サイトにアクセスできません（HTTP {response.status_code}）"
+                }
+            else:
+                # その他のステータスコードは一応アクセス可能として扱う
+                return {
+                    "accessible": True,
+                    "status_code": response.status_code,
+                    "error": None
+                }
+
+    except httpx.TimeoutException:
+        return {
+            "accessible": False,
+            "status_code": 408,
+            "error": "タイムアウト（サイトが応答しません）"
+        }
+    except httpx.ConnectError:
+        return {
+            "accessible": False,
+            "status_code": 0,
+            "error": "接続エラー（サイトが存在しないか、ネットワークエラー）"
+        }
+    except Exception as e:
+        return {
+            "accessible": False,
+            "status_code": 0,
+            "error": f"アクセスチェックエラー: {str(e)}"
+        }
+
+def pre_judge_by_domain(url: str) -> dict | None:
+    """
+    ドメインベースの事前判定（高速化・精度向上）
+    """
+    try:
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        domain = parsed.netloc.lower()
+
+        # 高信頼度ドメインチェック
+        for trusted in TRUSTED_DOMAINS:
+            if trusted in domain:
+                return {
+                    "judgment": "○",
+                    "reason": f"信頼できる公式ドメイン（{trusted}）からのコンテンツ",
+                    "confidence": "高"
+                }
+
+        # 要注意ドメインチェック
+        for suspicious in SUSPICIOUS_DOMAINS:
+            if suspicious in domain:
+                return {
+                    "judgment": "×",
+                    "reason": f"海賊版・違法サイトの典型的ドメイン（{suspicious}）",
+                    "confidence": "高"
+                }
+
+        # URLパスの要注意キーワードチェック
+        url_lower = url.lower()
+        for keyword in NEGATIVE_KEYWORDS:
+            if keyword in url_lower:
+                return {
+                    "judgment": "×",
+                    "reason": f"違法コンテンツを示すキーワード（{keyword}）を検出",
+                    "confidence": "高"
+                }
+
+        return None  # 事前判定不可、Gemini判定へ
+
+    except Exception as e:
+        logger.warning(f"⚠️ ドメイン事前判定エラー: {e}")
+        return None
+
 def judge_content_with_gemini(content: str, domain_category: str = "不明") -> dict:
     """
-    ページコンテンツをGemini AIで判定
+    ページコンテンツをGemini AIで判定（改善版・高精度判定基準）
     """
     if not gemini_model:
         return {
@@ -3913,15 +4129,32 @@ def judge_content_with_gemini(content: str, domain_category: str = "不明") -> 
 【ドメイン分類】{domain_category}
 【ページ内容】{content[:1500]}
 
-著作権侵害・違法コンテンツを判定してください。
+以下の明確な基準で著作権・違法性を判定してください：
 
-判定基準：
-○（安全）: 公式サイト、正当なコンテンツ
-×（危険）: 著作権侵害、違法コンテンツ、海賊版
-？（不明）: 判定困難
+■○（合法・問題なし）の基準：
+・出版社公式サイト（講談社、集英社、小学館等）
+・公式ECサイト（Amazon、楽天、書店公式等）
+・公式SNS・ニュースサイト（ナタリー、オリコン等）
+・個人の好意的な感想・レビュー・応援
+・正当な引用範囲内での紹介
 
-回答形式: "判定:[○/×/?] 理由:[150字以内の簡潔な理由]"
-必ず150字以内で回答してください。
+■×（違法・問題あり）の基準：
+・海賊版サイト（無断アップロード、zip配布等）
+・著作権侵害の商用利用・転売
+・明確な誹謗中傷・悪口が主目的
+・偽造品・海賊版の販売
+・「無料ダウンロード」「raw」「zip」等の違法キーワード
+
+■？（要確認）の基準：
+・画像直リンク（.jpg/.png等）で内容確認不可
+・CDN URL（akamai等）で元サイト不明
+・個人サイトで商用利用の可能性
+・二次創作の商用販売（グレーゾーン）
+
+【重要】上記基準に厳密に従い、明確に分類してください。
+迷った場合は「？」ではなく、より厳しい基準で判定してください。
+
+回答形式: "判定:[○/×/?] 理由:[具体的な判定根拠を100字以内]"
 """
 
         logger.info("🤖 Gemini AI判定開始")
