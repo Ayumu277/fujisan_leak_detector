@@ -850,11 +850,19 @@ def google_lens_exact_search(input_image_bytes: bytes) -> List[Dict]:
 
         # 2. 高品質な一時ファイル作成（Google Lens API用）
         os.makedirs(UPLOAD_DIR, exist_ok=True)
+        # 永続的な一時ファイル名（ワーカー再起動対応）
         temp_filename = f"google_lens_temp_{uuid.uuid4().hex}.jpg"
         temp_file_path = os.path.join(UPLOAD_DIR, temp_filename)
+        logger.info(f"📁 一時ファイル作成予定: {temp_file_path}")
 
         # 高品質でJPEG保存（Google Lens APIの精度向上のため）
         input_image.save(temp_file_path, 'JPEG', quality=95, optimize=False)
+        logger.info(f"💾 一時ファイル作成完了: {temp_file_path} ({os.path.getsize(temp_file_path)} bytes)")
+        
+        # ファイル存在確認
+        if not os.path.exists(temp_file_path):
+            logger.error(f"❌ 一時ファイル作成失敗: {temp_file_path}")
+            return []
 
         # 3. 一時ファイルをHTTPで公開（Render対応）
         render_url = os.getenv("RENDER_EXTERNAL_URL")
@@ -898,8 +906,15 @@ def google_lens_exact_search(input_image_bytes: bytes) -> List[Dict]:
         logger.info(f"🔍 Google Lens APIパラメータ: {search_params}")
         search = GoogleSearch(search_params)
         logger.info("🌐 SerpAPI Google Lens リクエスト実行中...")
-        results = search.get_dict()
-        logger.info(f"📡 SerpAPI レスポンス受信: {type(results)} - キー: {list(results.keys()) if isinstance(results, dict) else 'Not a dict'}")
+        
+        # SerpAPIリクエスト（タイムアウト対策）
+        try:
+            results = search.get_dict()
+            logger.info(f"📡 SerpAPI レスポンス受信: {type(results)} - キー: {list(results.keys()) if isinstance(results, dict) else 'Not a dict'}")
+        except Exception as serpapi_error:
+            logger.error(f"❌ SerpAPI リクエストエラー: {str(serpapi_error)}")
+            logger.info("   📊 Google Vision APIの結果のみ使用します")
+            return []
 
         # エラーチェック
         if "error" in results:
@@ -1005,13 +1020,17 @@ def google_lens_exact_search(input_image_bytes: bytes) -> List[Dict]:
         return []
 
     finally:
-        # 一時ファイル削除
+        # 一時ファイル削除（SerpAPI完了後に遅延削除）
         if temp_file_path and os.path.exists(temp_file_path):
             try:
+                # 少し待ってからファイル削除（SerpAPIがアクセス完了するまで）
+                import time
+                time.sleep(1)  # 1秒待機
                 os.remove(temp_file_path)
                 logger.debug(f"🗑️ Google Lens一時ファイル削除: {temp_file_path}")
             except Exception as e:
                 logger.warning(f"⚠️ Google Lens一時ファイル削除失敗: {str(e)}")
+                # 削除失敗でも続行（次回起動時にクリーンアップされる）
 
 def enhanced_image_search_with_reverse(image_content: bytes) -> list[dict]:
     """
@@ -1048,7 +1067,7 @@ def enhanced_image_search_with_reverse(image_content: bytes) -> list[dict]:
 
     logger.info(f"📊 画像検索結果統計:")
     logger.info(f"  - Google Vision API: {len(vision_results)}件（完全一致・部分一致）")
-    logger.info(f"  - SerpAPI Google Lens: {len(google_lens_results)}件（完全一致）") 
+    logger.info(f"  - SerpAPI Google Lens: {len(google_lens_results)}件（完全一致）")
     logger.info(f"  - 重複除去後合計: {len(all_results)}件")
 
     return all_results
