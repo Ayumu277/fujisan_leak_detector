@@ -811,216 +811,11 @@ def calculate_multi_hash_similarity(image1: Image.Image, image2: Image.Image) ->
             "similarity_score": 0.0
         }
 
-def google_lens_exact_search(input_image_bytes: bytes) -> List[Dict]:
-    """
-    SerpAPI Google Lens Exact Matches APIで完全一致画像を取得
-    
-    Args:
-        input_image_bytes (bytes): 入力画像のバイトデータ
-
-    Returns:
-        List[Dict]: Google Lens完全一致のURLリスト
-    """
-    if not SERP_API_KEY or not SERPAPI_SUPPORT:
-        logger.warning("⚠️ SerpAPI機能が利用できません")
-        return []
-
-    temp_file_path = None
-    try:
-        logger.info("🔍 SerpAPI逆画像検索開始（高精度ほぼ完全一致）")
-
-        # 1. 入力画像の前処理とハッシュ計算
-        try:
-            input_image = Image.open(BytesIO(input_image_bytes))
-            if input_image.mode != 'RGB':
-                input_image = input_image.convert('RGB')
-
-            # 画像品質チェック
-            width, height = input_image.size
-            if width < 50 or height < 50:
-                logger.warning("⚠️ 入力画像が小さすぎます（50x50未満）")
-                return []
-
-            logger.info(f"📊 入力画像: {width}x{height}, モード: {input_image.mode}")
-
-        except Exception as e:
-            logger.error(f"❌ 入力画像処理失敗: {str(e)}")
-            return []
-
-        # 2. 高品質な一時ファイル作成（SerpAPI用）
-        os.makedirs(UPLOAD_DIR, exist_ok=True)
-        temp_filename = f"serpapi_temp_{uuid.uuid4().hex}.jpg"
-        temp_file_path = os.path.join(UPLOAD_DIR, temp_filename)
-
-        # 高品質でJPEG保存（SerpAPIの精度向上のため）
-        input_image.save(temp_file_path, 'JPEG', quality=95, optimize=False)
-
-        # 3. 一時ファイルをHTTPで公開（Render対応）
-        render_url = os.getenv("RENDER_EXTERNAL_URL")
-        if render_url:
-            # Render本番環境の場合
-            base_url = render_url.rstrip('/')
-            logger.info(f"🌐 Render環境使用: {base_url}")
-        else:
-            # ローカル開発環境の場合
-            base_url = os.getenv("VITE_API_BASE_URL", "http://localhost:8000")
-            logger.info(f"🏠 ローカル環境使用: {base_url}")
-
-        image_url = f"{base_url}/uploads/{temp_filename}"
-        logger.info(f"📁 一時画像URL: {image_url}")
-
-        # SerpAPIのURL可用性をチェック（本番環境では制限されることがあるのでワーニングに留める）
-        try:
-            import requests
-            response = requests.head(image_url, timeout=10)
-            if response.status_code != 200:
-                logger.warning(f"⚠️ 一時画像URLアクセス確認: {response.status_code}")
-                # 本番環境では継続（Renderの外部URLチェックは制限される場合があるため）
-        except Exception as e:
-            logger.warning(f"⚠️ 一時画像URL確認エラー: {e}")
-            # エラーでも処理を継続（本番環境対応）
-
-        # 4. SerpAPI逆画像検索実行
-        search_params = {
-            "engine": "google_reverse_image",
-            "image_url": image_url,
-            "api_key": SERP_API_KEY,
-            "no_cache": True,  # キャッシュを使用しない（最新結果を取得）
-            "safe": "off"      # セーフサーチを無効化（より多くの結果を取得）
-        }
-
-        search = GoogleSearch(search_params)
-        results = search.get_dict()
-
-        if "error" in results:
-            error_msg = results['error']
-            logger.error(f"❌ SerpAPI エラー: {error_msg}")
-
-            # 特定のエラーの場合は詳細情報を提供
-            if "hasn't returned any results" in error_msg:
-                logger.info("💡 この画像に対してSerpAPIで一致する結果が見つかりませんでした")
-                logger.info("   - 画像が新しすぎる、または非常に特殊な画像の可能性があります")
-                logger.info("   - Vision APIの結果で十分な場合があります")
-            elif "quota" in error_msg.lower() or "limit" in error_msg.lower():
-                logger.warning("⚠️ SerpAPI APIクォータまたはレート制限に達しました")
-
-            return []
-
-        # 5. visual_matchesを取得
-        visual_matches = results.get("visual_matches", [])
-        logger.info(f"🎯 SerpAPIから {len(visual_matches)} 件の候補を取得")
-
-        if not visual_matches:
-            logger.info("💡 SerpAPIで一致する画像が見つかりませんでした")
-
-            # 代替情報をチェック
-            inline_images = results.get("inline_images", [])
-            if inline_images:
-                logger.info(f"📋 代替: inline_images {len(inline_images)} 件発見")
-
-            search_information = results.get("search_information", {})
-            if search_information:
-                logger.info(f"📋 検索情報: {search_information}")
-
-            return []
-
-        # 6. 高精度ハッシュ比較でフィルタリング
-        matched_results = []
-        processed_count = 0
-        max_process = min(20, len(visual_matches))  # 処理数制限（API効率化）
-
-        for i, match in enumerate(visual_matches[:max_process]):
-            thumbnail_url = match.get("thumbnail")
-            page_link = match.get("link")
-            title = match.get("title", "")
-            source = match.get("source", "")
-
-            if not thumbnail_url or not page_link:
-                logger.debug(f"  ⚠️ 候補 {i+1}: サムネイルまたはリンクが不足")
-                continue
-
-            # 信頼できないドメインをスキップ
-            if not is_reliable_domain(page_link):
-                logger.debug(f"  ⏭️ 候補 {i+1}: 信頼できないドメインのためスキップ")
-                continue
-
-            try:
-                logger.debug(f"  🔍 候補 {i+1}/{max_process} 処理中: {source}")
-                processed_count += 1
-
-                # サムネイル画像をメモリ内で処理
-                response = requests.get(thumbnail_url, timeout=15, headers={
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-                })
-                response.raise_for_status()
-
-                # サムネイル画像の前処理
-                thumbnail_image = Image.open(BytesIO(response.content))
-                if thumbnail_image.mode != 'RGB':
-                    thumbnail_image = thumbnail_image.convert('RGB')
-
-                # 画像サイズチェック
-                thumb_width, thumb_height = thumbnail_image.size
-                if thumb_width < 50 or thumb_height < 50:
-                    logger.debug(f"  ⚠️ 候補 {i+1}: サムネイルが小さすぎます")
-                    continue
-
-                # 複数ハッシュアルゴリズムで類似度計算
-                similarity = calculate_multi_hash_similarity(input_image, thumbnail_image)
-
-                # 「ほぼ完全一致」の厳密な判定
-                if similarity["is_near_exact"]:
-                    confidence_level = "最高" if similarity["max_distance"] <= 1 else "高"
-
-                    matched_results.append({
-                        "url": page_link,
-                        "search_method": "SerpAPI完全一致",
-                        "search_source": "SerpAPI Reverse Image",
-                        "score": similarity["similarity_score"],
-                        "confidence": confidence_level,
-                        "hash_distances": {
-                            "phash": similarity["phash_distance"],
-                            "dhash": similarity["dhash_distance"],
-                            "ahash": similarity["ahash_distance"],
-                            "total": similarity["total_distance"]
-                        },
-                        "title": title,
-                        "source": source,
-                        "thumbnail_url": thumbnail_url,
-                        "image_size": f"{thumb_width}x{thumb_height}"
-                    })
-                    logger.info(f"  ✅ ほぼ完全一致 {i+1}: 総距離={similarity['total_distance']}, 最大距離={similarity['max_distance']} -> {source}")
-                else:
-                    logger.debug(f"  ❌ 一致せず {i+1}: 総距離={similarity['total_distance']}, 最大距離={similarity['max_distance']}")
-
-            except Exception as e:
-                logger.debug(f"  ⚠️ 候補 {i+1} 処理エラー: {str(e)}")
-                continue
-
-        logger.info(f"✅ SerpAPI検索完了: {processed_count}件処理, {len(matched_results)}件のほぼ完全一致を発見")
-
-        # 結果をスコア順でソート
-        matched_results.sort(key=lambda x: x["score"], reverse=True)
-
-        return matched_results
-
-    except Exception as e:
-        logger.error(f"❌ SerpAPI検索エラー: {str(e)}")
-        return []
-
-    finally:
-        # 一時ファイル削除
-        if temp_file_path and os.path.exists(temp_file_path):
-            try:
-                os.remove(temp_file_path)
-                logger.debug(f"🗑️ 一時ファイル削除: {temp_file_path}")
-            except Exception as e:
-                logger.warning(f"⚠️ 一時ファイル削除失敗: {str(e)}")
 
 def google_lens_exact_search(input_image_bytes: bytes) -> List[Dict]:
     """
     SerpAPI Google Lens Exact Matches APIで完全一致画像を取得
-    
+
     Args:
         input_image_bytes (bytes): 入力画像のバイトデータ
 
@@ -1071,7 +866,7 @@ def google_lens_exact_search(input_image_bytes: bytes) -> List[Dict]:
             # ローカル開発環境の場合
             base_url = os.getenv("VITE_API_BASE_URL", "http://localhost:8000")
             logger.info(f"🏠 ローカル環境使用: {base_url}")
-        
+
         image_url = f"{base_url}/uploads/{temp_filename}"
         logger.info(f"📁 一時画像URL: {image_url}")
 
@@ -1120,16 +915,16 @@ def google_lens_exact_search(input_image_bytes: bytes) -> List[Dict]:
                 source = match.get("source", "ソース不明")
                 link = match.get("link", "")
                 thumbnail = match.get("thumbnail", "")
-                
+
                 # 価格情報（商品の場合）
                 price = match.get("price", "")
                 extracted_price = match.get("extracted_price", 0)
                 in_stock = match.get("in_stock", False)
                 out_of_stock = match.get("out_of_stock", False)
-                
+
                 # 日付情報
                 date = match.get("date", "")
-                
+
                 # 実際の画像サイズ
                 actual_image_width = match.get("actual_image_width", 0)
                 actual_image_height = match.get("actual_image_height", 0)
@@ -1148,18 +943,18 @@ def google_lens_exact_search(input_image_bytes: bytes) -> List[Dict]:
                         "actual_image_width": actual_image_width,
                         "actual_image_height": actual_image_height
                     }
-                    
+
                     # 価格情報があれば追加
                     if price:
                         result["price"] = price
                         result["extracted_price"] = extracted_price
                         result["in_stock"] = in_stock
                         result["out_of_stock"] = out_of_stock
-                    
+
                     # 日付情報があれば追加
                     if date:
                         result["date"] = date
-                    
+
                     processed_results.append(result)
                     logger.info(f"✅ Google Lens完全一致 {position}: {title[:50]}...")
 
@@ -1201,7 +996,7 @@ def enhanced_image_search_with_reverse(image_content: bytes) -> list[dict]:
 
     # 3. 結果を統合（重複URL除去、Google Lens優先）
     all_results = []
-    
+
     # Google Lens結果を先に追加（優先度高）
     seen_urls = set()
     for result in google_lens_results:
@@ -1734,7 +1529,7 @@ def get_x_tweet_content(tweet_url: str) -> dict | None:
                 }
             )
             response.raise_for_status()
-            
+
             data = response.json()
 
             if 'data' not in data:
@@ -2333,670 +2128,6 @@ def get_x_tweet_url_and_content_by_image(image_url: str) -> dict | None:
         logger.error(f"❌ 画像経由ツイート検索エラー: {str(e)}")
         return None
 
-def judge_content_with_gemini(content: str, url: str = "") -> dict:
-    """
-    Gemini AIを使ってコンテンツを判定する
-    """
-    if not gemini_model:
-        logger.error("❌ Gemini モデルが利用できません")
-        return {"judgment": "！", "reason": "AI判定サービスが利用できません"}
-
-    logger.info("🤖 Gemini AI判定開始")
-
-    try:
-        # Twitter画像の場合の特別処理
-        if content.startswith("TWITTER_IMAGE:"):
-            logger.info("🐦 Twitter画像URL（内容取得不可）の特別処理")
-            return {
-                "judgment": "○",
-                "reason": "Twitter投稿画像（API利用制限のため詳細確認不可）"
-            }
-        elif content.startswith("TWITTER_IMAGE_UNKNOWN:"):
-            logger.info("🐦 Twitter画像URL（内容不明）の特別処理")
-
-            # 画像URLから情報を推測
-            image_url = content.replace("TWITTER_IMAGE_UNKNOWN:", "")
-
-            # ファイル名パターンから内容推測
-            import re
-            if image_url:
-                filename = image_url.split('/')[-1].replace('.jpg', '').replace('.jpeg', '').replace('.png', '')
-
-                # 公式アカウント風のパターン（大文字+数字の組み合わせ）
-                if re.search(r'^[A-Z][a-z]+.*[A-Z].*[0-9]', filename) or len(filename) > 20:
-                    return {
-                        "judgment": "○",
-                        "reason": "Twitter公式投稿画像（パターン分析）"
-                    }
-                # 一般的なTwitter画像
-                else:
-                    return {
-                        "judgment": "○",
-                        "reason": "Twitter投稿画像（SNS投稿）"
-                    }
-            else:
-                return {
-                    "judgment": "○",
-                    "reason": "Twitter投稿画像（内容確認不可）"
-                }
-        elif content.startswith("TWITTER_RATE_LIMITED:"):
-            logger.info("🐦 Twitter API制限の特別処理")
-            return {
-                "judgment": "！",
-                "reason": "Twitter API制限のため一時的に判定不可"
-            }
-        elif content.startswith("TWITTER_FORBIDDEN:"):
-            logger.info("🐦 Twitter アクセス拒否の特別処理")
-            return {
-                "judgment": "？",
-                "reason": "Twitterアクセス権限なし"
-            }
-        elif content.startswith("X投稿内容"):
-            logger.info("🐦 X API経由で取得したツイート内容を分析")
-            # 実際のツイート内容があるので、通常の判定を継続
-
-        # ---------- 高精度判定用 Gemini プロンプト ----------
-        # 完全に安全な公式ドメイン（コンテンツチェック不要）
-        official_domains = [
-            # 大手出版社
-            'www.kadokawa.co.jp', 'kadokawa.co.jp', 'www.shogakukan.co.jp', 'shogakukan.co.jp',
-            'www.shueisha.co.jp', 'shueisha.co.jp', 'www.kodansha.co.jp', 'kodansha.co.jp',
-            'www.hakusensha.co.jp', 'hakusensha.co.jp', 'www.akitashoten.co.jp', 'akitashoten.co.jp',
-            'www.shodensha.co.jp', 'shodensha.co.jp', 'www.futabasha.co.jp', 'futabasha.co.jp',
-            'www.ohzora.co.jp', 'ohzora.co.jp', 'www.mag-garden.co.jp', 'mag-garden.co.jp',
-            'www.gentosha.co.jp', 'gentosha.co.jp', 'www.houbunsha.co.jp', 'houbunsha.co.jp',
-            'www.ichijinsha.co.jp', 'ichijinsha.co.jp', 'www.takeshobo.co.jp', 'takeshobo.co.jp',
-
-            # 主要新聞・メディア
-            'www.nhk.or.jp', 'nhk.or.jp', 'www3.nhk.or.jp', 'www.asahi.com', 'asahi.com',
-            'www.yomiuri.co.jp', 'yomiuri.co.jp', 'www.sankei.com', 'sankei.com',
-            'www.nikkei.com', 'nikkei.com', 'mainichi.jp', 'www.mainichi.jp',
-            'news.yahoo.co.jp', 'www.jiji.com', 'jiji.com', 'www.kyodo.co.jp', 'kyodo.co.jp',
-            'www.tokyo-np.co.jp', 'tokyo-np.co.jp', 'www.chunichi.co.jp', 'chunichi.co.jp',
-
-            # IT・ゲーム・エンタメメディア
-            'www.itmedia.co.jp', 'itmedia.co.jp', 'www.impress.co.jp', 'impress.co.jp',
-            'www.4gamer.net', '4gamer.net', 'www.famitsu.com', 'famitsu.com',
-            'www.dengeki.com', 'dengeki.com', 'www.watch.impress.co.jp', 'watch.impress.co.jp',
-            'av.watch.impress.co.jp', 'game.watch.impress.co.jp', 'pc.watch.impress.co.jp',
-            'www.gamespark.jp', 'gamespark.jp', 'www.inside-games.jp', 'inside-games.jp',
-            'www.animeanime.jp', 'animeanime.jp', 'natalie.mu', 'www.natalie.mu',
-            'comic-natalie.natalie.mu', 'music-natalie.natalie.mu', 'game-natalie.natalie.mu',
-
-            # 書店・EC・配信
-            'honto.jp', 'www.honto.jp', 'www.kinokuniya.co.jp', 'kinokuniya.co.jp',
-            '7net.omni7.jp', 'www.7net.omni7.jp', 'www.hmv.co.jp', 'hmv.co.jp',
-            'www.tsutaya.co.jp', 'tsutaya.co.jp', 'www.yodobashi.com', 'yodobashi.com',
-            'www.biccamera.com', 'biccamera.com', 'www.tower.jp', 'tower.jp',
-            'books.shufunotomo.co.jp', 'books.bunka.co.jp', 'www.ebookjapan.jp', 'ebookjapan.jp',
-            'booklive.jp', 'www.booklive.jp', 'www.cmoa.jp', 'cmoa.jp',
-            'www.bookwalker.jp', 'bookwalker.jp', 'comic.k-manga.jp', 'piccoma.com',
-
-            # ゲーム・アニメ公式
-            'www.nintendo.co.jp', 'nintendo.co.jp', 'www.playstation.com', 'playstation.com',
-            'www.xbox.com', 'xbox.com', 'store.steampowered.com', 'steamcommunity.com',
-            'www.crunchyroll.com', 'crunchyroll.com', 'www.funimation.com', 'funimation.com',
-            'abema.tv', 'www.abema.tv', 'www.netflix.com', 'netflix.com',
-
-            # 政府・公共機関
-            'www.gov.go.jp', 'www.mext.go.jp', 'www.bunka.go.jp', 'www.soumu.go.jp',
-            'www.meti.go.jp', 'www.jpo.go.jp', 'www.caa.go.jp', 'www.kantei.go.jp'
-        ]
-
-        # 公式だが内容確認が必要なドメイン（SNSも含む）
-        check_required_domains = [
-            'amazon.co.jp', 'books.rakuten.co.jp', 'twitter.com', 'x.com',
-            'facebook.com', 'instagram.com', 'www.instagram.com',
-            'threads.net', 'www.threads.net'
-        ]
-
-        # ドメインチェック
-        current_domain = urlparse(url).netloc if url else 'N/A'
-
-        # 完全安全ドメインの場合は即座に安全判定
-        if current_domain in official_domains:
-            return {"judgment": "○", "reason": "公式サイト"}
-
-        # SNSドメインの即時○分類は削除 - すべてコンテンツ確認を行う
-
-        prohibited_keywords = [
-            '無料ダウンロード','全巻無料','PDF','raw','漫画バンク','海賊版','無断転載',
-            'read online free','download full','crack','leak'
-        ]
-
-        # few-shot examples (日本語)
-        fewshot = """
-### 例1
-URL: https://www.kadokawa.co.jp/book/123456/
-本文抜粋: 本商品はKADOKAWA公式オンラインで購入できます。
-→ 判定: ○ / 理由: 出版社公式
-
-### 例2
-URL: https://pirated-site.example.com/onepiece-all-volumes.pdf
-本文抜粋: ワンピース全巻をPDFで無料ダウンロード！
-→ 判定: × / 理由: 無料全巻DL
-
-### 例3
-URL: https://blog.example.com/my-review
-本文抜粋: 作品の感想と購入リンクのみ掲載。
-→ 判定: ○ / 理由: レビュー記事
-
-### 例4
-URL: https://unknownsite.xyz/abc
-本文抜粋: (本文がほとんど無い / 画像のみ)
-→ 判定: ？ / 理由: 情報不足
-        """
-
-        # 要注意ドメインの場合は特別なプロンプトを使用
-        if current_domain in check_required_domains:
-            prompt = f"""
-あなたはプロのコンテンツ監視エンジニアです。
-このURLは信頼できるドメイン（{current_domain}）ですが、ユーザー投稿や出品物に
-海賊版コンテンツが含まれている可能性があるため、内容の詳細チェックが必要です。
-
-以下の情報を参考に判定してください：
-URL: {url if url else 'N/A'}
-コンテンツ抜粋:
-{content[:3000]}
-
-特に以下の点に注意してチェック:
-1. SNSの場合: 海賊版へのリンク共有、違法DL告知、無断転載投稿
-2. ECサイトの場合: 非正規品、デジタルコンテンツの無断転載
-3. Instagram/Threadsの場合: 無断転載投稿、海賊版サイトへの誘導
-4. 投稿内容に禁止キーワードが含まれるか: {', '.join(prohibited_keywords)}
-
-**重要**: SNSでも無断転載や悪用の可能性があるため厳格に判定してください。
-
-出力は必ず1行で `判定:● 理由:△△` の形式のみ。理由は20字以内。
-"""
-        else:
-            # 通常の判定プロンプト
-            prompt = f"""
-あなたはプロのコンテンツ監視エンジニアです。以下の情報を参考に、
-Webページが『海賊版（×）』『安全（○）』『判断不能（？）』『エラー（！）』のどれかを判定してください。
-
-入力情報:
-URL: {url if url else 'N/A'}
-ドメイン: {current_domain}
-コンテンツ抜粋:
-{content[:3000]}
-
-判定基準:
-1. 以下は即座に海賊版判定:
-   - 全文掲載・PDF直リンク
-   - raw/MOBI/EPUB共有
-   - 禁止キーワード: {', '.join(prohibited_keywords)}
-
-2. 以下は安全と判定:
-   - 公式ECサイト（商品ページのみ）
-   - 出版社公式
-   - 書評・レビュー（引用が適切な範囲）
-   - ニュース記事
-
-3. 以下は判断不能（？）:
-   - 情報が極端に少ない
-   - 画像のみ
-   - アクセス制限で本文取得不可
-
-4. 以下はエラー（！）:
-   - 処理エラー
-   - タイムアウト
-   - 無効なレスポンス
-
-出力は必ず1行で `判定:● 理由:△△` の形式のみ。理由は20字以内。
-
-{fewshot}
----
-出力例: `判定:○ 理由:出版社公式`
----
-        """
-
-        response = gemini_model.generate_content(prompt)
-        result_text = response.text.strip()
-
-        logger.info(f"📋 Gemini応答: {result_text}")
-
-        # 応答を解析
-        lines = result_text.strip().split('\n')
-        judgment = "？"
-        reason = "応答解析失敗"
-
-        # 新しい解析ロジック：一行形式 "判定:○ 理由:△△" に対応
-        import re
-
-        # パターン1: 一行形式 "判定:○ 理由:△△"
-        match = re.search(r'判定[:：]([○×？！])\s*理由[:：](.+)', result_text)
-        if match:
-            judgment = match.group(1).strip()
-            reason = match.group(2).strip()
-        else:
-            # パターン2: 複数行形式（従来）
-            for line in lines:
-                line = line.strip()
-                if '判定：' in line or '判定:' in line:
-                    judgment_part = line.split('：')[1] if '：' in line else line.split(':')[1]
-                    judgment = judgment_part.replace('[','').replace(']','').strip()
-                    if judgment not in ['○', '×', '？', '！']:
-                        judgment = "？"
-                elif '理由：' in line or '理由:' in line:
-                    reason_part = line.split('：')[1] if '：' in line else line.split(':')[1]
-                    reason = reason_part.replace('[','').replace(']','').strip()
-
-        logger.info(f"✅ Gemini判定完了: {judgment} - {reason}")
-        return {"judgment": judgment, "reason": reason}
-
-    except Exception as e:
-        error_msg = str(e)
-        logger.error(f"❌ Gemini API エラー: {error_msg}")
-
-        # エラータイプに応じた分類
-        if "not found" in error_msg.lower():
-            return {"judgment": "！", "reason": "AIモデルが見つかりません"}
-        elif "quota" in error_msg.lower() or "limit" in error_msg.lower():
-            return {"judgment": "！", "reason": "API利用制限に達しました"}
-        elif "auth" in error_msg.lower() or "permission" in error_msg.lower():
-            return {"judgment": "！", "reason": "API認証エラーです"}
-        elif "network" in error_msg.lower() or "timeout" in error_msg.lower():
-            return {"judgment": "！", "reason": "ネットワークエラーです"}
-        else:
-            return {"judgment": "？", "reason": "AI判定処理でエラーが発生"}
-
-def analyze_url_efficiently(url: str) -> Optional[Dict]:
-    """
-    URLを効率的に分析する
-    1. 信頼できるニュースサイトは事前に○判定
-    2. Twitter画像URLは特別処理
-    3. その他はスクレイピング→Gemini判定
-    """
-    logger.info(f"🔄 URL分析開始: {url}")
-
-    # 1. 信頼できるニュース・出版系ドメインの事前チェック
-    if is_trusted_news_domain(url):
-        logger.info(f"✅ 信頼ドメインのため事前○判定: {url}")
-        return {
-            "url": url,
-            "judgment": "○",
-            "reason": "信頼できるニュース・出版サイト"
-        }
-
-    # 2. X（Twitter）URLの特別処理（画像URL、ツイートURL両方に対応）
-    if any(domain in url for domain in ['x.com', 'twitter.com', 'pbs.twimg.com']):
-        logger.info(f"🐦 X（Twitter）関連URL検出: {url}")
-
-        # 2-1. Twitter画像URLの場合
-        if 'pbs.twimg.com' in url:
-            twitter_result = convert_twitter_image_to_tweet_url(url)
-            if twitter_result:
-                if twitter_result["tweet_url"]:
-                    # 元のツイートURLが特定できた場合、そのURLで結果を返す
-                    judgment_result = judge_content_with_gemini(twitter_result["content"], twitter_result["tweet_url"])
-                    return {
-                        "url": twitter_result["tweet_url"],  # 元のツイートURLを使用
-                        "judgment": judgment_result["judgment"],
-                        "reason": judgment_result["reason"]
-                    }
-                else:
-                    # ツイートURLが特定できなかった場合は従来通り
-                    judgment_result = judge_content_with_gemini(twitter_result["content"], url)
-                    return {
-                        "url": url,
-                        "judgment": judgment_result["judgment"],
-                        "reason": judgment_result["reason"]
-                    }
-
-        # 2-2. 直接ツイートURLの場合
-        elif any(domain in url for domain in ['x.com', 'twitter.com']) and '/status/' in url:
-            logger.info(f"🐦 直接ツイートURL処理: {url}")
-            tweet_content = get_x_tweet_content(url)
-            if tweet_content:
-                judgment_result = judge_content_with_gemini(tweet_content, url)
-                return {
-                    "url": url,
-                    "judgment": judgment_result["judgment"],
-                    "reason": judgment_result["reason"]
-                }
-            else:
-                # X API取得失敗時は通常のスクレイピングにフォールバック
-                logger.info("🐦 X API取得失敗、通常スクレイピングにフォールバック")
-                scraped_content = scrape_page_content(url)
-                if scraped_content:
-                    judgment_result = judge_content_with_gemini(scraped_content, url)
-                    return {
-                        "url": url,
-                        "judgment": judgment_result["judgment"],
-                        "reason": judgment_result["reason"]
-                    }
-
-    # 3. 通常のスクレイピング→Gemini判定
-    scraped_content = scrape_page_content(url)
-    if not scraped_content:
-        logger.info(f"  ❌ スクレイピング失敗: {url}")
-        return None
-
-    judgment_result = judge_content_with_gemini(scraped_content, url)
-    logger.info(f"  ✅ 分析完了: {judgment_result['judgment']} - {judgment_result['reason']}")
-
-    return {
-        "url": url,
-        "judgment": judgment_result["judgment"],
-        "reason": judgment_result["reason"]
-    }
-
-def extract_instagram_content(url: str) -> str | None:
-    """
-    InstagramのURLからメタデータを抽出
-    無料のメタデータ解析を使用
-    """
-    try:
-        import re
-        logger.info(f"📸 Instagram専用解析: {url}")
-
-        with httpx.Client(timeout=10.0, follow_redirects=True) as client:
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-            }
-            response = client.get(url, headers=headers)
-            response.raise_for_status()
-
-        soup = BeautifulSoup(response.text, 'html.parser')
-
-        # メタデータから情報を抽出
-        title = ""
-        description = ""
-
-        # og:title
-        og_title = soup.find('meta', property='og:title')
-        if og_title:
-            title = og_title.get('content', '')
-
-        # og:description
-        og_desc = soup.find('meta', property='og:description')
-        if og_desc:
-            description = og_desc.get('content', '')
-
-        # twitter:description
-        if not description:
-            twitter_desc = soup.find('meta', attrs={'name': 'twitter:description'})
-            if twitter_desc:
-                description = twitter_desc.get('content', '')
-
-        # JSONデータからの抽出試行
-        json_scripts = soup.find_all('script', type='application/ld+json')
-        for script in json_scripts:
-            try:
-                import json
-                data = json.loads(script.string)
-                if isinstance(data, dict) and 'caption' in data:
-                    description = data['caption']
-                    break
-            except:
-                continue
-
-        content = f"Instagram投稿\nタイトル: {title}\n説明: {description}"
-        logger.info(f"📸 Instagram解析完了: {len(content)} chars")
-        return content
-
-    except Exception as e:
-        return f"Instagram投稿: {url}"
-
-def extract_threads_content(url: str) -> str | None:
-    """
-    ThreadsのURLからメタデータを抽出
-    """
-    try:
-        logger.info(f"🧵 Threads専用解析: {url}")
-
-        with httpx.Client(timeout=10.0, follow_redirects=True) as client:
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-            }
-            response = client.get(url, headers=headers)
-            response.raise_for_status()
-
-        soup = BeautifulSoup(response.text, 'html.parser')
-
-        # メタデータから情報を抽出
-        title = ""
-        description = ""
-
-        # og:title
-        og_title = soup.find('meta', property='og:title')
-        if og_title:
-            title = og_title.get('content', '')
-
-        # og:description
-        og_desc = soup.find('meta', property='og:description')
-        if og_desc:
-            description = og_desc.get('content', '')
-
-        content = f"Threads投稿\nタイトル: {title}\n説明: {description}"
-        logger.info(f"🧵 Threads解析完了: {len(content)} chars")
-        return content
-
-    except Exception as e:
-        return f"Threads投稿: {url}"
-
-def extract_parent_page_from_image_url(image_url: str) -> str | None:
-    """
-    画像URLから親ページURLを推測する
-    """
-    try:
-        from urllib.parse import urlparse, urljoin
-
-        parsed = urlparse(image_url)
-
-        # 一般的な画像ディレクトリパターンを除去
-        path_parts = parsed.path.split('/')
-
-        # 画像ファイル名を除去
-        if path_parts and any(path_parts[-1].lower().endswith(ext) for ext in ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp']):
-            path_parts = path_parts[:-1]
-
-        # 一般的な画像ディレクトリを除去
-        image_dirs = ['uploads', 'images', 'img', 'media', 'content', 'wp-content', 'assets', 'files', 'pictures', 'photos']
-        while path_parts and path_parts[-1].lower() in image_dirs:
-            path_parts = path_parts[:-1]
-
-        # 年月日パターンを除去 (2024, 2024/01, 2024/01/01など)
-        while path_parts and (
-            len(path_parts[-1]) == 4 and path_parts[-1].isdigit() or  # 年
-            len(path_parts[-1]) == 2 and path_parts[-1].isdigit()     # 月/日
-        ):
-            path_parts = path_parts[:-1]
-
-        # 親ページURLを構築
-        parent_path = '/'.join(path_parts) if path_parts else '/'
-        parent_url = f"{parsed.scheme}://{parsed.netloc}{parent_path}"
-
-        if parent_url != image_url and parent_url.endswith('/'):
-            return parent_url
-        elif parent_url != image_url:
-            return parent_url + '/'
-
-        return None
-
-    except Exception as e:
-        logger.warning(f"⚠️ 親ページURL推測エラー: {e}")
-        return None
-
-def is_image_only_url(url: str) -> bool:
-    """画像のみのURLかどうかを判定"""
-    if not url:
-        return False
-
-    # 画像拡張子の判定
-    image_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg']
-    url_lower = url.lower()
-    if any(url_lower.endswith(ext) for ext in image_extensions):
-        return True
-
-    # 画像専用ドメインの判定
-    image_domains = [
-        'pbs.twimg.com',  # X/Twitter画像
-        'i.imgur.com',    # Imgur
-        'media.discordapp.net',  # Discord
-        'cdn.discordapp.com',    # Discord CDN
-        'scontent',       # Facebook/Instagram (scontent-xxx.xx.fbcdn.net)
-        'fbcdn.net',      # Facebook CDN
-        'googleusercontent.com',  # Google画像
-        'wp.com',         # WordPress画像
-        'media.giphy.com', # Giphy
-        'i.redd.it',      # Reddit画像
-    ]
-
-    for domain in image_domains:
-        if domain in url_lower:
-            return True
-
-    # URLパスに画像関連キーワードが含まれる場合
-    image_path_keywords = ['/media/', '/images/', '/img/', '/photos/', '/pic/', '/upload/']
-    for keyword in image_path_keywords:
-        if keyword in url_lower:
-            return True
-
-    return False
-
-
-def reverse_lookup_original_content(image_url: str, web_detection) -> dict | None:
-    """画像のみURLから元のコンテンツを1対1で逆引き"""
-
-    # X/Twitter画像の場合は特別処理
-    if 'pbs.twimg.com' in image_url or 'pic.twitter.com' in image_url:
-        # TwitterのメディアURLから元ツイートを推定する処理
-        # 現在は pages_with_matching_images から最高スコアを選択
-        if web_detection.pages_with_matching_images:
-            twitter_pages = [
-                page for page in web_detection.pages_with_matching_images
-                if page.url and ('twitter.com' in page.url or 'x.com' in page.url)
-            ]
-            if twitter_pages:
-                best_twitter = max(twitter_pages, key=lambda p: getattr(p, 'score', 0.0))
-                return {
-                    "url": best_twitter.url,
-                    "score": getattr(best_twitter, 'score', 0.8),
-                    "source": "Twitter逆引き"
-                }
-
-    # その他の画像URLの場合は最高スコアの1つのみを選択
-    if web_detection.pages_with_matching_images:
-        best_page = max(
-            web_detection.pages_with_matching_images,
-            key=lambda p: getattr(p, 'score', 0.0)
-        )
-        return {
-            "url": best_page.url,
-            "score": getattr(best_page, 'score', 0.5),
-            "source": "逆引き検索"
-        }
-
-    return None
-
-
-def classify_image_url_by_domain(url: str) -> str:
-    """
-    画像URLをドメインベースで分類
-    """
-    try:
-        from urllib.parse import urlparse
-        parsed = urlparse(url)
-        domain = parsed.netloc.lower()
-
-        # 公式・信頼できるドメイン
-        if any(official_domain in domain for official_domain in [
-            'amazon.com', 'amazon.co.jp', 'rakuten.co.jp', 'yahoo.co.jp',
-            'nintendo.com', 'sony.com', 'microsoft.com',
-            'kadokawa.co.jp', 'shogakukan.co.jp', 'kodansha.co.jp',
-            'shueisha.co.jp', 'hakusensha.co.jp', 'futabasha.co.jp',
-            'square-enix.com', 'bandai.co.jp', 'konami.com',
-            'nhk.or.jp', 'asahi.com', 'yomiuri.co.jp', 'mainichi.jp',
-            'nikkei.com', 'sankei.com', 'tokyo-np.co.jp',
-            'gov.jp', 'go.jp', 'ac.jp', 'ed.jp'
-        ]):
-            return "公式・信頼サイト"
-
-        # SNS・投稿サイト
-        elif any(sns_domain in domain for sns_domain in [
-            'instagram.com', 'twitter.com', 'x.com', 'facebook.com',
-            'tiktok.com', 'youtube.com', 'pinterest.com', 'tumblr.com'
-        ]):
-            return "SNS・投稿サイト"
-
-        # ECサイト・ショッピング
-        elif any(ec_domain in domain for ec_domain in [
-            'shop', 'store', 'mall', 'cart', 'buy', 'sell'
-        ]):
-            return "ECサイト・ショッピング"
-
-        # ブログ・個人サイト
-        elif any(blog_domain in domain for blog_domain in [
-            'blog', 'diary', 'note', 'hatenablog', 'ameblo', 'fc2'
-        ]):
-            return "ブログ・個人サイト"
-
-        # ニュース・メディア
-        elif any(news_domain in domain for news_domain in [
-            'news', 'press', 'media', 'journal', 'times', 'post'
-        ]):
-            return "ニュース・メディア"
-
-        # その他
-        else:
-            return "その他のサイト"
-
-    except Exception as e:
-        logger.warning(f"⚠️ ドメイン分類エラー {url}: {e}")
-        return "不明なサイト"
-
-def scrape_page_content(url: str) -> str | None:
-    # 1. 画像URLの場合はドメインベースで分類
-    image_extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp']
-    if any(url.lower().endswith(ext) for ext in image_extensions):
-        logger.info(f"🖼️ 画像URL検出 - ドメインベース分類: {url}")
-        domain_category = classify_image_url_by_domain(url)
-        logger.info(f"🏷️ ドメイン分類: {domain_category}")
-        return f"画像URL（{domain_category}）: {url}"
-
-    image_host_domains = ['m.media-amazon.com', 'img-cdn.theqoo.net']
-    if any(domain in url for domain in image_host_domains):
-        logger.info(f"⏭️ 画像ホスティングドメインのためスキップ: {url}")
-        return None
-
-    # Twitter画像URLは特別処理（スクレイピングはスキップ）
-    if 'pbs.twimg.com' in url:
-        logger.info(f"🐦 Twitter画像URL検出のためスクレイピングスキップ: {url}")
-        return None
-
-    # Instagram専用処理
-    if 'instagram.com' in url:
-        return extract_instagram_content(url)
-
-    # Threads専用処理
-    if 'threads.net' in url:
-        return extract_threads_content(url)
-
-    logger.info(f"🌐 スクレイピング開始: {url}")
-    try:
-        with httpx.Client(timeout=10.0, follow_redirects=True) as client:
-            # 2. Content-Typeを事前確認
-            try:
-                head_response = client.head(url, headers={'User-Agent': 'Mozilla/5.0'})
-                content_type = head_response.headers.get('content-type', '').lower()
-                if 'text/html' not in content_type:
-                    logger.info(f"⏭️  HTMLでないためスキップ (Content-Type: {content_type}): {url}")
-                    return None
-            except httpx.RequestError as e:
-                logger.warning(f"⚠️ HEADリクエスト失敗 (GETで続行): {e}")
-
-            # 3. GETリクエストでコンテンツ取得
-            response = client.get(url, headers={'User-Agent': 'Mozilla/5.0'})
-            response.raise_for_status()
-
-        # 4. BeautifulSoupで解析
-        soup = BeautifulSoup(response.text, 'html.parser')
-        title = soup.title.string if soup.title else ""
-        body_text = " ".join([p.get_text() for p in soup.find_all('p', limit=5)])
-
-        content = f"Title: {title.strip()}\\n\\nBody: {body_text.strip()}"
         logger.info(f"📝 スクレイピング完了: {len(content)} chars")
         return content
 
@@ -4632,7 +3763,7 @@ async def get_image(file_id: str):
 
         record = upload_records[file_id]
         file_path = record.get("file_path")
-        
+
         if not file_path:
             logger.warning(f"⚠️ 画像取得: file_pathが空 {file_id}")
             raise HTTPException(
@@ -4642,7 +3773,7 @@ async def get_image(file_id: str):
 
         if not os.path.exists(file_path):
             logger.warning(f"⚠️ ファイル消失検出: {file_id} - {file_path}")
-            
+
             # PDFファイルの場合は代替処理を提供
             if record.get("file_type") == "pdf":
                 raise HTTPException(
@@ -4672,7 +3803,7 @@ async def get_image(file_id: str):
             media_type=media_type,
             filename=record.get("original_filename", f"image{ext}")
         )
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -4725,7 +3856,7 @@ async def get_pdf_preview(file_id: str):
 
         record = upload_records[file_id]
         file_path = record.get("file_path")
-        
+
         if not file_path:
             logger.warning(f"⚠️ PDFプレビュー: file_pathが空 {file_id}")
             raise HTTPException(
