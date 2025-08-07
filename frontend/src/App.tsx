@@ -1976,14 +1976,12 @@ function App() {
                                     const searchSummary = historyDetails[entry.history_id].search_summary || { search_methods: {} }
                                     const currentHistoryTab = historySearchMethodTab[entry.history_id] || 'all'
 
-                                    // 検索方法別にグループ化
+                                    // 検索方法別にグループ化（3つの取得経路対応）
                                     const searchMethodGroups = {
                                       'all': results,
                                       '完全一致': results.filter((r: any) => r.search_method === '完全一致'),
                                       '部分一致': results.filter((r: any) => r.search_method === '部分一致'),
-
-          '逆引き検索': results.filter((r: any) => r.search_method && r.search_method.includes('逆引き検索')),
-        '画像のみURL': results.filter((r: any) => r.search_method && r.search_method.includes('画像のみURL'))
+                                      'Google Lens完全一致': results.filter((r: any) => r.search_method === 'Google Lens完全一致')
                                     }
 
                                     const currentResults = searchMethodGroups[currentHistoryTab as keyof typeof searchMethodGroups] || []
@@ -2008,11 +2006,7 @@ function App() {
                                             { key: 'all', label: '全て', count: results.length },
                                             { key: '完全一致', label: '完全一致', count: (searchSummary.search_methods as any)['完全一致'] || 0 },
                                             { key: '部分一致', label: '部分一致', count: (searchSummary.search_methods as any)['部分一致'] || 0 },
-                                            { key: 'ラベル検出', label: 'ラベル検出', count: ((searchSummary.search_methods as any)['高信頼度ラベル'] || 0) + ((searchSummary.search_methods as any)['中信頼度ラベル'] || 0) + ((searchSummary.search_methods as any)['低信頼度ラベル'] || 0) },
-                                            { key: 'オブジェクト検出', label: 'オブジェクト検出', count: ((searchSummary.search_methods as any)['高信頼度オブジェクト'] || 0) + ((searchSummary.search_methods as any)['中信頼度オブジェクト'] || 0) + ((searchSummary.search_methods as any)['低信頼度オブジェクト'] || 0) },
-                                            { key: 'テキスト検出', label: 'テキスト検出', count: ((searchSummary.search_methods as any)['高信頼度テキスト'] || 0) + ((searchSummary.search_methods as any)['中信頼度テキスト'] || 0) + ((searchSummary.search_methods as any)['低信頼度テキスト'] || 0) },
-                                            { key: '逆引き検索', label: '逆引き検索', count: (searchSummary.search_methods as any)['逆引き検索'] || 0 },
-                                            { key: '画像のみURL', label: '画像のみURL', count: (searchSummary.search_methods as any)['画像のみURL'] || 0 }
+                                            { key: 'Google Lens完全一致', label: 'Google Lens完全一致', count: (searchSummary.search_methods as any)['Google Lens完全一致'] || 0 }
                                           ].map(tab => (
                                             <button
                                               key={tab.key}
@@ -2482,16 +2476,12 @@ function App() {
                         // const rawUrls = batchResults[activeTab].raw_urls || []
                         const searchSummary = batchResults[activeTab].search_summary || { search_methods: {} }
 
-                        // 検索方法別にグループ化
+                        // 検索方法別にグループ化（3つの取得経路対応）
                         const searchMethodGroups = {
                           'all': results,
                           '完全一致': results.filter(r => r.search_method === '完全一致'),
                           '部分一致': results.filter(r => r.search_method === '部分一致'),
-                          'ラベル検出': results.filter(r => r.search_method && (r.search_method.includes('ラベル'))),
-                          'オブジェクト検出': results.filter(r => r.search_method && (r.search_method.includes('オブジェクト'))),
-                          'テキスト検出': results.filter(r => r.search_method && (r.search_method.includes('テキスト'))),
-                          '逆引き検索': results.filter(r => r.search_method && r.search_method.includes('逆引き検索')),
-                          '画像のみURL': results.filter(r => r.search_method && r.search_method.includes('画像のみURL'))
+                          'Google Lens完全一致': results.filter(r => r.search_method === 'Google Lens完全一致')
                         }
 
                         const currentResults = searchMethodGroups[activeSearchMethodTab as keyof typeof searchMethodGroups] || []
@@ -2519,11 +2509,7 @@ function App() {
                                 { key: 'all', label: '全て', count: results.length },
                                 { key: '完全一致', label: '完全一致', count: (searchSummary.search_methods as any)['完全一致'] || 0 },
                                 { key: '部分一致', label: '部分一致', count: (searchSummary.search_methods as any)['部分一致'] || 0 },
-                                { key: 'ラベル検出', label: 'ラベル検出', count: ((searchSummary.search_methods as any)['高信頼度ラベル'] || 0) + ((searchSummary.search_methods as any)['中信頼度ラベル'] || 0) + ((searchSummary.search_methods as any)['低信頼度ラベル'] || 0) },
-                                { key: 'オブジェクト検出', label: 'オブジェクト検出', count: ((searchSummary.search_methods as any)['高信頼度オブジェクト'] || 0) + ((searchSummary.search_methods as any)['中信頼度オブジェクト'] || 0) + ((searchSummary.search_methods as any)['低信頼度オブジェクト'] || 0) },
-                                { key: 'テキスト検出', label: 'テキスト検出', count: ((searchSummary.search_methods as any)['高信頼度テキスト'] || 0) + ((searchSummary.search_methods as any)['中信頼度テキスト'] || 0) + ((searchSummary.search_methods as any)['低信頼度テキスト'] || 0) },
-                                { key: '逆引き検索', label: '逆引き検索', count: (searchSummary.search_methods as any)['逆引き検索'] || 0 },
-                                { key: '画像のみURL', label: '画像のみURL', count: (searchSummary.search_methods as any)['画像のみURL'] || 0 }
+                                { key: 'Google Lens完全一致', label: 'Google Lens完全一致', count: (searchSummary.search_methods as any)['Google Lens完全一致'] || 0 }
                               ].map(tab => (
                                 <button
                                   key={tab.key}
@@ -2822,13 +2808,10 @@ function App() {
                             }
 
                             const getMethodColor = (method: string) => {
-                              if (method.includes('逆引き検索')) return { bg: '#e0f2fe', color: '#0369a1' };
-                              if (method.includes('画像のみURL')) return { bg: '#fce7f3', color: '#be185d' };
-
                               switch (method) {
                                 case '完全一致': return { bg: '#dcfce7', color: '#166534' };
                                 case '部分一致': return { bg: '#fef3c7', color: '#92400e' };
-
+                                case 'Google Lens完全一致': return { bg: '#dbeafe', color: '#1e40af' };
                                 default: return { bg: '#f3f4f6', color: '#6b7280' };
                               }
                             };
@@ -3336,12 +3319,10 @@ function App() {
                   }
 
                   const getMethodColor = (method: string) => {
-                    if (method.includes('逆引き検索')) return { bg: '#e0f2fe', color: '#0369a1' };
-                    if (method.includes('画像のみURL')) return { bg: '#fce7f3', color: '#be185d' };
-
                     switch (method) {
                       case '完全一致': return { bg: '#dcfce7', color: '#166534' };
                       case '部分一致': return { bg: '#fef3c7', color: '#92400e' };
+                      case 'Google Lens完全一致': return { bg: '#dbeafe', color: '#1e40af' };
                       default: return { bg: '#f3f4f6', color: '#6b7280' };
                     }
                   };

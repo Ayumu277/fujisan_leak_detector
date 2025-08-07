@@ -198,16 +198,11 @@ def save_history():
         logger.error(f"履歴の保存に失敗: {e}")
 
 def generate_search_method_summary(raw_urls: list) -> dict:
-    """検索方法別の統計情報を生成（Vision API + SerpAPI統合版）"""
+    """検索方法別の統計情報を生成（3つの取得経路版）"""
     summary = {
         "完全一致": 0,
         "部分一致": 0,
-        "関連ページ": 0,
-        "逆引き検索": 0,
-        "SerpAPI完全一致": 0,
-        "高信頼度テキスト": 0,
-        "中信頼度テキスト": 0,
-        "低信頼度テキスト": 0,
+        "Google Lens完全一致": 0,
         "不明": 0
     }
 
@@ -215,23 +210,13 @@ def generate_search_method_summary(raw_urls: list) -> dict:
         if isinstance(url_data, dict):
             search_method = url_data.get("search_method", "不明")
 
-            # 検索方法を分類（SerpAPI追加）
+            # 検索方法を分類（3つの取得経路）
             if search_method == "完全一致":
                 summary["完全一致"] += 1
             elif search_method == "部分一致":
                 summary["部分一致"] += 1
-            elif search_method == "関連ページ":
-                summary["関連ページ"] += 1
-            elif search_method == "逆引き検索":
-                summary["逆引き検索"] += 1
-            elif search_method == "SerpAPI完全一致":
-                summary["SerpAPI完全一致"] += 1
-            elif search_method == "高信頼度テキスト":
-                summary["高信頼度テキスト"] += 1
-            elif search_method == "中信頼度テキスト":
-                summary["中信頼度テキスト"] += 1
-            elif search_method == "低信頼度テキスト":
-                summary["低信頼度テキスト"] += 1
+            elif search_method == "Google Lens完全一致":
+                summary["Google Lens完全一致"] += 1
             else:
                 summary["不明"] += 1
         else:
@@ -433,7 +418,7 @@ def convert_pdf_to_images(pdf_content: bytes) -> List[bytes]:
     except Exception as e:
         logger.warning(f"⚠️ PyMuPDF変換失敗: {e}")
         return []
-    
+
     finally:
         # PDF文書を確実に閉じる
         if pdf_document is not None:
@@ -442,7 +427,7 @@ def convert_pdf_to_images(pdf_content: bytes) -> List[bytes]:
                 logger.debug("🔒 PDF文書クローズ完了")
             except Exception as e:
                 logger.warning(f"⚠️ PDF文書クローズ失敗: {e}")
-        
+
         # メモリ最適化
         gc.collect()
 
@@ -454,7 +439,7 @@ def extract_pdf_text(pdf_content: bytes) -> str:
     PDFからテキストを抽出する（補助情報として使用）
     """
     pdf_document = None
-    
+
     try:
         # 方法1: PyMuPDF (fitz) を使用
         if 'fitz' in globals():
@@ -473,7 +458,7 @@ def extract_pdf_text(pdf_content: bytes) -> str:
     except Exception as e:
         logger.warning(f"⚠️ PyMuPDF テキスト抽出失敗: {e}")
         return ""
-        
+
     finally:
         # PDF文書を確実に閉じる
         if pdf_document is not None:
@@ -482,7 +467,7 @@ def extract_pdf_text(pdf_content: bytes) -> str:
                 logger.debug("🔒 PDFテキスト抽出: 文書クローズ完了")
             except Exception as e:
                 logger.warning(f"⚠️ PDFテキスト抽出: 文書クローズ失敗: {e}")
-        
+
         # メモリ最適化
         gc.collect()
 
@@ -826,16 +811,15 @@ def calculate_multi_hash_similarity(image1: Image.Image, image2: Image.Image) ->
             "similarity_score": 0.0
         }
 
-def serpapi_reverse_image_search(input_image_bytes: bytes) -> List[Dict]:
+def google_lens_exact_search(input_image_bytes: bytes) -> List[Dict]:
     """
-    SerpAPI Google逆画像検索で「ほぼ完全一致」の画像のみを取得
-    複数ハッシュアルゴリズムによる高精度判定を実装
-
+    SerpAPI Google Lens Exact Matches APIで完全一致画像を取得
+    
     Args:
         input_image_bytes (bytes): 入力画像のバイトデータ
 
     Returns:
-        List[Dict]: ほぼ完全一致の画像URLリスト（スコア順ソート済み）
+        List[Dict]: Google Lens完全一致のURLリスト
     """
     if not SERP_API_KEY or not SERPAPI_SUPPORT:
         logger.warning("⚠️ SerpAPI機能が利用できません")
@@ -881,7 +865,7 @@ def serpapi_reverse_image_search(input_image_bytes: bytes) -> List[Dict]:
             # ローカル開発環境の場合
             base_url = os.getenv("VITE_API_BASE_URL", "http://localhost:8000")
             logger.info(f"🏠 ローカル環境使用: {base_url}")
-        
+
         image_url = f"{base_url}/uploads/{temp_filename}"
         logger.info(f"📁 一時画像URL: {image_url}")
 
@@ -1033,40 +1017,212 @@ def serpapi_reverse_image_search(input_image_bytes: bytes) -> List[Dict]:
             except Exception as e:
                 logger.warning(f"⚠️ 一時ファイル削除失敗: {str(e)}")
 
+def google_lens_exact_search(input_image_bytes: bytes) -> List[Dict]:
+    """
+    SerpAPI Google Lens Exact Matches APIで完全一致画像を取得
+    
+    Args:
+        input_image_bytes (bytes): 入力画像のバイトデータ
+
+    Returns:
+        List[Dict]: Google Lens完全一致のURLリスト
+    """
+    if not SERP_API_KEY or not SERPAPI_SUPPORT:
+        logger.warning("⚠️ SerpAPI機能が利用できません")
+        return []
+
+    temp_file_path = None
+    try:
+        logger.info("🔍 Google Lens Exact Matches API検索開始")
+
+        # 1. 入力画像の前処理
+        try:
+            input_image = Image.open(BytesIO(input_image_bytes))
+            if input_image.mode != 'RGB':
+                input_image = input_image.convert('RGB')
+
+            # 画像品質チェック
+            width, height = input_image.size
+            if width < 50 or height < 50:
+                logger.warning("⚠️ 入力画像が小さすぎます（50x50未満）")
+                return []
+
+            logger.info(f"📊 入力画像解析: サイズ={width}x{height}")
+
+        except Exception as e:
+            logger.error(f"❌ 入力画像処理エラー: {e}")
+            return []
+
+        # 2. 高品質な一時ファイル作成（Google Lens API用）
+        os.makedirs(UPLOAD_DIR, exist_ok=True)
+        temp_filename = f"google_lens_temp_{uuid.uuid4().hex}.jpg"
+        temp_file_path = os.path.join(UPLOAD_DIR, temp_filename)
+
+        # 高品質でJPEG保存（Google Lens APIの精度向上のため）
+        input_image.save(temp_file_path, 'JPEG', quality=95, optimize=False)
+
+        # 3. 一時ファイルをHTTPで公開（Render対応）
+        render_url = os.getenv("RENDER_EXTERNAL_URL")
+        if render_url:
+            # Render本番環境の場合
+            base_url = render_url.rstrip('/')
+            logger.info(f"🌐 Render環境使用: {base_url}")
+        else:
+            # ローカル開発環境の場合
+            base_url = os.getenv("VITE_API_BASE_URL", "http://localhost:8000")
+            logger.info(f"🏠 ローカル環境使用: {base_url}")
+        
+        image_url = f"{base_url}/uploads/{temp_filename}"
+        logger.info(f"📁 一時画像URL: {image_url}")
+
+        # 4. Google Lens Exact Matches API実行
+        search_params = {
+            "engine": "google_lens",
+            "type": "exact_matches",
+            "image_url": image_url,
+            "api_key": SERP_API_KEY,
+            "no_cache": True,  # キャッシュを使用しない（最新結果を取得）
+            "safe": "off"      # セーフサーチを無効化（より多くの結果を取得）
+        }
+
+        search = GoogleSearch(search_params)
+        results = search.get_dict()
+
+        # エラーチェック
+        if "error" in results:
+            error_msg = results["error"]
+            logger.error(f"❌ Google Lens API エラー: {error_msg}")
+
+            # 特定のエラーの場合は詳細情報を提供
+            if "hasn't returned any results" in error_msg:
+                logger.info("💡 この画像に対してGoogle Lensで一致する結果が見つかりませんでした")
+                logger.info("   - 画像が新しすぎる、または非常に特殊な画像の可能性があります")
+                logger.info("   - Vision APIの結果で十分な場合があります")
+            elif "quota" in error_msg.lower() or "limit" in error_msg.lower():
+                logger.warning("⚠️ Google Lens API クォータまたはレート制限に達しました")
+
+            return []
+
+        # 5. exact_matchesを取得
+        exact_matches = results.get("exact_matches", [])
+        logger.info(f"🎯 Google Lens Exact Matchesから {len(exact_matches)} 件の候補を取得")
+
+        if not exact_matches:
+            logger.info("💡 Google Lensで完全一致する画像が見つかりませんでした")
+            return []
+
+        # 6. exact_matchesを処理
+        processed_results = []
+        for i, match in enumerate(exact_matches):
+            try:
+                position = match.get("position", i + 1)
+                title = match.get("title", "タイトルなし")
+                source = match.get("source", "ソース不明")
+                link = match.get("link", "")
+                thumbnail = match.get("thumbnail", "")
+                
+                # 価格情報（商品の場合）
+                price = match.get("price", "")
+                extracted_price = match.get("extracted_price", 0)
+                in_stock = match.get("in_stock", False)
+                out_of_stock = match.get("out_of_stock", False)
+                
+                # 日付情報
+                date = match.get("date", "")
+                
+                # 実際の画像サイズ
+                actual_image_width = match.get("actual_image_width", 0)
+                actual_image_height = match.get("actual_image_height", 0)
+
+                if link:
+                    result = {
+                        "url": link,
+                        "title": title,
+                        "source": source,
+                        "position": position,
+                        "thumbnail": thumbnail,
+                        "search_method": "Google Lens完全一致",
+                        "search_source": "Google Lens Exact Matches",
+                        "confidence": "high",  # Google Lensの完全一致は高信頼度
+                        "score": 1.0,  # 完全一致なので最高スコア
+                        "actual_image_width": actual_image_width,
+                        "actual_image_height": actual_image_height
+                    }
+                    
+                    # 価格情報があれば追加
+                    if price:
+                        result["price"] = price
+                        result["extracted_price"] = extracted_price
+                        result["in_stock"] = in_stock
+                        result["out_of_stock"] = out_of_stock
+                    
+                    # 日付情報があれば追加
+                    if date:
+                        result["date"] = date
+                    
+                    processed_results.append(result)
+                    logger.info(f"✅ Google Lens完全一致 {position}: {title[:50]}...")
+
+            except Exception as e:
+                logger.debug(f"  ⚠️ Google Lens候補 {i+1} 処理エラー: {str(e)}")
+                continue
+
+        logger.info(f"✅ Google Lens検索完了: {len(processed_results)}件の完全一致を発見")
+
+        return processed_results
+
+    except Exception as e:
+        logger.error(f"❌ Google Lens検索エラー: {str(e)}")
+        return []
+
+    finally:
+        # 一時ファイル削除
+        if temp_file_path and os.path.exists(temp_file_path):
+            try:
+                os.remove(temp_file_path)
+                logger.debug(f"🗑️ Google Lens一時ファイル削除: {temp_file_path}")
+            except Exception as e:
+                logger.warning(f"⚠️ Google Lens一時ファイル削除失敗: {str(e)}")
+
 def enhanced_image_search_with_reverse(image_content: bytes) -> list[dict]:
     """
-    画像検索にSerpAPI逆検索機能を統合した拡張版
+    3つの取得経路による画像検索
+    1. Google Vision API: 完全一致と部分一致のみ
+    2. Google Lens API: 完全一致
+    3. （textdetectionと逆引き検索は除去）
     """
-    logger.info("🚀 拡張画像検索開始（SerpAPI逆検索機能付き）")
+    logger.info("🚀 3つの取得経路による画像検索開始")
 
-    # 1. 通常の画像検索（Vision API）
-    primary_results = search_web_for_image(image_content)
+    # 1. Google Vision API検索（完全一致と部分一致のみ）
+    vision_results = search_web_for_image(image_content)
 
-    # 2. SerpAPI逆画像検索（ほぼ完全一致のみ）
-    serpapi_results = serpapi_reverse_image_search(image_content)
+    # 2. Google Lens Exact Matches API検索
+    google_lens_results = google_lens_exact_search(image_content)
 
-    # 3. 従来の逆検索機能を適用
-    reverse_results = reverse_search_from_detected_urls(primary_results)
-
-    # 4. 結果を統合（重複URL除去）
-    all_results = primary_results + serpapi_results + reverse_results
-
-    # URL重複除去
+    # 3. 結果を統合（重複URL除去、Google Lens優先）
+    all_results = []
+    
+    # Google Lens結果を先に追加（優先度高）
     seen_urls = set()
-    unique_results = []
-    for result in all_results:
+    for result in google_lens_results:
         url = result.get("url", "")
         if url and url not in seen_urls:
             seen_urls.add(url)
-            unique_results.append(result)
+            all_results.append(result)
 
-    logger.info(f"📊 拡張検索結果統計:")
-    logger.info(f"  - Vision API検索: {len(primary_results)}件")
-    logger.info(f"  - SerpAPI逆検索: {len(serpapi_results)}件")
-    logger.info(f"  - 従来逆検索: {len(reverse_results)}件")
-    logger.info(f"  - 重複除去後合計: {len(unique_results)}件")
+    # Vision API結果を追加（重複チェック）
+    for result in vision_results:
+        url = result.get("url", "")
+        if url and url not in seen_urls:
+            seen_urls.add(url)
+            all_results.append(result)
 
-    return unique_results
+    logger.info(f"📊 3つの取得経路結果統計:")
+    logger.info(f"  - Google Vision API: {len(vision_results)}件（完全一致・部分一致）")
+    logger.info(f"  - Google Lens API: {len(google_lens_results)}件（完全一致）")
+    logger.info(f"  - 重複除去後合計: {len(all_results)}件")
+
+    return all_results
 
 def search_web_for_image(image_content: bytes) -> list[dict]:
     """
@@ -1578,7 +1734,7 @@ def get_x_tweet_content(tweet_url: str) -> dict | None:
                 }
             )
             response.raise_for_status()
-
+            
             data = response.json()
 
             if 'data' not in data:
@@ -1832,7 +1988,7 @@ def is_trusted_news_domain(url: str) -> bool:
         parsed = urlparse(url)
         domain = parsed.netloc.lower()
 
-        # 信頼できるニュース・出版・公式サイトドメイン
+                # 信頼できるニュース・出版・公式サイトドメイン
         trusted_domains = [
             # 主要メディア・新聞
             'news.yahoo.co.jp', 'www.nhk.or.jp', 'nhk.or.jp', 'www3.nhk.or.jp',
@@ -4425,7 +4581,7 @@ def process_batch_search(batch_id: str, file_ids: List[str]):
 
             # 完了ファイル数更新
             batch_jobs[batch_id]["completed_files"] = i + 1
-            
+
             # メモリ最適化（各ファイル処理後）
             gc.collect()
 
@@ -4464,40 +4620,67 @@ async def get_batch_status(batch_id: str):
 @app.get("/image/{file_id}")
 async def get_image(file_id: str):
     """
-    アップロードされた画像ファイルを取得
+    アップロードされた画像ファイルを取得（エラー回避強化版）
     """
-    if file_id not in upload_records:
-        raise HTTPException(
-            status_code=404,
-            detail="指定された画像が見つかりません"
+    try:
+        if file_id not in upload_records:
+            logger.warning(f"⚠️ 画像取得: 存在しないfile_id {file_id}")
+            raise HTTPException(
+                status_code=404,
+                detail="指定された画像が見つかりません"
+            )
+
+        record = upload_records[file_id]
+        file_path = record.get("file_path")
+        
+        if not file_path:
+            logger.warning(f"⚠️ 画像取得: file_pathが空 {file_id}")
+            raise HTTPException(
+                status_code=404,
+                detail="ファイルパスが記録されていません"
+            )
+
+        if not os.path.exists(file_path):
+            logger.warning(f"⚠️ ファイル消失検出: {file_id} - {file_path}")
+            
+            # PDFファイルの場合は代替処理を提供
+            if record.get("file_type") == "pdf":
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"PDFファイルが見つかりません（再デプロイにより消失）: {record.get('original_filename', 'unknown')}"
+                )
+            else:
+                raise HTTPException(
+                    status_code=404,
+                        detail=f"ファイルが見つかりません（再デプロイにより消失）: {record.get('original_filename', 'unknown')}"
+                )
+
+        # ファイル拡張子から適切なメディアタイプを判定
+        _, ext = os.path.splitext(file_path)
+        media_type_map = {
+            '.jpg': 'image/jpeg',
+            '.jpeg': 'image/jpeg',
+            '.png': 'image/png',
+            '.gif': 'image/gif',
+            '.webp': 'image/webp',
+            '.pdf': 'application/pdf'
+        }
+        media_type = media_type_map.get(ext.lower(), 'image/jpeg')
+
+        return FileResponse(
+            file_path,
+            media_type=media_type,
+            filename=record.get("original_filename", f"image{ext}")
         )
-
-    record = upload_records[file_id]
-    file_path = record["file_path"]
-
-    if not os.path.exists(file_path):
-        logger.warning(f"⚠️ ファイル消失検出: {file_id} - {file_path}")
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"❌ 画像取得エラー {file_id}: {str(e)}")
         raise HTTPException(
-            status_code=404,
-            detail=f"ファイルが見つかりません（再デプロイによりファイルが消失した可能性があります）: {record.get('original_filename', 'unknown')}"
+            status_code=500,
+            detail="画像ファイルの取得中にエラーが発生しました"
         )
-
-    # ファイル拡張子から適切なメディアタイプを判定
-    _, ext = os.path.splitext(file_path)
-    media_type_map = {
-        '.jpg': 'image/jpeg',
-        '.jpeg': 'image/jpeg',
-        '.png': 'image/png',
-        '.gif': 'image/gif',
-        '.webp': 'image/webp'
-    }
-    media_type = media_type_map.get(ext.lower(), 'image/jpeg')
-
-    return FileResponse(
-        file_path,
-        media_type=media_type,
-        filename=record.get("original_filename", f"image{ext}")
-    )
 
 @app.get("/file-info/{file_id}")
 async def get_file_info(file_id: str):
@@ -4530,37 +4713,48 @@ async def get_file_info(file_id: str):
 @app.get("/pdf-preview/{file_id}")
 async def get_pdf_preview(file_id: str):
     """
-    PDFファイルの最初のページを画像として取得する
+    PDFファイルの最初のページを画像として取得する（エラー回避強化版）
     """
-    if file_id not in upload_records:
-        raise HTTPException(
-            status_code=404,
-            detail="指定されたファイルが見つかりません"
-        )
-
-    record = upload_records[file_id]
-    file_path = record["file_path"]
-
-    if not os.path.exists(file_path):
-        raise HTTPException(
-            status_code=404,
-            detail="ファイルが存在しません"
-        )
-
-    # PDFファイルかチェック
-    if record.get("file_type") != "pdf":
-        raise HTTPException(
-            status_code=400,
-            detail="指定されたファイルはPDFではありません"
-        )
-
     try:
+        if file_id not in upload_records:
+            logger.warning(f"⚠️ PDFプレビュー: 存在しないfile_id {file_id}")
+            raise HTTPException(
+                status_code=404,
+                detail="指定されたファイルが見つかりません"
+            )
+
+        record = upload_records[file_id]
+        file_path = record.get("file_path")
+        
+        if not file_path:
+            logger.warning(f"⚠️ PDFプレビュー: file_pathが空 {file_id}")
+            raise HTTPException(
+                status_code=404,
+                detail="ファイルパスが記録されていません"
+            )
+
+        if not os.path.exists(file_path):
+            logger.warning(f"⚠️ PDFプレビュー: ファイル消失検出 {file_id} - {file_path}")
+            raise HTTPException(
+                status_code=404,
+                detail=f"PDFファイルが見つかりません（再デプロイにより消失）: {record.get('original_filename', 'unknown')}"
+            )
+
+        # PDFファイルかチェック
+        if record.get("file_type") != "pdf":
+            logger.warning(f"⚠️ PDFプレビュー: PDF以外のファイル {file_id}")
+            raise HTTPException(
+                status_code=400,
+                detail="指定されたファイルはPDFではありません"
+            )
+
         # PDFの最初のページを画像に変換
         with open(file_path, 'rb') as file:
             pdf_content = file.read()
 
         pdf_images = convert_pdf_to_images(pdf_content)
         if not pdf_images:
+            logger.error(f"❌ PDFプレビュー: 画像変換失敗 {file_id}")
             raise HTTPException(
                 status_code=500,
                 detail="PDFから画像を生成できませんでした"
@@ -4575,11 +4769,13 @@ async def get_pdf_preview(file_id: str):
             headers={"Content-Disposition": f"inline; filename=\"{file_id}_preview.png\""}
         )
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"❌ PDFプレビュー生成エラー {file_id}: {str(e)}")
         raise HTTPException(
             status_code=500,
-            detail="PDFプレビューの生成に失敗しました"
+            detail=f"PDFプレビューの生成中にエラーが発生しました: {str(e)}"
         )
 
 # URL分析関数群
