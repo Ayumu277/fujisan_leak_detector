@@ -3793,5 +3793,633 @@
         "search_source": "Vision API"
       }
     ]
+  },
+  {
+    "history_id": "07ee8e1a-9987-4eb0-9b15-3a8dd9573494",
+    "image_id": "71eb9fff-706a-4cba-b11a-a167b8f38c7a",
+    "image_hash": "b70a58a9b3250e633b10b9f17435b498d00344a10ce63edb6caa082b64c09989",
+    "original_filename": "00022.pdf",
+    "analysis_date": "2025-08-07T15:10:47.001905",
+    "analysis_timestamp": 1754547047,
+    "found_urls_count": 1,
+    "processed_results_count": 1,
+    "results": [
+      {
+        "url": "https://lookaside.instagram.com/seo/google_widget/crawler/?media_id=3673584311565046280",
+        "judgment": "？",
+        "reason": "Instagramの投稿タイトルと説明のみでは、具体的な画像や動画の内容、著作権や肖像権の侵害の有無を判断できません。そのため、現時点では安全とも危険とも断定できません。",
+        "confidence": "高",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "SNS・ソーシャルメディア",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      }
+    ]
+  },
+  {
+    "history_id": "db91b27e-7a81-4e4f-baf9-bb015715ca1e",
+    "image_id": "f4bff4db-57ee-4497-b7f9-8103ba20d9b1",
+    "image_hash": "d9dffb14bd7d894c834b2485ac0cb0d1f31a736211150b7e206e16a0ac7988ac",
+    "original_filename": "00025.pdf",
+    "analysis_date": "2025-08-07T15:11:36.857218",
+    "analysis_timestamp": 1754547096,
+    "found_urls_count": 8,
+    "processed_results_count": 8,
+    "results": [
+      {
+        "url": "https://64.media.tumblr.com/1f7511b361f75d2fb6c6c2d1aa15e711/7bec67a5acfb3765-8c/s540x810/844d51a13254dbca75754ce3d2467a8cf23463fe.jpg",
+        "judgment": "？",
+        "reason": "SNS（Tumblr）上のユーザー投稿画像であり、URLからは画像の内容が不明なため、著作権侵害の有無を判断できません。個々のコンテンツの合法性は確認が必要です。",
+        "confidence": "低",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "SNS・ソーシャルメディア",
+        "search_method": "部分一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://pbs.twimg.com/media/GvfJDZPWUAA_9e8.jpg",
+        "judgment": "？",
+        "reason": "画像URLのみでは、キャラクターの著作権者やイラストの作者、およびその利用許諾状況が不明です。画像内容自体も、直ちに違法コンテンツと断定できるものではないため、著作権侵害の有無を判断できません。",
+        "confidence": "低",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "その他・不明サイト",
+        "search_method": "部分一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://lookaside.instagram.com/seo/google_widget/crawler/?media_id=3673594475008918150",
+        "judgment": "○",
+        "reason": "声優グランプリの公式Instagramアカウントによる、自社雑誌の宣伝・告知投稿であり、正当なコンテンツです。著作権侵害や違法コンテンツに該当する要素は見当たりません。",
+        "confidence": "低",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "SNS・ソーシャルメディア",
+        "search_method": "部分一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://mw-cds.akamaized.net/MW-Product/988/803/2e7a0a6488b23aab7378f79c9fa1698d58458a87b1ef2c0ff2139cfaa04cca40/RS4A/thumbnail/3bec5e610931ce16f674cd5de7be15a23b1ab00d4e3351957925c844e3d3928f.jpg",
+        "judgment": "？",
+        "reason": "画像の内容が不明であり、URLからはAkamaiのCDNを利用していることしか判断できないため、著作権侵害や違法コンテンツの有無を判断する情報が不足しています。",
+        "confidence": "低",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "その他・不明サイト",
+        "search_method": "部分一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://twitter.com/search?q=%23Wishforyou&src=recent_search_click&f=media",
+        "judgment": "？",
+        "reason": "ページ内容を取得できませんでした",
+        "confidence": "低",
+        "analysis_type": "スクレイピング失敗",
+        "domain_category": "SNS・ソーシャルメディア",
+        "search_method": "関連ページ",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://www.instagram.com/seigura.magazine/",
+        "judgment": "○",
+        "reason": "「声優グランプリ」の公式Instagramアカウントと判断できます。公式アカウントからの情報発信は、通常、正当なコンテンツであり、著作権侵害や違法コンテンツに該当する可能性は低いと判断されます。",
+        "confidence": "低",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "SNS・ソーシャルメディア",
+        "search_method": "関連ページ",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://www.tumbig.com/tag/%E5%A4%A9%E3%81%BF",
+        "judgment": "？",
+        "reason": "ページ内容を取得できませんでした",
+        "confidence": "低",
+        "analysis_type": "スクレイピング失敗",
+        "domain_category": "その他・不明サイト",
+        "search_method": "関連ページ",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://x.com/seigura/status/1943243833212342489",
+        "judgment": "○",
+        "reason": "「声優グランプリ」の公式アカウントによる、自社発行雑誌の発売告知および内容紹介です。著作権侵害や違法なコンテンツは含まれておらず、正当な宣伝活動と判断できます。",
+        "confidence": "低",
+        "analysis_type": "X API + Gemini AI",
+        "x_username": "seigura",
+        "x_display_name": "声優グランプリ＠30周年",
+        "x_tweet_text": "声グラ8月号は本日7月10日発売💐\n1stシングル「Wish for you」をリリースする前島亜美さんが登場💙\nTVアニメ『#公女殿下 の家庭教師』のOPである表題曲を中心にそれぞれの楽曲についてお...",
+        "search_method": "関連ページ",
+        "search_source": "Vision API"
+      }
+    ]
+  },
+  {
+    "history_id": "eb44723f-c9c7-42d4-beee-10da8dbfcb72",
+    "image_id": "4ed3d264-f011-4132-80b8-202eaba6b1cc",
+    "image_hash": "cd620b02e9af45f51ab58eadd315f9740b84561cb699272cf5e8e45a5e3c3594",
+    "original_filename": "more_sana.jpg",
+    "analysis_date": "2025-08-07T15:16:39.580990",
+    "analysis_timestamp": 1754547399,
+    "found_urls_count": 97,
+    "processed_results_count": 50,
+    "results": [
+      {
+        "url": "https://pbs.twimg.com/media/GGqwkkXX0AAKvhd?format=jpg&name=4096x4096",
+        "judgment": "？",
+        "reason": "ページ内容を取得できませんでした",
+        "confidence": "高",
+        "analysis_type": "スクレイピング失敗",
+        "domain_category": "その他・不明サイト",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://pbs.twimg.com/media/GJWhjZ6XYAAlwfY?format=jpg&name=4096x4096",
+        "judgment": "？",
+        "reason": "ページ内容を取得できませんでした",
+        "confidence": "高",
+        "analysis_type": "スクレイピング失敗",
+        "domain_category": "その他・不明サイト",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://aop-emtg-jp.s3-ap-northeast-1.amazonaws.com/prod/public/twice/contents/information/90d9877e57526fdb77576d47064ba96a.jpg",
+        "judgment": "○",
+        "reason": "URLはAmazon S3を利用し、パスに「emtg」「twice」が含まれる。EMTG（現Fanplus）はTWICEの公式ファンクラブ運営等を行う正規事業者であり、公式または正規関連コンテンツと判断されるため安全です。",
+        "confidence": "高",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "その他・不明サイト",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://img-more.hpplus.jp/image/2e/2e1e7b3e-9eb1-4775-a60e-4746a234c22f-3197x4093.jpg",
+        "judgment": "○",
+        "reason": "HPPLUS.JPは集英社が運営するファッション・ビューティ系ウェブサイトであり、掲載画像は同サイトの正規コンテンツと判断されるため、著作権侵害や違法コンテンツに該当しません。",
+        "confidence": "高",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "その他・不明サイト",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/817BFF14FnL.jpg",
+        "judgment": "○",
+        "reason": "信頼できる公式サイト",
+        "confidence": "高",
+        "analysis_type": "公式ドメイン即時判定",
+        "domain_category": "公式サイト",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://preview.redd.it/240219-japan-twitter-update-magazine-information-sanas-v0-icwy7rijkgjc1.jpeg?auto=webp&s=e2f0cb08fa130296386b7f6b764c4c07ac1c062e",
+        "judgment": "？",
+        "reason": "ページ内容を取得できませんでした",
+        "confidence": "高",
+        "analysis_type": "スクレイピング失敗",
+        "domain_category": "その他・不明サイト",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://image.rakuten.co.jp/k-monstar/cabinet/09904738/imgrc0095920000.jpg",
+        "judgment": "○",
+        "reason": "信頼できる公式サイト",
+        "confidence": "高",
+        "analysis_type": "公式ドメイン即時判定",
+        "domain_category": "公式サイト",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://pbs.twimg.com/media/GGqw1EvasAAhQ32.jpg:large",
+        "judgment": "？",
+        "reason": "ページ内容を取得できませんでした",
+        "confidence": "高",
+        "analysis_type": "スクレイピング失敗",
+        "domain_category": "その他・不明サイト",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://i.redd.it/icwy7rijkgjc1.jpeg",
+        "judgment": "？",
+        "reason": "画像は手書きのメモであり内容が不鮮明なため、著作権侵害や違法コンテンツであると断定できる根拠がありません。内容によっては問題が生じる可能性もありますが、現状では判断が困難です。",
+        "confidence": "高",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "その他・不明サイト",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://www.thefirsttimes.jp/admin/wp-content/uploads/5000/02/20240219-tr-091000034.jpg",
+        "judgment": "○",
+        "reason": "画像はソニー・ミュージックエンタテインメントが運営する公式音楽情報サイト「THE F1RST TIMES」のドメイン内にあり、正当なコンテンツとして使用されていると判断できます。著作権侵害や違法性は認められません。",
+        "confidence": "高",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "その他・不明サイト",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://image.fmkorea.com/files/attach/new3/20240224/486616/2579320004/6756244334/8f6241bd47c20b3a2e016bb057eccac6.jpg",
+        "judgment": "×",
+        "reason": "アニメ「おそ松さん」のキャラクターを使用した二次創作画像であり、権利者の許諾がない限り著作権侵害に該当する可能性があります。",
+        "confidence": "高",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "その他・不明サイト",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://lookaside.instagram.com/seo/google_widget/crawler/?media_id=3305881232092816873",
+        "judgment": "○",
+        "reason": "TWICEの公式Instagramアカウントからの投稿であり、メンバーの雑誌掲載情報を告知する正当なプロモーション活動と判断できます。著作権侵害や違法コンテンツの要素は見当たりません。",
+        "confidence": "高",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "SNS・ソーシャルメディア",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://img-more.hpplus.jp/article/parts/image/ca/cac33a31-6e73-4612-8d97-047084d0bf47-3197x4093.jpg",
+        "judgment": "○",
+        "reason": "hpplus.jpは集英社が運営する公式メディアであり、提供される画像は通常、正当なコンテンツと判断されます。著作権侵害や違法コンテンツを示す兆候はありません。",
+        "confidence": "高",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "その他・不明サイト",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://contents.oricon.co.jp/upimg/news/2315000/2314989/20240219_102005_p_o_52430824.jpg",
+        "judgment": "○",
+        "reason": "信頼できる公式サイト",
+        "confidence": "高",
+        "analysis_type": "公式ドメイン即時判定",
+        "domain_category": "公式サイト",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://img-more.hpplus.jp/article/parts/image/84/84bc6a17-6a0e-4f29-8030-fa31790e92db-3197x4093.jpg",
+        "judgment": "○",
+        "reason": "ドメイン「hpplus.jp」は大手出版社集英社が運営する「HAPPY PLUS」の公式サイトであり、通常、正当なコンテンツが掲載されていると判断できるため。",
+        "confidence": "高",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "その他・不明サイト",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://s.eslite.com/b2b/newItem/2024/02/20/2476_123817108_108_mainCoverImage1.jpg",
+        "judgment": "○",
+        "reason": "URLのドメインは「eslite.com」であり、台湾の著名な書店「誠品書店」の公式サイトと推測されます。正規のビジネス活動における商品画像であり、著作権侵害や違法コンテンツの根拠はないため安全と判断できます。",
+        "confidence": "高",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "その他・不明サイト",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://images-cdn.ubuy.co.in/67213919ea1654408817375a-more-spring-2024-sana-twice.jpg",
+        "judgment": "？",
+        "reason": "大手eコマースサイトのCDNにホストされており、販売商品の宣伝目的で利用されている可能性が高いです。しかし、画像が掲載されている具体的な商品ページや利用許諾の有無をURL単体では確認できないため、著作権侵害の有無を断定することは困難です。",
+        "confidence": "高",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "その他・不明サイト",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://i.ebayimg.com/00/s/MTUwMFgxMTcy/z/xOEAAOSw2CxmA3WX/$_57.JPG?set_id=880000500F",
+        "judgment": "？",
+        "reason": "ページ内容を取得できませんでした",
+        "confidence": "高",
+        "analysis_type": "スクレイピング失敗",
+        "domain_category": "その他・不明サイト",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://storage.mantan-web.jp/images/2024/02/29/20240229dog00m200015000c/001_size9.jpg",
+        "judgment": "○",
+        "reason": "MANTANWEBは毎日新聞社が運営する公式エンタメ情報サイトであり、当該画像はそのサイトの正規URLから提供されています。運営元が著作権を適切に管理していると判断できるため、安全です。",
+        "confidence": "高",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "その他・不明サイト",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://i.ebayimg.com/00/s/MTQ0OFgxMTMy/z/oRUAAOSwQhtl0uIm/$_57.JPG?set_id=880000500F",
+        "judgment": "？",
+        "reason": "ページ内容を取得できませんでした",
+        "confidence": "高",
+        "analysis_type": "スクレイピング失敗",
+        "domain_category": "その他・不明サイト",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://preview.redd.it/240219-japan-twitter-update-magazine-information-sanas-v0-icwy7rijkgjc1.jpeg?width=1080&crop=smart&auto=webp&s=67d72f69ac51aff1da6aa6c4dfddc910564be0bc",
+        "judgment": "？",
+        "reason": "ページ内容を取得できませんでした",
+        "confidence": "高",
+        "analysis_type": "スクレイピング失敗",
+        "domain_category": "その他・不明サイト",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://preview.redd.it/240228-sana-for-more-magazine-spring-2024-scans-v0-akx3ndhf68lc1.jpg?width=1080&crop=smart&auto=webp&s=3f832157fccaaf6fc0528c82c4d14f3bf09b1f9f",
+        "judgment": "？",
+        "reason": "ページ内容を取得できませんでした",
+        "confidence": "高",
+        "analysis_type": "スクレイピング失敗",
+        "domain_category": "その他・不明サイト",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://pbs.twimg.com/media/GGqwmZLbQAA6l6i.jpg:large",
+        "judgment": "？",
+        "reason": "ページ内容を取得できませんでした",
+        "confidence": "高",
+        "analysis_type": "スクレイピング失敗",
+        "domain_category": "その他・不明サイト",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://img-mdpr.freetls.fastly.net/article/Sj6x/nm/Sj6xkq6E2ltdLDSMPZG4BBL3w3UDnhptZbLryqPBLlI.jpg",
+        "judgment": "○",
+        "reason": "画像は大手芸能情報サイト「モデルプレス」のドメイン（CDN経由）から配信されており、正規の記事コンテンツの一部と推測されるため、著作権侵害や違法コンテンツである可能性は低い。",
+        "confidence": "高",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "その他・不明サイト",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "http://nolae.eu/cdn/shop/files/sana-twice-more-japan-magazine-2024-spring-issue-nolae-630968.jpg?v=1710254534&width=1024",
+        "judgment": "？",
+        "reason": "ページ内容を取得できませんでした",
+        "confidence": "高",
+        "analysis_type": "スクレイピング失敗",
+        "domain_category": "その他・不明サイト",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://cdn.shopify.com/s/files/1/0469/3927/5428/files/sana-twice-more-japan-magazine-2024-spring-issue-nolae-630968.webp?v=1738745928",
+        "judgment": "？",
+        "reason": "ページ内容を取得できませんでした",
+        "confidence": "高",
+        "analysis_type": "スクレイピング失敗",
+        "domain_category": "その他・不明サイト",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://lookaside.instagram.com/seo/google_widget/crawler/?media_id=3305933988462068655",
+        "judgment": "○",
+        "reason": "公式ニュースサイト（オリコン）の記事を引用し、アーティストの活動に関する情報を共有する内容であり、著作権侵害や違法コンテンツには該当しないと判断できます。",
+        "confidence": "高",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "SNS・ソーシャルメディア",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://lookaside.fbsbx.com/lookaside/crawler/media/?media_id=916227213601806",
+        "judgment": "？",
+        "reason": "ページタイトルと本文が空欄のため、コンテンツの内容を判断できません。著作権侵害や違法性の有無を検証する情報がないため、判定は困難です。",
+        "confidence": "高",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "SNS・ソーシャルメディア",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://i.ebayimg.com/images/g/xOEAAOSw2CxmA3WX/s-l1200.jpg",
+        "judgment": "○",
+        "reason": "画像はオンラインマーケットプレイスeBayのサーバにホストされており、レゴ製品の正規の商品画像と見られます。合法的な商品販売目的であり、これ自体が著作権侵害や違法コンテンツであると判断する根拠はありません。",
+        "confidence": "高",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "その他・不明サイト",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://pbs.twimg.com/media/GGqw1EvasAAhQ32.jpg",
+        "judgment": "○",
+        "reason": "画像は劇場版「SPY×FAMILY CODE: White」の興行収入60億円突破を伝える公式のプロモーションポスターと判断できます。著作権者によって公開された正規のコンテンツであり、著作権侵害には該当しません。",
+        "confidence": "高",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "その他・不明サイト",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://i.ebayimg.com/images/g/oRUAAOSwQhtl0uIm/s-l1200.jpg",
+        "judgment": "？",
+        "reason": "画像URLはeBayのサーバーを示しており、eBayは合法的なプラットフォームです。しかし、画像内容自体が著作権侵害や違法コンテンツであるかは、URLからは判断できないため、判定は困難です。",
+        "confidence": "高",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "その他・不明サイト",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://pbs.twimg.com/media/GGqwmZLbQAA6l6i.jpg",
+        "judgment": "×",
+        "reason": "既存アニメ「ぼっち・ざ・ろっく！」と「けいおん！」のキャラクターを組み合わせた二次創作イラストであり、著作権者の許諾がない限り著作権侵害に該当する可能性があるため。",
+        "confidence": "高",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "その他・不明サイト",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://pbs.twimg.com/media/GGqwkkXX0AAKvhd.jpg",
+        "judgment": "？",
+        "reason": "画像URLがTwitterのメディアサーバーのものであり、具体的な画像内容が不明なため、著作権侵害や違法性の有無を判断できません。アップロードされたコンテンツの合法性は、個々の画像によって異なるため、現時点では判定困難です。",
+        "confidence": "高",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "その他・不明サイト",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://r.r10s.jp/g/gran_img/np/PFA/AVR/0IR/16I/05380eaf7dc18a60a10df0a6985f3e89.jpg",
+        "judgment": "○",
+        "reason": "楽天の正規の画像ホスティングドメイン（r10s.jp）であり、大手ECサイトのインフラとして利用されています。サイト自体が違法コンテンツではありません。",
+        "confidence": "高",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "その他・不明サイト",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://cf.shopee.tw/file/tw-11134207-7r991-lrwh3apurqhe50",
+        "judgment": "？",
+        "reason": "ページ内容を取得できませんでした",
+        "confidence": "高",
+        "analysis_type": "スクレイピング失敗",
+        "domain_category": "その他・不明サイト",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://www.kpopalbums.com/cdn/shop/products/8b571c1fd1b2d73fab71d6104e673ae9858580b1c9da6033296f986e384b27ab.jpg?v=1710235889",
+        "judgment": "？",
+        "reason": "ページ内容を取得できませんでした",
+        "confidence": "高",
+        "analysis_type": "スクレイピング失敗",
+        "domain_category": "その他・不明サイト",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://kpopping.com/documents/08/0/800/SANA-for-MORE-Magazine-Spring-2024-Issue-documents-1.jpeg?v=c0cb5",
+        "judgment": "？",
+        "reason": "ページ内容を取得できませんでした",
+        "confidence": "高",
+        "analysis_type": "スクレイピング失敗",
+        "domain_category": "その他・不明サイト",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://mblogthumb-phinf.pstatic.net/MjAyNDAyMjFfMjQ0/MDAxNzA4NDU1MDMwNDk2.SQKhmmUr5H0qORTxgBAnqsXYVaLZmkMZK9vri9czFrkg.9u_imfn1_UNVH5IfGR1BFgZpWpxn-S8tqPZFw-XCkhcg.JPEG/%EC%9D%BC%EA%B3%B5%ED%8A%B8.jpg?type=w800",
+        "judgment": "？",
+        "reason": "ページ内容を取得できませんでした",
+        "confidence": "高",
+        "analysis_type": "スクレイピング失敗",
+        "domain_category": "ブログ・個人サイト",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://mblogthumb-phinf.pstatic.net/MjAyNDAyMjNfMjgx/MDAxNzA4NjI5ODAwMzMx.VauocZk2ZEUQp85mCfTJVUsv-VxXyxaU-qvdfOZrIjIg.DGyo1JhFM3F8WHUYXS-hYUG5rRb9sza-VNpYq3TbRN4g.JPEG/SANA-for-MORE-Magazine-Spring-2024-Issue-1.jpeg?type=w800",
+        "judgment": "？",
+        "reason": "ページ内容を取得できませんでした",
+        "confidence": "高",
+        "analysis_type": "スクレイピング失敗",
+        "domain_category": "ブログ・個人サイト",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://m.media-amazon.com/images/I/817BFF14FnL._AC_UF1000,1000_QL80_.jpg",
+        "judgment": "○",
+        "reason": "信頼できる公式サイト",
+        "confidence": "高",
+        "analysis_type": "公式ドメイン即時判定",
+        "domain_category": "公式サイト",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://www.magazinecafestore.com/cdn/shop/files/more-japan-magazine-spring-2024.jpg?v=1741626198",
+        "judgment": "？",
+        "reason": "ページ内容を取得できませんでした",
+        "confidence": "高",
+        "analysis_type": "スクレイピング失敗",
+        "domain_category": "その他・不明サイト",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://img-mdpr.freetls.fastly.net/article/Sj6x/nm/Sj6xkq6E2ltdLDSMPZG4BBL3w3UDnhptZbLryqPBLlI.jpg?width=750&disable=upscale&auto=webp&quality=80",
+        "judgment": "？",
+        "reason": "ページ内容を取得できませんでした",
+        "confidence": "高",
+        "analysis_type": "スクレイピング失敗",
+        "domain_category": "その他・不明サイト",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://ogre.natalie.mu/media/news/music/2024/0219/MORE_2024_Spring.jpg?impolicy=m&imwidth=750&imdensity=1",
+        "judgment": "○",
+        "reason": "信頼できる公式サイト",
+        "confidence": "高",
+        "analysis_type": "公式ドメイン即時判定",
+        "domain_category": "公式サイト",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://img-mdpr.freetls.fastly.net/article/Sj6x/nm/Sj6xkq6E2ltdLDSMPZG4BBL3w3UDnhptZbLryqPBLlI.jpg?width=700&disable=upscale&auto=webp&quality=80",
+        "judgment": "？",
+        "reason": "ページ内容を取得できませんでした",
+        "confidence": "高",
+        "analysis_type": "スクレイピング失敗",
+        "domain_category": "その他・不明サイト",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://www.magazinecafestore.com/cdn/shop/files/more-japan-magazine-spring-2024_700x.jpg?v=1741626198",
+        "judgment": "？",
+        "reason": "ページ内容を取得できませんでした",
+        "confidence": "高",
+        "analysis_type": "スクレイピング失敗",
+        "domain_category": "その他・不明サイト",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://static.bizpa.net/images/60993065be445853cf7dd42429bba6e49bf5f3c4fc3342ab2829b10e0cc5a822.jpg?width=700",
+        "judgment": "？",
+        "reason": "ページ内容を取得できませんでした",
+        "confidence": "高",
+        "analysis_type": "スクレイピング失敗",
+        "domain_category": "その他・不明サイト",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://preview.redd.it/240219-japan-twitter-update-magazine-information-sanas-v0-icwy7rijkgjc1.jpeg?width=640&crop=smart&auto=webp&s=4784a9395e5df22d407d4fa1d8bf05fcaa19bef5",
+        "judgment": "？",
+        "reason": "ページ内容を取得できませんでした",
+        "confidence": "高",
+        "analysis_type": "スクレイピング失敗",
+        "domain_category": "その他・不明サイト",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://thumbnail.image.rakuten.co.jp/@0_mall/book/cabinet/3783/9784081023783_1_3.jpg",
+        "judgment": "○",
+        "reason": "信頼できる公式サイト",
+        "confidence": "高",
+        "analysis_type": "公式ドメイン即時判定",
+        "domain_category": "公式サイト",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://storage.mainichikirei.jp/images/2024/02/19/20240219dog00m100000000c/001_size6.jpg",
+        "judgment": "○",
+        "reason": "mainichikirei.jpは毎日新聞社が運営する「毎日キレイ」のドメインであり、大手メディアサイトのコンテンツは通常、正当な著作権・利用許諾のもと公開されています。",
+        "confidence": "高",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "その他・不明サイト",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://images-fe.ssl-images-amazon.com/images/I/817BFF14FnL._AC_UL600_SR600,600_.jpg",
+        "judgment": "○",
+        "reason": "信頼できる公式サイト",
+        "confidence": "高",
+        "analysis_type": "公式ドメイン即時判定",
+        "domain_category": "公式サイト",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      }
+    ]
   }
 ]

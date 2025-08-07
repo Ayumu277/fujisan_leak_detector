@@ -871,17 +871,35 @@ def google_lens_exact_search(input_image_bytes: bytes) -> List[Dict]:
         logger.info(f"📁 一時画像URL: {image_url}")
 
         # 4. Google Lens Exact Matches API実行
-        search_params = {
-            "engine": "google_lens",
-            "type": "exact_matches",
-            "url": image_url,  # SerpAPI仕様: パラメータ名は'url'
-            "api_key": SERP_API_KEY,
-            "no_cache": True,  # キャッシュを使用しない（最新結果を取得）
-            "safe": "off"      # セーフサーチを無効化（より多くの結果を取得）
-        }
+        # ローカル環境では`image`パラメータ、本番環境では`url`パラメータを使用
+        if render_url:
+            # 本番環境（Render）: urlパラメータを使用
+            search_params = {
+                "engine": "google_lens",
+                "type": "exact_matches",
+                "url": image_url,  # 外部アクセス可能なURL
+                "api_key": SERP_API_KEY,
+                "no_cache": True,
+                "safe": "off"
+            }
+            logger.info(f"🌐 本番環境 - URL使用: {image_url}")
+        else:
+            # ローカル環境: imageパラメータを使用
+            search_params = {
+                "engine": "google_lens",
+                "type": "exact_matches",
+                "image": temp_file_path,  # ローカルファイルパス
+                "api_key": SERP_API_KEY,
+                "no_cache": True,
+                "safe": "off"
+            }
+            logger.info(f"🏠 ローカル環境 - ファイルパス使用: {temp_file_path}")
 
+        logger.info(f"🔍 Google Lens APIパラメータ: {search_params}")
         search = GoogleSearch(search_params)
+        logger.info("🌐 SerpAPI Google Lens リクエスト実行中...")
         results = search.get_dict()
+        logger.info(f"📡 SerpAPI レスポンス受信: {type(results)} - キー: {list(results.keys()) if isinstance(results, dict) else 'Not a dict'}")
 
         # エラーチェック
         if "error" in results:
@@ -901,6 +919,14 @@ def google_lens_exact_search(input_image_bytes: bytes) -> List[Dict]:
         # 5. exact_matchesを取得
         exact_matches = results.get("exact_matches", [])
         logger.info(f"🎯 Google Lens Exact Matchesから {len(exact_matches)} 件の候補を取得")
+        
+        # デバッグ: レスポンス全体をログ出力（機密情報を除く）
+        if not exact_matches and "error" not in results:
+            logger.warning(f"⚠️ Google Lens APIレスポンス詳細: {results}")
+            # 他に使用可能なキーがあるかチェック
+            for key in results.keys():
+                if key != "api_key":  # API_KEYは出力しない
+                    logger.info(f"   📋 レスポンスキー '{key}': {type(results[key])}")
 
         if not exact_matches:
             logger.info("💡 Google Lensで完全一致する画像が見つかりませんでした")
