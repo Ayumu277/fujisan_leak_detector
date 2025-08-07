@@ -778,33 +778,46 @@ def estimate_related_sites_from_query(search_query: str) -> list[str]:
 def cleanup_old_temp_files():
     """
     古いGoogle Lens一時ファイルをクリーンアップ（1時間以上前のファイル）
+    新しい検索の開始時に実行し、古いファイルを安全に削除
     """
     try:
         import time
         current_time = time.time()
         cutoff_time = current_time - 3600  # 1時間前
-        
+
         if not os.path.exists(UPLOAD_DIR):
             return
-        
+
         cleaned_count = 0
         for filename in os.listdir(UPLOAD_DIR):
             if filename.startswith("google_lens_temp_"):
                 file_path = os.path.join(UPLOAD_DIR, filename)
                 try:
-                    # ファイル名からタイムスタンプ抽出
-                    timestamp_str = filename.split("_")[3]  # google_lens_temp_{timestamp}_{uuid}
-                    file_timestamp = int(timestamp_str)
-                    
-                    if file_timestamp < cutoff_time:
-                        os.remove(file_path)
-                        cleaned_count += 1
-                        logger.debug(f"🧹 古い一時ファイル削除: {filename}")
+                    # ファイル名からタイムスタンプ抽出: google_lens_temp_{timestamp}_{uuid}.jpg
+                    parts = filename.split("_")
+                    if len(parts) >= 4 and parts[0] == "google" and parts[1] == "lens" and parts[2] == "temp":
+                        timestamp_str = parts[3]
+                        file_timestamp = int(timestamp_str)
+
+                        if file_timestamp < cutoff_time:
+                            os.remove(file_path)
+                            cleaned_count += 1
+                            logger.debug(f"🧹 古い一時ファイル削除: {filename} (作成: {timestamp_str})")
+
                 except (ValueError, IndexError, OSError) as e:
-                    logger.warning(f"⚠️ 一時ファイルクリーンアップエラー {filename}: {e}")
-        
+                    # ファイル名が期待する形式でない場合は、ファイル作成時刻で判断
+                    try:
+                        file_stat = os.stat(file_path)
+                        if file_stat.st_mtime < cutoff_time:
+                            os.remove(file_path)
+                            cleaned_count += 1
+                            logger.debug(f"🧹 古い一時ファイル削除（作成時刻基準）: {filename}")
+                    except OSError:
+                        logger.warning(f"⚠️ 一時ファイルアクセスエラー: {filename}")
+
         if cleaned_count > 0:
             logger.info(f"🧹 一時ファイルクリーンアップ完了: {cleaned_count}件削除")
+
     except Exception as e:
         logger.warning(f"⚠️ 一時ファイルクリーンアップ失敗: {e}")
 
@@ -847,7 +860,7 @@ def calculate_multi_hash_similarity(image1: Image.Image, image2: Image.Image) ->
 
 def google_lens_exact_search(input_image_bytes: bytes) -> List[Dict]:
     """
-    SerpAPI Google Lens Exact Matches APIで完全一致画像を取得
+    SerpAPI Google Lens Exact Matches APIで完全一致画像を取得（安定化版）
 
     Args:
         input_image_bytes (bytes): 入力画像のバイトデータ
@@ -859,11 +872,14 @@ def google_lens_exact_search(input_image_bytes: bytes) -> List[Dict]:
         logger.warning("⚠️ SerpAPI機能が利用できません")
         return []
 
-    temp_file_path = None
+    temp_file_path: Optional[str] = None
     try:
         logger.info("🔍 Google Lens Exact Matches API検索開始")
 
-        # 1. 入力画像の前処理
+        # 1. 古い一時ファイルをクリーンアップ（新しい検索前に実行）
+        cleanup_old_temp_files()
+
+        # 2. 入力画像の前処理
         try:
             input_image = Image.open(BytesIO(input_image_bytes))
             if input_image.mode != 'RGB':
@@ -881,50 +897,34 @@ def google_lens_exact_search(input_image_bytes: bytes) -> List[Dict]:
             logger.error(f"❌ 入力画像処理エラー: {e}")
             return []
 
-        # 2. 永続化一時ファイル作成（ワーカー再起動対応）
+        # 3. 永続化一時ファイル作成（タイムスタンプ付き）
         os.makedirs(UPLOAD_DIR, exist_ok=True)
-        
-        # タイムスタンプ付きファイル名（クリーンアップ用）
+
         import time
         timestamp = int(time.time())
         temp_filename = f"google_lens_temp_{timestamp}_{uuid.uuid4().hex[:8]}.jpg"
         temp_file_path = os.path.join(UPLOAD_DIR, temp_filename)
-        logger.info(f"📁 永続化一時ファイル作成予定: {temp_file_path}")
-        
-        # 古い一時ファイルのクリーンアップ（1時間以上前）
-        cleanup_old_temp_files()
 
-        # 高品質でJPEG保存（Google Lens APIの精度向上のため）
-        input_image.save(temp_file_path, 'JPEG', quality=95, optimize=False)
-        logger.info(f"💾 一時ファイル作成完了: {temp_file_path} ({os.path.getsize(temp_file_path)} bytes)")
+        # 高品質でJPEG保存
+        if temp_file_path:
+            input_image.save(temp_file_path, 'JPEG', quality=95, optimize=False)
+            logger.info(f"💾 一時ファイル作成: {temp_file_path} ({os.path.getsize(temp_file_path)} bytes)")
 
         # ファイル存在確認
-        if not os.path.exists(temp_file_path):
+        if not temp_file_path or not os.path.exists(temp_file_path):
             logger.error(f"❌ 一時ファイル作成失敗: {temp_file_path}")
             return []
 
-        # 3. 一時ファイルをHTTPで公開（Render対応）
+        # 4. API パラメータ設定（環境に応じて分岐）
         render_url = os.getenv("RENDER_EXTERNAL_URL")
         if render_url:
-            # Render本番環境の場合
-            base_url = render_url.rstrip('/')
-            logger.info(f"🌐 Render環境使用: {base_url}")
-        else:
-            # ローカル開発環境の場合
-            base_url = os.getenv("VITE_API_BASE_URL", "http://localhost:8000")
-            logger.info(f"🏠 ローカル環境使用: {base_url}")
-
-        image_url = f"{base_url}/uploads/{temp_filename}"
-        logger.info(f"📁 一時画像URL: {image_url}")
-
-        # 4. Google Lens Exact Matches API実行
-        # ローカル環境では`image`パラメータ、本番環境では`url`パラメータを使用
-        if render_url:
             # 本番環境（Render）: urlパラメータを使用
+            base_url = render_url.rstrip('/')
+            image_url = f"{base_url}/uploads/{temp_filename}"
             search_params = {
                 "engine": "google_lens",
                 "type": "exact_matches",
-                "url": image_url,  # 外部アクセス可能なURL
+                "url": image_url,
                 "api_key": SERP_API_KEY,
                 "no_cache": True,
                 "safe": "off"
@@ -935,184 +935,99 @@ def google_lens_exact_search(input_image_bytes: bytes) -> List[Dict]:
             search_params = {
                 "engine": "google_lens",
                 "type": "exact_matches",
-                "image": temp_file_path,  # ローカルファイルパス
+                "image": temp_file_path,
                 "api_key": SERP_API_KEY,
                 "no_cache": True,
                 "safe": "off"
             }
             logger.info(f"🏠 ローカル環境 - ファイルパス使用: {temp_file_path}")
 
-        logger.info(f"🔍 Google Lens APIパラメータ: {search_params}")
-        
-        # SerpAPIリクエスト（タイムアウト対策）
+        # 5. シンプルなAPI実行（タイムアウト処理削除）
         try:
             search = GoogleSearch(search_params)
             logger.info("🌐 SerpAPI Google Lens リクエスト実行中...")
-            
-            # タイムアウト付きでリクエスト実行
-            import signal
-            import threading
-            
-            results = None
-            exception_occurred = None
-            
-            def serpapi_request():
-                nonlocal results, exception_occurred
-                try:
-                    results = search.get_dict()
-                except Exception as e:
-                    exception_occurred = e
-            
-            # タイムアウト付きリクエスト（120秒）
-            thread = threading.Thread(target=serpapi_request)
-            thread.daemon = True
-            thread.start()
-            thread.join(timeout=120)
-            
-            if thread.is_alive():
-                logger.error("❌ SerpAPI リクエストタイムアウト (120秒)")
-                logger.info("   📊 Google Vision APIの結果のみ使用します")
-                return []
-            
-            if exception_occurred:
-                raise exception_occurred
-            
-            if results is None:
-                logger.error("❌ SerpAPI リクエスト結果が空")
-                logger.info("   📊 Google Vision APIの結果のみ使用します")
-                return []
-            
-            logger.info(f"📡 SerpAPI レスポンス受信: {type(results)} - キー: {list(results.keys()) if isinstance(results, dict) else 'Not a dict'}")
-            
+
+            results = search.get_dict()
+            logger.info(f"📡 SerpAPI レスポンス受信: {type(results)}")
+
         except Exception as serpapi_error:
             logger.error(f"❌ SerpAPI リクエストエラー: {str(serpapi_error)}")
             logger.info("   📊 Google Vision APIの結果のみ使用します")
             return []
 
-        # エラーチェック
+        # 6. エラーチェック
         if "error" in results:
             error_msg = results["error"]
-            logger.error(f"❌ SerpAPI Google Lens エラー: {error_msg}")
 
             # 特定のエラーの場合は詳細情報を提供
             if "hasn't returned any results" in error_msg:
-                logger.info("💡 SerpAPI Google Lensで一致する結果が見つかりませんでした")
-                logger.info("   ✅ これは正常な動作です（この画像に完全一致がない）")
-                logger.info("   📊 Google Vision APIの結果を使用します")
-                # エラーではなく、結果が無いだけなので空の配列を返す
+                logger.info("💡 Google Lensで完全一致画像が見つかりませんでした（正常）")
                 return []
             elif "quota" in error_msg.lower() or "limit" in error_msg.lower():
                 logger.warning("⚠️ SerpAPI クォータ制限に達しました")
-                logger.info("   📊 Google Vision APIの結果のみ使用します")
                 return []
             elif "invalid" in error_msg.lower() or "parameter" in error_msg.lower():
-                logger.error("❌ SerpAPI パラメータエラー - API設定を確認してください")
+                logger.error(f"❌ SerpAPI パラメータエラー: {error_msg}")
                 return []
             elif "couldn't get valid results" in error_msg.lower():
-                logger.warning("⚠️ SerpAPI 画像処理失敗 - 一時的な問題の可能性")
-                logger.info("   💡 原因: 画像アクセス失敗、API負荷、ネットワーク問題")
-                logger.info("   📊 Google Vision APIの結果のみ使用します")
-                return []
-            elif "timeout" in error_msg.lower() or "slow" in error_msg.lower():
-                logger.warning("⚠️ SerpAPI タイムアウト - リクエスト処理時間超過")
+                logger.warning("⚠️ SerpAPI 画像処理失敗（一時的な問題の可能性）")
                 return []
             else:
-                logger.error(f"❌ SerpAPI 不明なエラー: {error_msg}")
-                logger.info("   📊 Google Vision APIの結果のみ使用します")
+                logger.error(f"❌ SerpAPI エラー: {error_msg}")
                 return []
 
-        # 5. exact_matchesを取得
+        # 7. exact_matchesを取得・処理
         exact_matches = results.get("exact_matches", [])
-        logger.info(f"🎯 Google Lens Exact Matchesから {len(exact_matches)} 件の候補を取得")
-
-        # デバッグ: レスポンス全体をログ出力（機密情報を除く）
-        if not exact_matches and "error" not in results:
-            logger.warning(f"⚠️ Google Lens APIレスポンス詳細: {results}")
-            # 他に使用可能なキーがあるかチェック
-            for key in results.keys():
-                if key != "api_key":  # API_KEYは出力しない
-                    logger.info(f"   📋 レスポンスキー '{key}': {type(results[key])}")
+        logger.info(f"🎯 Google Lens Exact Matchesから {len(exact_matches)} 件取得")
 
         if not exact_matches:
             logger.info("💡 Google Lensで完全一致する画像が見つかりませんでした")
             return []
 
-        # 6. exact_matchesを処理
         processed_results = []
         for i, match in enumerate(exact_matches):
             try:
-                position = match.get("position", i + 1)
-                title = match.get("title", "タイトルなし")
-                source = match.get("source", "ソース不明")
                 link = match.get("link", "")
-                thumbnail = match.get("thumbnail", "")
+                if not link:
+                    continue
 
-                # 価格情報（商品の場合）
-                price = match.get("price", "")
-                extracted_price = match.get("extracted_price", 0)
-                in_stock = match.get("in_stock", False)
-                out_of_stock = match.get("out_of_stock", False)
+                result = {
+                    "url": link,
+                    "title": match.get("title", "タイトルなし"),
+                    "source": match.get("source", "ソース不明"),
+                    "position": match.get("position", i + 1),
+                    "thumbnail": match.get("thumbnail", ""),
+                    "search_method": "Google Lens完全一致",
+                    "search_source": "Google Lens Exact Matches",
+                    "confidence": "high",
+                    "score": 1.0,
+                    "actual_image_width": match.get("actual_image_width", 0),
+                    "actual_image_height": match.get("actual_image_height", 0)
+                }
 
-                # 日付情報
-                date = match.get("date", "")
+                # オプション情報を追加
+                if match.get("price"):
+                    result["price"] = match["price"]
+                    result["extracted_price"] = match.get("extracted_price", 0)
+                    result["in_stock"] = match.get("in_stock", False)
+                if match.get("date"):
+                    result["date"] = match["date"]
 
-                # 実際の画像サイズ
-                actual_image_width = match.get("actual_image_width", 0)
-                actual_image_height = match.get("actual_image_height", 0)
-
-                if link:
-                    result = {
-                        "url": link,
-                        "title": title,
-                        "source": source,
-                        "position": position,
-                        "thumbnail": thumbnail,
-                        "search_method": "Google Lens完全一致",
-                        "search_source": "Google Lens Exact Matches",
-                        "confidence": "high",  # Google Lensの完全一致は高信頼度
-                        "score": 1.0,  # 完全一致なので最高スコア
-                        "actual_image_width": actual_image_width,
-                        "actual_image_height": actual_image_height
-                    }
-
-                    # 価格情報があれば追加
-                    if price:
-                        result["price"] = price
-                        result["extracted_price"] = extracted_price
-                        result["in_stock"] = in_stock
-                        result["out_of_stock"] = out_of_stock
-
-                    # 日付情報があれば追加
-                    if date:
-                        result["date"] = date
-
-                    processed_results.append(result)
-                    logger.info(f"✅ Google Lens完全一致 {position}: {title[:50]}...")
+                processed_results.append(result)
+                logger.info(f"✅ Google Lens完全一致 {i+1}: {result['title'][:50]}...")
 
             except Exception as e:
-                logger.debug(f"  ⚠️ Google Lens候補 {i+1} 処理エラー: {str(e)}")
+                logger.debug(f"⚠️ Google Lens候補 {i+1} 処理エラー: {str(e)}")
                 continue
 
         logger.info(f"✅ Google Lens検索完了: {len(processed_results)}件の完全一致を発見")
-
         return processed_results
 
     except Exception as e:
         logger.error(f"❌ Google Lens検索エラー: {str(e)}")
         return []
 
-    finally:
-        # 一時ファイル削除（SerpAPI完了後に遅延削除）
-        if temp_file_path and os.path.exists(temp_file_path):
-            try:
-                # 少し待ってからファイル削除（SerpAPIがアクセス完了するまで）
-                import time
-                time.sleep(1)  # 1秒待機
-                os.remove(temp_file_path)
-                logger.debug(f"🗑️ Google Lens一時ファイル削除: {temp_file_path}")
-            except Exception as e:
-                logger.warning(f"⚠️ Google Lens一時ファイル削除失敗: {str(e)}")
-                # 削除失敗でも続行（次回起動時にクリーンアップされる）
+    # 注意: finally節を削除 - 一時ファイルは自動クリーンアップに任せる
 
 def enhanced_image_search_with_reverse(image_content: bytes) -> list[dict]:
     """
