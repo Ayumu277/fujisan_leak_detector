@@ -10,7 +10,7 @@ worker_class = "uvicorn.workers.UvicornWorker"
 
 # より安全な設定でスタート
 workers = 1  # 最初は1ワーカーで
-timeout = 180  # タイムアウトを延長
+timeout = 300  # SerpAPI処理用に5分に延長
 keepalive = 2
 max_requests = 500
 preload_app = False  # preloadを無効にして問題を回避

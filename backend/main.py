@@ -775,6 +775,39 @@ def estimate_related_sites_from_query(search_query: str) -> list[str]:
     # 重複除去
     return list(set(related_sites))
 
+def cleanup_old_temp_files():
+    """
+    古いGoogle Lens一時ファイルをクリーンアップ（1時間以上前のファイル）
+    """
+    try:
+        import time
+        current_time = time.time()
+        cutoff_time = current_time - 3600  # 1時間前
+        
+        if not os.path.exists(UPLOAD_DIR):
+            return
+        
+        cleaned_count = 0
+        for filename in os.listdir(UPLOAD_DIR):
+            if filename.startswith("google_lens_temp_"):
+                file_path = os.path.join(UPLOAD_DIR, filename)
+                try:
+                    # ファイル名からタイムスタンプ抽出
+                    timestamp_str = filename.split("_")[3]  # google_lens_temp_{timestamp}_{uuid}
+                    file_timestamp = int(timestamp_str)
+                    
+                    if file_timestamp < cutoff_time:
+                        os.remove(file_path)
+                        cleaned_count += 1
+                        logger.debug(f"🧹 古い一時ファイル削除: {filename}")
+                except (ValueError, IndexError, OSError) as e:
+                    logger.warning(f"⚠️ 一時ファイルクリーンアップエラー {filename}: {e}")
+        
+        if cleaned_count > 0:
+            logger.info(f"🧹 一時ファイルクリーンアップ完了: {cleaned_count}件削除")
+    except Exception as e:
+        logger.warning(f"⚠️ 一時ファイルクリーンアップ失敗: {e}")
+
 def calculate_multi_hash_similarity(image1: Image.Image, image2: Image.Image) -> Dict:
     """
     複数のハッシュアルゴリズムを使用して画像の類似度を計算
@@ -848,17 +881,23 @@ def google_lens_exact_search(input_image_bytes: bytes) -> List[Dict]:
             logger.error(f"❌ 入力画像処理エラー: {e}")
             return []
 
-        # 2. 高品質な一時ファイル作成（Google Lens API用）
+        # 2. 永続化一時ファイル作成（ワーカー再起動対応）
         os.makedirs(UPLOAD_DIR, exist_ok=True)
-        # 永続的な一時ファイル名（ワーカー再起動対応）
-        temp_filename = f"google_lens_temp_{uuid.uuid4().hex}.jpg"
+        
+        # タイムスタンプ付きファイル名（クリーンアップ用）
+        import time
+        timestamp = int(time.time())
+        temp_filename = f"google_lens_temp_{timestamp}_{uuid.uuid4().hex[:8]}.jpg"
         temp_file_path = os.path.join(UPLOAD_DIR, temp_filename)
-        logger.info(f"📁 一時ファイル作成予定: {temp_file_path}")
+        logger.info(f"📁 永続化一時ファイル作成予定: {temp_file_path}")
+        
+        # 古い一時ファイルのクリーンアップ（1時間以上前）
+        cleanup_old_temp_files()
 
         # 高品質でJPEG保存（Google Lens APIの精度向上のため）
         input_image.save(temp_file_path, 'JPEG', quality=95, optimize=False)
         logger.info(f"💾 一時ファイル作成完了: {temp_file_path} ({os.path.getsize(temp_file_path)} bytes)")
-        
+
         # ファイル存在確認
         if not os.path.exists(temp_file_path):
             logger.error(f"❌ 一時ファイル作成失敗: {temp_file_path}")
@@ -904,13 +943,47 @@ def google_lens_exact_search(input_image_bytes: bytes) -> List[Dict]:
             logger.info(f"🏠 ローカル環境 - ファイルパス使用: {temp_file_path}")
 
         logger.info(f"🔍 Google Lens APIパラメータ: {search_params}")
-        search = GoogleSearch(search_params)
-        logger.info("🌐 SerpAPI Google Lens リクエスト実行中...")
         
         # SerpAPIリクエスト（タイムアウト対策）
         try:
-            results = search.get_dict()
+            search = GoogleSearch(search_params)
+            logger.info("🌐 SerpAPI Google Lens リクエスト実行中...")
+            
+            # タイムアウト付きでリクエスト実行
+            import signal
+            import threading
+            
+            results = None
+            exception_occurred = None
+            
+            def serpapi_request():
+                nonlocal results, exception_occurred
+                try:
+                    results = search.get_dict()
+                except Exception as e:
+                    exception_occurred = e
+            
+            # タイムアウト付きリクエスト（120秒）
+            thread = threading.Thread(target=serpapi_request)
+            thread.daemon = True
+            thread.start()
+            thread.join(timeout=120)
+            
+            if thread.is_alive():
+                logger.error("❌ SerpAPI リクエストタイムアウト (120秒)")
+                logger.info("   📊 Google Vision APIの結果のみ使用します")
+                return []
+            
+            if exception_occurred:
+                raise exception_occurred
+            
+            if results is None:
+                logger.error("❌ SerpAPI リクエスト結果が空")
+                logger.info("   📊 Google Vision APIの結果のみ使用します")
+                return []
+            
             logger.info(f"📡 SerpAPI レスポンス受信: {type(results)} - キー: {list(results.keys()) if isinstance(results, dict) else 'Not a dict'}")
+            
         except Exception as serpapi_error:
             logger.error(f"❌ SerpAPI リクエストエラー: {str(serpapi_error)}")
             logger.info("   📊 Google Vision APIの結果のみ使用します")
@@ -935,8 +1008,17 @@ def google_lens_exact_search(input_image_bytes: bytes) -> List[Dict]:
             elif "invalid" in error_msg.lower() or "parameter" in error_msg.lower():
                 logger.error("❌ SerpAPI パラメータエラー - API設定を確認してください")
                 return []
+            elif "couldn't get valid results" in error_msg.lower():
+                logger.warning("⚠️ SerpAPI 画像処理失敗 - 一時的な問題の可能性")
+                logger.info("   💡 原因: 画像アクセス失敗、API負荷、ネットワーク問題")
+                logger.info("   📊 Google Vision APIの結果のみ使用します")
+                return []
+            elif "timeout" in error_msg.lower() or "slow" in error_msg.lower():
+                logger.warning("⚠️ SerpAPI タイムアウト - リクエスト処理時間超過")
+                return []
             else:
                 logger.error(f"❌ SerpAPI 不明なエラー: {error_msg}")
+                logger.info("   📊 Google Vision APIの結果のみ使用します")
                 return []
 
         # 5. exact_matchesを取得
