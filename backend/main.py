@@ -1005,10 +1005,12 @@ def _execute_serpapi_request(temp_file_path: str, attempt: int) -> Optional[Dict
             temp_filename = os.path.basename(temp_file_path)
             image_url = f"{base_url}/uploads/{temp_filename}"
 
-            # URLアクセス確認
-            if not _verify_image_accessibility(image_url, attempt):
-                logger.warning(f"⚠️ 画像URLアクセス確認失敗（試行 {attempt + 1}）")
-                return None
+            # URLアクセス確認（推奨、失敗しても続行）
+            accessibility_ok = _verify_image_accessibility(image_url, attempt)
+            if not accessibility_ok:
+                logger.warning(f"⚠️ 画像URLアクセス確認失敗（試行 {attempt + 1}）- SerpAPIで再試行")
+            else:
+                logger.info(f"✅ 画像URLアクセス確認成功（試行 {attempt + 1}）")
 
             search_params = {
                 "engine": "google_lens",
@@ -1031,12 +1033,27 @@ def _execute_serpapi_request(temp_file_path: str, attempt: int) -> Optional[Dict
             }
             logger.info(f"🏠 ローカル環境リクエスト: {temp_file_path}")
 
-        # SerpAPI実行
+                # SerpAPI実行
         search = GoogleSearch(search_params)
         logger.info("🌐 SerpAPI Google Lens リクエスト実行中...")
+        logger.info(f"   📋 パラメータ確認:")
+        logger.info(f"     - Engine: {search_params.get('engine')}")
+        logger.info(f"     - Type: {search_params.get('type')}")
+        if "url" in search_params:
+            logger.info(f"     - Image URL: {search_params['url'][:100]}...")
+        else:
+            logger.info(f"     - Image File: {search_params['image']}")
+
+        # API呼び出しタイマー
+        import time
+        start_time = time.time()
 
         results = search.get_dict()
-        logger.info(f"📡 レスポンス受信: {type(results)}")
+
+        end_time = time.time()
+        elapsed = end_time - start_time
+        logger.info(f"📡 SerpAPIレスポンス受信: {type(results)} ({elapsed:.1f}秒)")
+
         return results
 
     except Exception as e:
@@ -1044,22 +1061,29 @@ def _execute_serpapi_request(temp_file_path: str, attempt: int) -> Optional[Dict
         return None
 
 def _verify_image_accessibility(image_url: str, attempt: int) -> bool:
-    """画像URLアクセス確認（短時間）"""
+    """画像URLアクセス確認（高速化版）"""
     try:
         import httpx
-        timeout = 15.0 + (attempt * 5)  # 15秒から段階的に延長
+        # タイムアウトを短縮: 10秒固定（Renderの応答遅延を考慮）
+        timeout = 10.0
+
+        logger.info(f"🧪 画像アクセステスト開始（{timeout}秒制限）")
 
         with httpx.Client(timeout=timeout) as client:
             response = client.head(image_url)
             if response.status_code == 200:
-                logger.info(f"✅ 画像アクセス確認成功: {response.status_code}")
+                logger.info(f"✅ アクセステスト成功: HTTP {response.status_code}")
+                content_type = response.headers.get('content-type', '不明')
+                content_length = response.headers.get('content-length', '不明')
+                logger.info(f"   📋 Content-Type: {content_type}, Size: {content_length}")
                 return True
             else:
-                logger.warning(f"⚠️ 画像アクセス確認失敗: {response.status_code}")
+                logger.warning(f"⚠️ アクセステスト失敗: HTTP {response.status_code}")
                 return False
 
     except Exception as e:
-        logger.warning(f"⚠️ 画像アクセス確認エラー: {e}")
+        logger.warning(f"⚠️ アクセステストタイムアウト: {e}")
+        logger.info(f"   💡 Renderサーバー遅延の可能性 - SerpAPI側では成功する可能性があります")
         return False
 
 def _handle_serpapi_error(error_msg: str, attempt: int, max_retries: int) -> bool:
