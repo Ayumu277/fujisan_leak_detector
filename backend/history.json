@@ -5264,5 +5264,120 @@
         "search_source": "Vision API"
       }
     ]
+  },
+  {
+    "history_id": "e270d8e1-0d2a-45a4-813e-891db43d80bb",
+    "image_id": "21f4796b-d9d4-489f-9bc0-79db0e38ad6b",
+    "image_hash": "afefaae08f3a841cb2adbcdbb64e71c35028d78a58d8472b7c4a8a2fd640dedb",
+    "original_filename": "00022.pdf",
+    "analysis_date": "2025-08-07T22:07:22.597339",
+    "analysis_timestamp": 1754572042,
+    "found_urls_count": 4,
+    "processed_results_count": 4,
+    "results": [
+      {
+        "url": "https://lookaside.instagram.com/seo/google_widget/crawler/?media_id=3673584311565046280",
+        "judgment": "？",
+        "reason": "[投稿内容（画像等）の出所と権利関係が不明なため、著作権侵害の有無を判断できない。]",
+        "confidence": "高",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "SNS・ソーシャルメディア",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://www.instagram.com/p/DAIvlgDzA9j/?hl=en",
+        "judgment": "？",
+        "reason": "投稿コンテンツの著作権帰属や、投稿者の権利関係が不明なため。",
+        "confidence": "低",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "SNS・ソーシャルメディア",
+        "search_method": "関連ページ",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://www.instagram.com/p/DL7MXogSpKg/",
+        "judgment": "？",
+        "reason": "[投稿者がコンテンツの著作権者か、権利許諾の有無が不明なため。]",
+        "confidence": "低",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "SNS・ソーシャルメディア",
+        "search_method": "関連ページ",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://www.threads.com/@precure_paradise/post/DL7o8VDPSbf/%E3%81%AF%E3%81%AA%E3%81%82%E3%81%84%EB%8B%98precure_paradise%EC%9D%98-%EA%B2%8C%EC%8B%9C%EB%AC%BC",
+        "judgment": "？",
+        "reason": "ファンアカウントの投稿であり、内容次第で著作権侵害の可能性はあるが、一概に海賊版とは断定できないため。",
+        "confidence": "低",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "その他・不明サイト",
+        "search_method": "関連ページ",
+        "search_source": "Vision API"
+      }
+    ]
+  },
+  {
+    "history_id": "c90f3a0e-7bc3-4fe5-a705-c7938ccb39a0",
+    "image_id": "dc0e9bdb-1e96-43a4-9a59-7a7896d74797",
+    "image_hash": "cd5d622ff6d7277d35a0979360b9569cf3543b63f13e491882d220f353df4ad0",
+    "original_filename": "00023.pdf",
+    "analysis_date": "2025-08-07T22:07:24.546805",
+    "analysis_timestamp": 1754572044,
+    "found_urls_count": 0,
+    "processed_results_count": 0,
+    "results": []
+  },
+  {
+    "history_id": "feb22c9d-01cb-42f3-874d-f17d6ce3b380",
+    "image_id": "8eb49632-408d-4241-8856-b28952d0b384",
+    "image_hash": "afefaae08f3a841cb2adbcdbb64e71c35028d78a58d8472b7c4a8a2fd640dedb",
+    "original_filename": "00022.pdf",
+    "analysis_date": "2025-08-07T22:11:34.821850",
+    "analysis_timestamp": 1754572294,
+    "found_urls_count": 4,
+    "processed_results_count": 4,
+    "results": [
+      {
+        "url": "https://lookaside.instagram.com/seo/google_widget/crawler/?media_id=3673584311565046280",
+        "judgment": "？",
+        "reason": "[ファンアカウントによる投稿であり、掲載画像の著作権侵害の有無は不明のため。]",
+        "confidence": "高",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "SNS・ソーシャルメディア",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://www.instagram.com/p/DAIvlgDzA9j/?hl=en",
+        "judgment": "○",
+        "reason": "[Instagram公式サイトのユーザー投稿であり、プラットフォームは正当。コンテンツの違法性は情報から判断不可。]",
+        "confidence": "低",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "SNS・ソーシャルメディア",
+        "search_method": "関連ページ",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://www.instagram.com/p/DL7MXogSpKg/",
+        "judgment": "？",
+        "reason": "[Instagramの一般投稿であり、著作権侵害と断定できる情報がないため。]",
+        "confidence": "低",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "SNS・ソーシャルメディア",
+        "search_method": "関連ページ",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://www.threads.com/@precure_paradise/post/DL7o8VDPSbf/%E3%81%AF%E3%81%AA%E3%81%82%E3%81%84%EB%8B%98precure_paradise%EC%9D%98-%EA%B2%8C%EC%8B%9C%EB%AC%BC",
+        "judgment": "？",
+        "reason": "SNS上のユーザー投稿であり、内容不明のため著作権侵害とは断定できない。",
+        "confidence": "低",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "その他・不明サイト",
+        "search_method": "関連ページ",
+        "search_source": "Vision API"
+      }
+    ]
   }
 ]

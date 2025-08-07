@@ -696,16 +696,13 @@ def estimate_urls_from_text(detected_text: str, confidence_score: float) -> list
     for keyword, urls in text_to_urls.items():
         if keyword.lower() in text_lower:
             for url in urls:
-                # 信頼度に基づいて分類
-                if confidence_score >= 0.9:
-                    search_method = "高信頼度テキスト"
-                    confidence = "高"
-                elif confidence_score >= 0.7:
-                    search_method = "中信頼度テキスト"
-                    confidence = "中"
-                else:
-                    search_method = "低信頼度テキスト"
-                    confidence = "低"
+                # 統一された信用度判定
+                confidence, confidence_reason = calculate_confidence_level(
+                    analysis_type="テキスト検出",
+                    judgment="発見",
+                    score=confidence_score
+                )
+                search_method = f"テキスト検出（{confidence}信用度）"
 
                 estimated_urls.append({
                     "url": url,
@@ -1175,7 +1172,11 @@ def search_web_for_image(image_content: bytes) -> list[dict]:
                     logger.info(f"  🔍 部分一致候補 {i+1}: score={score:.4f}, url={img.url}")
 
                     if score >= adaptive_threshold:
-                        img_confidence = "高" if score >= 0.5 else "中" if score >= 0.1 else "低"
+                        img_confidence, confidence_reason = calculate_confidence_level(
+                            analysis_type="Vision API検索",
+                            judgment="発見",
+                            score=score
+                        )
                         img_result = {
                             "url": img.url,
                             "search_method": "部分一致",
@@ -1229,7 +1230,11 @@ def search_web_for_image(image_content: bytes) -> list[dict]:
                     logger.info(f"  🔍 関連ページ候補 {i+1}: score={score:.4f}, url={page.url}")
 
                     if score >= page_threshold:
-                        page_confidence = "高" if score >= 0.3 else "中" if score >= 0.1 else "低"
+                        page_confidence, confidence_reason = calculate_confidence_level(
+                            analysis_type="Vision API検索",
+                            judgment="発見",
+                            score=score
+                        )
                         page_result = {
                             "url": page.url,
                             "search_method": "関連ページ",
@@ -1554,8 +1559,15 @@ def judge_x_content_with_gemini(x_data: dict) -> dict:
             reason = reason[:297] + "..."
             logger.info(f"📝 X投稿判定理由を300字に短縮しました")
 
-        # 信頼度を設定
-        confidence = "高" if judgment in ["○", "×"] else "低"
+        # 統一された信用度判定
+        confidence, confidence_reason = calculate_confidence_level(
+            analysis_type="X API + Gemini AI",
+            judgment=judgment,
+            additional_factors={
+                "verified_account": x_data.get("verified", False),
+                "official_domain": "twitter.com" in url or "x.com" in url
+            }
+        )
 
         logger.info(f"✅ Gemini X投稿判定完了: {judgment} - {reason[:50]}...")
 
@@ -1563,6 +1575,7 @@ def judge_x_content_with_gemini(x_data: dict) -> dict:
             "judgment": judgment,
             "reason": reason,
             "confidence": confidence,
+            "confidence_reason": confidence_reason,
             "x_data": x_data  # 元データも保持
         }
 
@@ -3578,33 +3591,9 @@ def process_batch_search(batch_id: str, file_ids: List[str]):
                 # プログレス更新
                 batch_jobs[batch_id]["files"][i]["progress"] = 60
 
-                # URL分析
-                processed_results = []
-                for j, url_data in enumerate(url_list[:50]):
-                    # url_dataが辞書形式の場合とstring形式の場合に対応
-                    if isinstance(url_data, dict):
-                        url = url_data["url"]
-                        search_method = url_data.get("search_method", "不明")
-                        search_source = url_data.get("search_source", "不明")
-                        confidence = url_data.get("confidence", "不明")
-                    else:
-                        # 後方互換性のため、string形式もサポート
-                        url = url_data
-                        search_method = "不明"
-                        search_source = "不明"
-                        confidence = "不明"
-
-                    result = analyze_url_efficiently(url)
-                    if result:
-                        # 検索方法の情報を結果に追加
-                        result["search_method"] = search_method
-                        result["search_source"] = search_source
-                        result["confidence"] = confidence
-                        processed_results.append(result)
-
-                    # 小刻みな進捗更新
-                    progress = 60 + (j + 1) * 30 // min(len(url_list), 50)  # 60% + 30%分を URL分析で使用
-                    batch_jobs[batch_id]["files"][i]["progress"] = min(progress, 90)
+                # URL分析（並列処理で高速化）
+                logger.info(f"🚀 URL分析開始（並列処理）: {len(url_list[:50])}件")
+                processed_results = analyze_urls_parallel(url_list[:50], batch_id, i)
 
                 # 結果保存（生の検索結果も含める）
                 search_results[file_id] = {
@@ -3837,6 +3826,205 @@ async def get_pdf_preview(file_id: str):
         )
 
 # URL分析関数群
+def analyze_urls_parallel(url_list: list, batch_id: str = None, file_index: int = None) -> list:
+    """
+    複数URLを並列処理で高速分析（最大5倍高速化）
+    """
+    global batch_jobs  # グローバル変数にアクセス
+    import concurrent.futures
+    import threading
+
+    processed_results = []
+    max_workers = min(5, len(url_list))  # 最大5並列（Gemini API制限考慮）
+
+    logger.info(f"⚡ 並列処理開始: {len(url_list)}件を{max_workers}並列で処理")
+
+    def process_single_url(url_data_with_index):
+        j, url_data = url_data_with_index
+        try:
+            # url_dataが辞書形式の場合とstring形式の場合に対応
+            if isinstance(url_data, dict):
+                url = url_data["url"]
+                search_method = url_data.get("search_method", "不明")
+                search_source = url_data.get("search_source", "不明")
+                confidence = url_data.get("confidence", "不明")
+            else:
+                url = url_data
+                search_method = "不明"
+                search_source = "不明"
+                confidence = "不明"
+
+            result = analyze_url_efficiently(url)
+            if result:
+                # 検索方法の情報を結果に追加
+                result["search_method"] = search_method
+                result["search_source"] = search_source
+                result["confidence"] = confidence
+                return j, result
+            return j, None
+
+        except Exception as e:
+            logger.warning(f"⚠️ URL分析エラー {j+1}: {str(e)}")
+            return j, None
+
+    try:
+        # 並列実行
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            # URLにインデックスを付けて並列処理
+            url_data_with_indices = [(j, url_data) for j, url_data in enumerate(url_list)]
+
+            # 並列実行
+            future_to_index = {
+                executor.submit(process_single_url, url_data_with_index): url_data_with_index[0]
+                for url_data_with_index in url_data_with_indices
+            }
+
+            # 結果収集
+            results_dict = {}
+            completed = 0
+
+            for future in concurrent.futures.as_completed(future_to_index):
+                try:
+                    j, result = future.result(timeout=30)  # 30秒タイムアウト
+                    if result:
+                        results_dict[j] = result
+
+                    completed += 1
+
+                    # 進捗更新（バッチ処理の場合）
+                    if batch_id and file_index is not None:
+                        try:
+                            progress = 60 + completed * 30 // len(url_list)
+                            if batch_id in batch_jobs:
+                                batch_jobs[batch_id]["files"][file_index]["progress"] = min(progress, 90)
+                        except (KeyError, IndexError, NameError):
+                            # batch_jobsにアクセスできない場合はスキップ
+                            pass
+
+                    logger.debug(f"  ✅ 完了 {completed}/{len(url_list)}")
+
+                except concurrent.futures.TimeoutError:
+                    logger.warning(f"⚠️ URL分析タイムアウト")
+                except Exception as e:
+                    logger.warning(f"⚠️ 並列処理エラー: {str(e)}")
+
+            # インデックス順に結果を並べ直し
+            for j in sorted(results_dict.keys()):
+                processed_results.append(results_dict[j])
+
+            logger.info(f"✅ 並列処理完了: {len(processed_results)}/{len(url_list)}件成功")
+            return processed_results
+
+    except Exception as parallel_error:
+        import traceback
+        logger.error(f"❌ 並列処理エラー詳細: {str(parallel_error)}")
+        logger.error(f"❌ エラートレースバック: {traceback.format_exc()}")
+        logger.warning("⚠️ 順次処理にフォールバック")
+
+        # フォールバック：順次処理
+        processed_results = []
+        for j, url_data in enumerate(url_list):
+            try:
+                # url_dataが辞書形式の場合とstring形式の場合に対応
+                if isinstance(url_data, dict):
+                    url = url_data["url"]
+                    search_method = url_data.get("search_method", "不明")
+                    search_source = url_data.get("search_source", "不明")
+                    confidence = url_data.get("confidence", "不明")
+                else:
+                    url = url_data
+                    search_method = "不明"
+                    search_source = "不明"
+                    confidence = "不明"
+
+                result = analyze_url_efficiently(url)
+                if result:
+                    # 検索方法の情報を結果に追加
+                    result["search_method"] = search_method
+                    result["search_source"] = search_source
+                    result["confidence"] = confidence
+                    processed_results.append(result)
+
+                logger.debug(f"  ✅ 順次処理完了 {j+1}/{len(url_list)}")
+
+            except Exception as e:
+                logger.warning(f"⚠️ URL分析エラー {j+1}: {str(e)}")
+                continue
+
+        logger.info(f"✅ 順次処理完了: {len(processed_results)}/{len(url_list)}件成功")
+        return processed_results
+
+# URL判定結果のキャッシュ（同じURLの重複判定を避ける）
+url_judgment_cache = {}
+
+def calculate_confidence_level(analysis_type: str, judgment: str, score: float = None, additional_factors: dict = None) -> tuple[str, str]:
+    """
+    統一された信用度判定システム
+
+    Args:
+        analysis_type: 分析方法 ("domain", "vision_api", "gemini_ai", "scraping", etc.)
+        judgment: 判定結果 ("○", "×", "？", "アクセス不可", etc.)
+        score: スコア (0.0-1.0)
+        additional_factors: 追加要因 {"official_domain": bool, "verified_account": bool, etc.}
+
+    Returns:
+        tuple[confidence_level, confidence_reason]: ("高"/"中"/"低"/"不明", "理由")
+    """
+    additional_factors = additional_factors or {}
+
+    # 1. 確定的判定（最高信用度）
+    if analysis_type == "ドメインベース事前判定":
+        if judgment in ["○", "×"]:
+            return "確定", "公式ドメイン・既知パターンによる確定判定"
+        else:
+            return "中", "ドメインベース推定"
+
+    # 2. アクセス不可（確定）
+    if judgment == "アクセス不可":
+        return "確定", "HTTP応答による確定判定"
+
+    # 3. AI判定ベース
+    if analysis_type in ["X API + Gemini AI", "スクレイピング + Gemini AI"]:
+        if judgment == "○":
+            # 追加要因で信用度を調整
+            if additional_factors.get("verified_account", False):
+                return "高", "AI判定○ + 認証済みアカウント"
+            elif additional_factors.get("official_domain", False):
+                return "高", "AI判定○ + 公式ドメイン"
+            else:
+                return "高", "AI判定○（明確な流出判定）"
+        elif judgment == "×":
+            return "高", "AI判定×（明確な非流出判定）"
+        else:  # "？"
+            return "低", "AI判定不明（判断材料不足）"
+
+    # 4. Vision API検索ベース
+    if analysis_type == "Vision API検索":
+        if score is not None:
+            if score >= 0.8:
+                return "高", f"Vision API高精度マッチ（スコア: {score:.2f}）"
+            elif score >= 0.3:
+                return "中", f"Vision API中精度マッチ（スコア: {score:.2f}）"
+            else:
+                return "低", f"Vision API低精度マッチ（スコア: {score:.2f}）"
+        else:
+            return "中", "Vision API検索結果"
+
+    # 5. テキスト検出ベース
+    if analysis_type == "テキスト検出":
+        if score is not None:
+            if score >= 0.95:
+                return "高", f"テキスト検出高精度（スコア: {score:.2f}）"
+            elif score >= 0.8:
+                return "中", f"テキスト検出中精度（スコア: {score:.2f}）"
+            else:
+                return "低", f"テキスト検出低精度（スコア: {score:.2f}）"
+        else:
+            return "中", "テキスト検出結果"
+
+    # 6. その他・不明
+    return "不明", f"判定方法: {analysis_type}"
+
 def analyze_url_efficiently(url: str) -> dict | None:
     """
     URLを効率的に分析し、判定結果を返す
@@ -4184,36 +4372,16 @@ def judge_content_with_gemini(content: str, domain_category: str = "不明") -> 
         }
 
     try:
+        # 高速化：プロンプトを簡潔化（レスポンス時間短縮）
         prompt = f"""
-【ドメイン分類】{domain_category}
-【ページ内容】{content[:1500]}
+【URL】{content[:800]}
 
-以下の明確な基準で著作権・違法性を判定してください：
+判定基準:
+○=公式サイト・正当コンテンツ
+×=海賊版・著作権侵害・違法
+?=画像直リンク・CDN・判定困難
 
-■○（合法・問題なし）の基準：
-・出版社公式サイト（講談社、集英社、小学館等）
-・公式ECサイト（Amazon、楽天、書店公式等）
-・公式SNS・ニュースサイト（ナタリー、オリコン等）
-・個人の好意的な感想・レビュー・応援
-・正当な引用範囲内での紹介
-
-■×（違法・問題あり）の基準：
-・海賊版サイト（無断アップロード、zip配布等）
-・著作権侵害の商用利用・転売
-・明確な誹謗中傷・悪口が主目的
-・偽造品・海賊版の販売
-・「無料ダウンロード」「raw」「zip」等の違法キーワード
-
-■？（要確認）の基準：
-・画像直リンク（.jpg/.png等）で内容確認不可
-・CDN URL（akamai等）で元サイト不明
-・個人サイトで商用利用の可能性
-・二次創作の商用販売（グレーゾーン）
-
-【重要】上記基準に厳密に従い、明確に分類してください。
-迷った場合は「？」ではなく、より厳しい基準で判定してください。
-
-回答形式: "判定:[○/×/?] 理由:[具体的な判定根拠を100字以内]"
+回答: "判定:[○/×/?] 理由:[50字以内]"
 """
 
         logger.info("🤖 Gemini AI判定開始")
