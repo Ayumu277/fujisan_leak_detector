@@ -912,40 +912,45 @@ def google_lens_exact_search(input_image_bytes: bytes) -> List[Dict]:
             logger.error("❌ 一時ファイル作成失敗")
             return []
 
-        # 4. 高速代替手法の試行
-        logger.info("🔄 高速代替アプローチを試行中...")
-        alternative_results = _try_alternative_exact_match(processed_image)
-        if alternative_results:
-            logger.info(f"✅ 代替手法で {len(alternative_results)} 件の結果を発見")
-            return alternative_results
+        # ===== Google Lens機能を一時停止 =====
+        # 複雑すぎるため、Google Vision APIのみに絞って安定化を図る
+        logger.info("⏸️ Google Lens機能は一時停止中（Vision APIのみ使用）")
+        return []
 
-        # 5. 環境適応API呼び出し（リトライ機構付き）
-        for attempt in range(max_retries):
-            logger.info(f"🚀 Google Lens API呼び出し 試行 {attempt + 1}/{max_retries}")
+        # # 4. 高速代替手法の試行
+        # logger.info("🔄 高速代替アプローチを試行中...")
+        # alternative_results = _try_alternative_exact_match(processed_image)
+        # if alternative_results:
+        #     logger.info(f"✅ 代替手法で {len(alternative_results)} 件の結果を発見")
+        #     return alternative_results
 
-            # API呼び出し実行
-            results = _execute_serpapi_request(temp_file_path, attempt)
+        # # 5. 環境適応API呼び出し（リトライ機構付き）
+        # for attempt in range(max_retries):
+        #     logger.info(f"🚀 Google Lens API呼び出し 試行 {attempt + 1}/{max_retries}")
 
-            if results is None:
-                continue  # 次の試行へ
+        #     # API呼び出し実行
+        #     results = _execute_serpapi_request(temp_file_path, attempt)
 
-            # 成功時の処理
-            if "error" not in results:
-                return _process_google_lens_results(results)
+        #     if results is None:
+        #         continue  # 次の試行へ
 
-            # エラー処理
-            error_msg = results.get("error", "")
-            retry_needed = _handle_serpapi_error(error_msg, attempt, max_retries)
+        #     # 成功時の処理
+        #     if "error" not in results:
+        #         return _process_google_lens_results(results)
 
-            if not retry_needed:
-                return []
+        #     # エラー処理
+        #     error_msg = results.get("error", "")
+        #     retry_needed = _handle_serpapi_error(error_msg, attempt, max_retries)
 
-            # リトライ前の短縮待機
-            if attempt < max_retries - 1:
-                import time
-                wait_time = 3  # 固定3秒待機
-                logger.info(f"⏳ {wait_time}秒待機後にリトライします...")
-                time.sleep(wait_time)
+        #     if not retry_needed:
+        #         return []
+
+        #     # リトライ前の短縮待機
+        #     if attempt < max_retries - 1:
+        #         import time
+        #         wait_time = 3  # 固定3秒待機
+        #         logger.info(f"⏳ {wait_time}秒待機後にリトライします...")
+        #         time.sleep(wait_time)
 
         logger.error("❌ 全ての試行が失敗しました")
         return []
@@ -1315,9 +1320,7 @@ def enhanced_image_search_with_reverse(image_content: bytes) -> list[dict]:
             all_results.append(result)
 
     logger.info(f"📊 画像検索結果統計:")
-    logger.info(f"  - Google Vision API: {len(vision_results)}件（完全一致・部分一致）")
-    logger.info(f"  - SerpAPI Google Lens: {len(google_lens_results)}件（完全一致）")
-    logger.info(f"  - 重複除去後合計: {len(all_results)}件")
+    logger.info(f"🔍 検索結果: Vision API {len(vision_results)}件")
 
     return all_results
 
@@ -1333,7 +1336,7 @@ def search_web_for_image(image_content: bytes) -> list[dict]:
 
     try:
         # 1. Google Vision API
-        logger.info("📊 【Phase 1】Google Vision API（WEB+TEXT）")
+        logger.info("🔍 Vision API検索開始")
 
         # Vision APIクライアントが初期化されているかチェック
         if not vision_client:
@@ -1461,11 +1464,7 @@ def search_web_for_image(image_content: bytes) -> list[dict]:
             response = vision_client.annotate_image(request=request)
             logger.info("✅ 検出完了")
 
-            logger.info(f"📡 Vision API レスポンス受信完了")
-            logger.info(f"📋 レスポンス詳細: type={type(response)}")
-            if hasattr(response, 'error'):
-                error_attr = getattr(response, 'error', None)
-                logger.info(f"📋 エラー属性存在: {error_attr is not None}")
+            # レスポンス受信完了
         except Exception as api_error:
             logger.error(f"❌ Vision API 呼び出しエラー: {api_error}")
             logger.error(f"   エラータイプ: {type(api_error).__name__}")
@@ -1540,12 +1539,7 @@ def search_web_for_image(image_content: bytes) -> list[dict]:
                 logger.info("   - 画像の品質や解像度が影響している可能性があります")
                 logger.info("   - または、この画像が非常に新しい/特殊な画像の可能性があります")
 
-        logger.info(f"📈 Vision API検出結果（WEB_DETECTION特化、類似画像除外）:")
-        logger.info(f"  - 完全一致画像: {full_count}件")
-        logger.info(f"  - 部分一致画像: {partial_count}件")
-        logger.info(f"  - 類似画像: {similar_count}件（スキップ）")
-        logger.info(f"  - 関連ページ: {pages_count}件")
-        logger.info(f"  - 有効検出: {full_count + partial_count + pages_count}件")
+        logger.info(f"✅ Vision API検出: 完全一致{full_count}件・部分一致{partial_count}件・関連ページ{pages_count}件")
 
         # 1-1. WEB_DETECTION: 完全一致画像からURL収集
         if web_detection and web_detection.full_matching_images:
@@ -1700,10 +1694,7 @@ def search_web_for_image(image_content: bytes) -> list[dict]:
 
         # 最終統計（Vision API特化、類似画像除外）
         final_results_count = len(all_results)
-        logger.info(f"✅ Vision API検出完了: {final_results_count}件のURL取得")
-        logger.info(f"  - 完全一致: {len([r for r in all_results if r['search_method'] == '完全一致'])}件")
-        logger.info(f"  - 部分一致: {len([r for r in all_results if r['search_method'] == '部分一致'])}件")
-        logger.info(f"  - 関連ページ: {len([r for r in all_results if r['search_method'] == '関連ページ'])}件")
+        logger.info(f"✅ Vision API検索完了: {final_results_count}件のURL取得")
 
         # 重複除去のみ（信頼性・有効性チェックは削除）
         logger.info("🔧 URL重複除去開始...")
