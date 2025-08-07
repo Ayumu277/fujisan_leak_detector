@@ -3625,5 +3625,27 @@
     "found_urls_count": 0,
     "processed_results_count": 0,
     "results": []
+  },
+  {
+    "history_id": "50674de4-f90e-4cfb-ae93-6ad37e2d0db2",
+    "image_id": "100ca183-9de5-48fa-9360-7cd14dcd39f4",
+    "image_hash": "b70a58a9b3250e633b10b9f17435b498d00344a10ce63edb6caa082b64c09989",
+    "original_filename": "00022.pdf",
+    "analysis_date": "2025-08-07T12:20:48.035615",
+    "analysis_timestamp": 1754536848,
+    "found_urls_count": 1,
+    "processed_results_count": 1,
+    "results": [
+      {
+        "url": "https://lookaside.instagram.com/seo/google_widget/crawler/?media_id=3673584311565046280",
+        "judgment": "？",
+        "reason": "提示されたInstagramの投稿タイトルと説明だけでは、投稿されているコンテンツ（画像や動画など）の内容を確認できず、著作権侵害や違法性を判断するための具体的な情報が不足しているため。",
+        "confidence": "高",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "SNS・ソーシャルメディア",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      }
+    ]
   }
 ]

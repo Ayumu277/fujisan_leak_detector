@@ -2,6 +2,7 @@ from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+import gc
 import os
 import json
 import uuid
@@ -409,14 +410,17 @@ def convert_pdf_to_images(pdf_content: bytes) -> List[bytes]:
     各ページを個別の画像として返す
     """
     images = []
+    pdf_document = None
 
     try:
         # 方法1: PyMuPDF (fitz) を使用
         if 'fitz' in globals():
             logger.info("🔄 PyMuPDF でPDFを画像に変換中...")
             pdf_document = fitz.open(stream=pdf_content, filetype="pdf")
+            page_count = pdf_document.page_count  # close前に取得
+            logger.info(f"📄 PDF総ページ数: {page_count}")
 
-            for page_num in range(pdf_document.page_count):
+            for page_num in range(page_count):
                 page = pdf_document[page_num]
                 # 高品質でPDFページを画像に変換 (PyMuPDF 1.26.3対応)
                 pix = page.get_pixmap(dpi=200)  # type: ignore # DPIで品質指定
@@ -424,11 +428,23 @@ def convert_pdf_to_images(pdf_content: bytes) -> List[bytes]:
                 images.append(img_data)
                 logger.info(f"📄 ページ {page_num + 1} を画像に変換完了")
 
-            pdf_document.close()
             return images
 
     except Exception as e:
         logger.warning(f"⚠️ PyMuPDF変換失敗: {e}")
+        return []
+    
+    finally:
+        # PDF文書を確実に閉じる
+        if pdf_document is not None:
+            try:
+                pdf_document.close()
+                logger.debug("🔒 PDF文書クローズ完了")
+            except Exception as e:
+                logger.warning(f"⚠️ PDF文書クローズ失敗: {e}")
+        
+        # メモリ最適化
+        gc.collect()
 
     logger.error("❌ PDFを画像に変換できませんでした")
     return []
@@ -437,23 +453,38 @@ def extract_pdf_text(pdf_content: bytes) -> str:
     """
     PDFからテキストを抽出する（補助情報として使用）
     """
+    pdf_document = None
+    
     try:
         # 方法1: PyMuPDF (fitz) を使用
         if 'fitz' in globals():
             logger.info("🔄 PyMuPDF でテキスト抽出中...")
             pdf_document = fitz.open(stream=pdf_content, filetype="pdf")
             text = ""
+            page_count = pdf_document.page_count  # close前に取得
 
-            for page_num in range(pdf_document.page_count):
+            for page_num in range(page_count):
                 page = pdf_document[page_num]
                 page_text = page.get_text()  # type: ignore
                 text += f"[ページ {page_num + 1}]\n{page_text}\n\n"
 
-            pdf_document.close()
             return text.strip()
 
     except Exception as e:
         logger.warning(f"⚠️ PyMuPDF テキスト抽出失敗: {e}")
+        return ""
+        
+    finally:
+        # PDF文書を確実に閉じる
+        if pdf_document is not None:
+            try:
+                pdf_document.close()
+                logger.debug("🔒 PDFテキスト抽出: 文書クローズ完了")
+            except Exception as e:
+                logger.warning(f"⚠️ PDFテキスト抽出: 文書クローズ失敗: {e}")
+        
+        # メモリ最適化
+        gc.collect()
 
     return ""
 
@@ -840,21 +871,30 @@ def serpapi_reverse_image_search(input_image_bytes: bytes) -> List[Dict]:
         # 高品質でJPEG保存（SerpAPIの精度向上のため）
         input_image.save(temp_file_path, 'JPEG', quality=95, optimize=False)
 
-        # 3. 一時ファイルをHTTPで公開
-        base_url = os.getenv("VITE_API_BASE_URL", "http://localhost:8000")
+        # 3. 一時ファイルをHTTPで公開（Render対応）
+        render_url = os.getenv("RENDER_EXTERNAL_URL")
+        if render_url:
+            # Render本番環境の場合
+            base_url = render_url.rstrip('/')
+            logger.info(f"🌐 Render環境使用: {base_url}")
+        else:
+            # ローカル開発環境の場合
+            base_url = os.getenv("VITE_API_BASE_URL", "http://localhost:8000")
+            logger.info(f"🏠 ローカル環境使用: {base_url}")
+        
         image_url = f"{base_url}/uploads/{temp_filename}"
         logger.info(f"📁 一時画像URL: {image_url}")
 
-        # SerpAPIのURL可用性をチェック
+        # SerpAPIのURL可用性をチェック（本番環境では制限されることがあるのでワーニングに留める）
         try:
             import requests
-            response = requests.head(image_url, timeout=5)
+            response = requests.head(image_url, timeout=10)
             if response.status_code != 200:
-                logger.warning(f"⚠️ 一時画像URLにアクセスできません: {response.status_code}")
-                return []
+                logger.warning(f"⚠️ 一時画像URLアクセス確認: {response.status_code}")
+                # 本番環境では継続（Renderの外部URLチェックは制限される場合があるため）
         except Exception as e:
             logger.warning(f"⚠️ 一時画像URL確認エラー: {e}")
-            # 本番環境では継続（ファイアウォール等でHEADリクエストが制限される場合があるため）
+            # エラーでも処理を継続（本番環境対応）
 
         # 4. SerpAPI逆画像検索実行
         search_params = {
@@ -2863,22 +2903,10 @@ async def upload_image(file: UploadFile = File(...)):
 
         logger.info("✅ ファイル形式検証OK")
 
-        # ファイルサイズ制限（10MB）
+        # ファイル読み込み（サイズ制限なし）
         content = await file.read()
         file_size_mb = len(content) / (1024 * 1024)
         logger.info(f"📊 ファイルサイズ: {file_size_mb:.2f}MB")
-
-        if len(content) > 10 * 1024 * 1024:
-            logger.error(f"❌ ファイルサイズが大きすぎます: {file_size_mb:.2f}MB")
-            raise HTTPException(
-                status_code=413,
-                detail={
-                    "error": "file_too_large",
-                    "message": "ファイルサイズが大きすぎます。10MB以下の画像をアップロードしてください。",
-                    "file_size_mb": file_size_mb,
-                    "max_size_mb": 10
-                }
-            )
 
         # ファイル種別による検証
         is_pdf = is_pdf_file(file.content_type or "", file.filename or "")
@@ -4091,14 +4119,8 @@ async def batch_upload_images(files: List[UploadFile] = File(...)):
                 })
                 break
 
-            # 個別ファイルサイズ制限チェック（10MB）
-            if file_size > 10 * 1024 * 1024:
-                errors.append({
-                    "filename": file.filename,
-                    "error": "file_too_large",
-                    "message": f"ファイルサイズが大きすぎます: {file_size / (1024*1024):.1f}MB"
-                })
-                continue
+            # ファイルサイズ情報をログ出力（制限は行わない）
+            logger.info(f"📊 {file.filename}: {file_size / (1024*1024):.1f}MB")
 
             # ファイル種別による検証
             is_pdf = is_pdf_file(file.content_type or "", file.filename or "")
@@ -4403,6 +4425,9 @@ def process_batch_search(batch_id: str, file_ids: List[str]):
 
             # 完了ファイル数更新
             batch_jobs[batch_id]["completed_files"] = i + 1
+            
+            # メモリ最適化（各ファイル処理後）
+            gc.collect()
 
         # 全体完了
         batch_jobs[batch_id]["status"] = "completed"
