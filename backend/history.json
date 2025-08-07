@@ -5379,5 +5379,106 @@
         "search_source": "Vision API"
       }
     ]
+  },
+  {
+    "history_id": "a469578d-f292-40a5-85cd-5383a66b7195",
+    "image_id": "6094a7f2-ecc0-4113-8f65-d5456d7deb1e",
+    "image_hash": "afefaae08f3a841cb2adbcdbb64e71c35028d78a58d8472b7c4a8a2fd640dedb",
+    "original_filename": "00022.pdf",
+    "analysis_date": "2025-08-07T22:58:28.267475",
+    "analysis_timestamp": 1754575108,
+    "found_urls_count": 4,
+    "processed_results_count": 4,
+    "results": [
+      {
+        "url": "https://lookaside.instagram.com/seo/google_widget/crawler/?media_id=3673584311565046280",
+        "judgment": "○",
+        "reason": "○ 簡潔ながら愛が伝わる内容で、Instagramの投稿として自然。",
+        "confidence": "高",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "SNS・ソーシャルメディア",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://www.instagram.com/p/DAIvlgDzA9j/?hl=en",
+        "judgment": "×",
+        "reason": "×\nタイトル形式がInstagram投稿と異なり、アカウント名に矛盾があるため。",
+        "confidence": "低",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "SNS・ソーシャルメディア",
+        "search_method": "関連ページ",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://www.instagram.com/p/DL7MXogSpKg/",
+        "judgment": "×",
+        "reason": "× 投稿タイトルも説明もインスタ投稿の形式に合わない。",
+        "confidence": "低",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "SNS・ソーシャルメディア",
+        "search_method": "関連ページ",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://www.threads.com/@precure_paradise/post/DL7o8VDPSbf/%E3%81%AF%E3%81%AA%E3%81%82%E3%81%84%EB%8B%98precure_paradise%EC%9D%98-%EA%B2%8C%EC%8B%9C%EB%AC%BC",
+        "judgment": "？",
+        "reason": "? 投稿内容がないため、評価できません。",
+        "confidence": "低",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "その他・不明サイト",
+        "search_method": "関連ページ",
+        "search_source": "Vision API"
+      }
+    ]
+  },
+  {
+    "history_id": "c325db8b-698f-43b2-a596-1fec6e1f5367",
+    "image_id": "a1c69d08-9f1f-442a-85f7-00fe886a3d13",
+    "image_hash": "afefaae08f3a841cb2adbcdbb64e71c35028d78a58d8472b7c4a8a2fd640dedb",
+    "original_filename": "00022.pdf",
+    "analysis_date": "2025-08-07T23:10:30.354995",
+    "analysis_timestamp": 1754575830,
+    "found_urls_count": 4,
+    "processed_results_count": 4,
+    "results": [
+      {
+        "url": "https://lookaside.instagram.com/seo/google_widget/crawler/?media_id=3673584311565046280",
+        "judgment": "○",
+        "reason": "信頼できる公式ドメイン（instagram.com）からのコンテンツ",
+        "confidence": "高",
+        "analysis_type": "ドメインベース事前判定",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://www.instagram.com/p/DAIvlgDzA9j/?hl=en",
+        "judgment": "○",
+        "reason": "信頼できる公式ドメイン（instagram.com）からのコンテンツ",
+        "confidence": "低",
+        "analysis_type": "ドメインベース事前判定",
+        "search_method": "関連ページ",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://www.instagram.com/p/DL7MXogSpKg/",
+        "judgment": "○",
+        "reason": "信頼できる公式ドメイン（instagram.com）からのコンテンツ",
+        "confidence": "低",
+        "analysis_type": "ドメインベース事前判定",
+        "search_method": "関連ページ",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://www.threads.com/@precure_paradise/post/DL7o8VDPSbf/%E3%81%AF%E3%81%AA%E3%81%82%E3%81%84%EB%8B%98precure_paradise%EC%9D%98-%EA%B2%8C%EC%8B%9C%EB%AC%BC",
+        "judgment": "？",
+        "reason": "？：投稿内容と掲載元が不明確なため。",
+        "confidence": "低",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "その他・不明サイト",
+        "search_method": "関連ページ",
+        "search_source": "Vision API"
+      }
+    ]
   }
 ]
