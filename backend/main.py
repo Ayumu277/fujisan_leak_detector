@@ -874,7 +874,7 @@ def google_lens_exact_search(input_image_bytes: bytes) -> List[Dict]:
         search_params = {
             "engine": "google_lens",
             "type": "exact_matches",
-            "image_url": image_url,
+            "url": image_url,  # SerpAPI仕様: パラメータ名は'url'
             "api_key": SERP_API_KEY,
             "no_cache": True,  # キャッシュを使用しない（最新結果を取得）
             "safe": "off"      # セーフサーチを無効化（より多くの結果を取得）

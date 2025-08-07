@@ -3647,5 +3647,151 @@
         "search_source": "Vision API"
       }
     ]
+  },
+  {
+    "history_id": "964c3569-e151-46d1-9230-780285747cd9",
+    "image_id": "a632026c-9243-4679-b60e-6a8a90efb915",
+    "image_hash": "b70a58a9b3250e633b10b9f17435b498d00344a10ce63edb6caa082b64c09989",
+    "original_filename": "00022.pdf",
+    "analysis_date": "2025-08-07T14:55:56.087449",
+    "analysis_timestamp": 1754546156,
+    "found_urls_count": 4,
+    "processed_results_count": 4,
+    "results": [
+      {
+        "url": "https://lookaside.instagram.com/seo/google_widget/crawler/?media_id=3673584311565046280",
+        "judgment": "？",
+        "reason": "Instagram投稿であり、具体的な画像や動画の内容が不明なため、著作権侵害や違法性の有無を判断できません。テキスト情報だけでは問題を示唆する要素がないため判定困難です。",
+        "confidence": "高",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "SNS・ソーシャルメディア",
+        "search_method": "完全一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://www.instagram.com/p/DAIvlgDzA9j/?hl=en",
+        "judgment": "？",
+        "reason": "Instagramの投稿タイトルと説明のみでは、具体的な画像や動画の内容が不明なため、著作権侵害や違法コンテンツであるか判断できません。",
+        "confidence": "低",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "SNS・ソーシャルメディア",
+        "search_method": "関連ページ",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://www.instagram.com/p/DL7MXogSpKg/",
+        "judgment": "？",
+        "reason": "ページ内容に投稿された画像や動画が示されておらず、単なるテキスト投稿であれば違法性はありません。具体的なコンテンツ内容が不明なため、著作権侵害や違法コンテンツに該当するか判断できません。",
+        "confidence": "低",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "SNS・ソーシャルメディア",
+        "search_method": "関連ページ",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://www.threads.com/@precure_paradise/post/DL7o8VDPSbf/%E3%81%AF%E3%81%AA%E3%81%82%E3%81%84%EB%8B%98precure_paradise%EC%9D%98-%EA%B2%8C%EC%8B%9C%EB%AC%BC",
+        "judgment": "？",
+        "reason": "タイトルとユーザー名からコンテンツ内容は推測できるものの、具体的な投稿内容が不明です。また、公式サイトではない「その他・不明サイト」であるため、著作権侵害か否かを判断する情報が不足しています。",
+        "confidence": "低",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "その他・不明サイト",
+        "search_method": "関連ページ",
+        "search_source": "Vision API"
+      }
+    ]
+  },
+  {
+    "history_id": "7f4f90fc-e916-40f9-ad6d-6d2893ef7e25",
+    "image_id": "67d35cb6-a9b7-4808-b87a-e1ef469341ab",
+    "image_hash": "d9dffb14bd7d894c834b2485ac0cb0d1f31a736211150b7e206e16a0ac7988ac",
+    "original_filename": "00025.pdf",
+    "analysis_date": "2025-08-07T14:56:22.860523",
+    "analysis_timestamp": 1754546182,
+    "found_urls_count": 8,
+    "processed_results_count": 8,
+    "results": [
+      {
+        "url": "https://64.media.tumblr.com/1f7511b361f75d2fb6c6c2d1aa15e711/7bec67a5acfb3765-8c/s540x810/844d51a13254dbca75754ce3d2467a8cf23463fe.jpg",
+        "judgment": "？",
+        "reason": "画像内容が確認できないため、著作権侵害の有無を具体的に判断できません。SNSプラットフォーム上のユーザー投稿であり、個別のコンテンツの合法性は内容によって異なります。",
+        "confidence": "低",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "SNS・ソーシャルメディア",
+        "search_method": "部分一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://pbs.twimg.com/media/GvfJDZPWUAA_9e8?format=jpg&name=900x900",
+        "judgment": "？",
+        "reason": "ページ内容を取得できませんでした",
+        "confidence": "低",
+        "analysis_type": "スクレイピング失敗",
+        "domain_category": "その他・不明サイト",
+        "search_method": "部分一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://lookaside.instagram.com/seo/google_widget/crawler/?media_id=3673594475008918150",
+        "judgment": "○",
+        "reason": "声優グランプリ公式Instagramアカウントからの投稿で、雑誌の発売告知と掲載内容の紹介です。正当な宣伝活動であり、著作権侵害や違法コンテンツに該当する要素は見当たりません。",
+        "confidence": "低",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "SNS・ソーシャルメディア",
+        "search_method": "部分一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://mw-cds.akamaized.net/MW-Product/988/803/2e7a0a6488b23aab7378f79c9fa1698d58458a87b1ef2c0ff2139cfaa04cca40/RS4A/thumbnail/3bec5e610931ce16f674cd5de7be15a23b1ab00d4e3351957925c844e3d3928f.jpg",
+        "judgment": "？",
+        "reason": "CDNサービス（Akamai）のドメインであり、URL構造から画像内容が判別できないため、著作権侵害や違法コンテンツであるか判断できません。正規のコンテンツ配信の可能性も否定できません。",
+        "confidence": "低",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "その他・不明サイト",
+        "search_method": "部分一致",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://twitter.com/search?q=%23Wishforyou&src=recent_search_click&f=media",
+        "judgment": "？",
+        "reason": "ページ内容を取得できませんでした",
+        "confidence": "低",
+        "analysis_type": "スクレイピング失敗",
+        "domain_category": "SNS・ソーシャルメディア",
+        "search_method": "関連ページ",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://www.instagram.com/seigura.magazine/",
+        "judgment": "○",
+        "reason": "「声優グランプリ」の公式Instagramアカウントであり、通常、自身が権利を持つコンテンツや許諾を得たコンテンツを投稿するため、著作権侵害・違法コンテンツの可能性は低い。",
+        "confidence": "低",
+        "analysis_type": "Gemini AI詳細分析",
+        "domain_category": "SNS・ソーシャルメディア",
+        "search_method": "関連ページ",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://www.tumbig.com/tag/%E5%A4%A9%E3%81%BF",
+        "judgment": "？",
+        "reason": "ページ内容を取得できませんでした",
+        "confidence": "低",
+        "analysis_type": "スクレイピング失敗",
+        "domain_category": "その他・不明サイト",
+        "search_method": "関連ページ",
+        "search_source": "Vision API"
+      },
+      {
+        "url": "https://x.com/seigura/status/1943243833212342489",
+        "judgment": "○",
+        "reason": "雑誌「声優グランプリ」の公式アカウントが、自社発行の雑誌最新号の発売を告知する正当な投稿です。掲載タレントや内容を紹介しており、著作権侵害や違法な要素は一切含まれていません。",
+        "confidence": "低",
+        "analysis_type": "X API + Gemini AI",
+        "x_username": "seigura",
+        "x_display_name": "声優グランプリ＠30周年",
+        "x_tweet_text": "声グラ8月号は本日7月10日発売💐\n1stシングル「Wish for you」をリリースする前島亜美さんが登場💙\nTVアニメ『#公女殿下 の家庭教師』のOPである表題曲を中心にそれぞれの楽曲についてお...",
+        "search_method": "関連ページ",
+        "search_source": "Vision API"
+      }
+    ]
   }
 ]
