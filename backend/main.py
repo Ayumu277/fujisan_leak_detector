@@ -458,7 +458,7 @@ def convert_pdf_to_images(pdf_content: bytes) -> List[bytes]:
 
         # メモリ使用量をログ出力（デバッグ用）
         try:
-            import psutil
+            import psutil  # type: ignore  # オプショナルライブラリ
             memory_usage = psutil.Process().memory_info().rss / 1024 / 1024  # MB
             logger.debug(f"🧹 メモリクリア完了 (現在使用量: {memory_usage:.1f}MB)")
         except ImportError:
@@ -1559,13 +1559,16 @@ def judge_x_content_with_gemini(x_data: dict) -> dict:
             reason = reason[:297] + "..."
             logger.info(f"📝 X投稿判定理由を300字に短縮しました")
 
+        # URLを取得またはデフォルト値を設定
+        tweet_url = x_data.get('url', '')
+
         # 統一された信用度判定
         confidence, confidence_reason = calculate_confidence_level(
             analysis_type="X API + Gemini AI",
             judgment=judgment,
             additional_factors={
                 "verified_account": x_data.get("verified", False),
-                "official_domain": "twitter.com" in url or "x.com" in url
+                "official_domain": "twitter.com" in tweet_url or "x.com" in tweet_url
             }
         )
 
@@ -1579,11 +1582,22 @@ def judge_x_content_with_gemini(x_data: dict) -> dict:
             "x_data": x_data  # 元データも保持
         }
 
-    except Exception as e:
-        logger.error(f"❌ Gemini X投稿判定エラー: {str(e)}")
+    except TimeoutError:
+        logger.error("⏰ Gemini X投稿判定タイムアウト（30秒）")
+        import gc
+        gc.collect()
         return {
             "judgment": "？",
-            "reason": f"判定エラー: {str(e)}",
+            "reason": "X投稿判定がタイムアウトしました",
+            "confidence": "不明"
+        }
+    except Exception as e:
+        logger.error(f"❌ Gemini X投稿判定エラー: {str(e)}")
+        import gc
+        gc.collect()
+        return {
+            "judgment": "？",
+            "reason": f"判定エラー: {str(e)[:50]}",
             "confidence": "不明"
         }
 
@@ -1668,9 +1682,6 @@ def validate_url_availability_fast(url: str) -> bool:
 
     except httpx.RequestError as e:
         logger.info(f"❌ リクエストエラー: {url} - {str(e)}")
-        return False
-    except httpx.RequestError as e:
-        logger.info(f"❌ リクエストエラー: {url} - {e}")
         return False
     except Exception as e:
         logger.warning(f"⚠️ URL検証エラー: {url} - {e}")
@@ -2704,7 +2715,7 @@ async def test_judgment_system(request: dict):
         logger.info(f"🧪 判定システムテスト開始: {test_url}")
 
         # 改善された判定システムでテスト
-        result = analyze_url(test_url)
+        result = analyze_url_efficiently(test_url)
 
         if result:
             return {
@@ -3826,7 +3837,7 @@ async def get_pdf_preview(file_id: str):
         )
 
 # URL分析関数群
-def analyze_urls_parallel(url_list: list, batch_id: str = None, file_index: int = None) -> list:
+def analyze_urls_parallel(url_list: list, batch_id: str | None = None, file_index: int | None = None) -> list:
     """
     複数URLを並列処理で高速分析（最大5倍高速化）
     """
@@ -3956,7 +3967,7 @@ def analyze_urls_parallel(url_list: list, batch_id: str = None, file_index: int 
 # URL判定結果のキャッシュ（同じURLの重複判定を避ける）
 url_judgment_cache = {}
 
-def calculate_confidence_level(analysis_type: str, judgment: str, score: float = None, additional_factors: dict = None) -> tuple[str, str]:
+def calculate_confidence_level(analysis_type: str, judgment: str, score: float | None = None, additional_factors: dict | None = None) -> tuple[str, str]:
     """
     統一された信用度判定システム
 
@@ -4297,17 +4308,17 @@ def check_url_accessibility(url: str) -> dict:
                     "error": None
                 }
 
-    except httpx.RequestError as e:
-        return {
-            "accessible": False,
-            "status_code": 408,
-            "error": "タイムアウト（サイトが応答しません）"
-        }
     except httpx.ConnectError:
         return {
             "accessible": False,
             "status_code": 0,
             "error": "接続エラー（サイトが存在しないか、ネットワークエラー）"
+        }
+    except httpx.RequestError as e:
+        return {
+            "accessible": False,
+            "status_code": 408,
+            "error": "タイムアウト（サイトが応答しません）"
         }
     except Exception as e:
         return {
@@ -4371,20 +4382,29 @@ def judge_content_with_gemini(content: str, domain_category: str = "不明") -> 
         }
 
     try:
-        # 高速化：プロンプトを簡潔化（レスポンス時間短縮）
-        prompt = f"""
-【URL】{content[:800]}
-
-判定基準:
-○=公式サイト・正当コンテンツ
-×=海賊版・著作権侵害・違法
-?=画像直リンク・CDN・判定困難
-
-回答: "判定:[○/×/?] 理由:[50字以内]"
-"""
+        # 超高速化：プロンプトを最小化（メモリ・時間節約）
+        content_short = content[:300]  # 300字に制限
+        prompt = f"{content_short}\n\n○/×/?+理由30字で判定:"
 
         logger.info("🤖 Gemini AI判定開始")
-        response = gemini_model.generate_content(prompt)
+
+        # タイムアウト付き実行（60秒）
+        import signal
+        import time
+
+        def timeout_handler(signum, frame):
+            raise TimeoutError("Gemini API timeout")
+
+        signal.signal(signal.SIGALRM, timeout_handler)
+        signal.alarm(60)  # 60秒タイムアウト
+
+        try:
+            start_time = time.time()
+            response = gemini_model.generate_content(prompt)
+            processing_time = time.time() - start_time
+            logger.info(f"✅ Gemini処理完了 ({processing_time:.1f}秒)")
+        finally:
+            signal.alarm(0)  # タイムアウトリセット
 
         if not response or not response.text:
             return {
@@ -4419,12 +4439,15 @@ def judge_content_with_gemini(content: str, domain_category: str = "不明") -> 
                 judgment = "×"
             reason = response_text
 
-        # 理由を300字以内に制限
-        if len(reason) > 300:
-            reason = reason[:297] + "..."
-            logger.info(f"📝 理由を300字に短縮しました")
+        # 理由を100字以内に制限（メモリ節約）
+        if len(reason) > 100:
+            reason = reason[:97] + "..."
 
-        logger.info(f"✅ Gemini判定完了: {judgment} - {reason[:50]}...")
+        # メモリクリーンアップ
+        import gc
+        gc.collect()
+
+        logger.info(f"✅ Gemini判定: {judgment}")
 
         return {
             "judgment": judgment,
@@ -4432,11 +4455,22 @@ def judge_content_with_gemini(content: str, domain_category: str = "不明") -> 
             "confidence": "高" if judgment in ["○", "×"] else "低"
         }
 
-    except Exception as e:
-        logger.error(f"❌ Gemini判定エラー: {str(e)}")
+    except TimeoutError:
+        logger.error("⏰ Gemini AI判定タイムアウト（60秒）")
+        import gc
+        gc.collect()
         return {
             "judgment": "？",
-            "reason": f"判定エラー: {str(e)}",
+            "reason": "AI判定がタイムアウトしました",
+            "confidence": "不明"
+        }
+    except Exception as e:
+        logger.error(f"❌ Gemini判定エラー: {str(e)}")
+        import gc
+        gc.collect()
+        return {
+            "judgment": "？",
+            "reason": f"判定エラー: {str(e)[:50]}",
             "confidence": "不明"
         }
 

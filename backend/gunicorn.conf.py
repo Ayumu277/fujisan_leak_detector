@@ -8,14 +8,14 @@ bind = f"0.0.0.0:{port}"
 # FastAPI (ASGI) 対応のワーカークラス
 worker_class = "uvicorn.workers.UvicornWorker"
 
-# 軽量化設定（メモリ不足対策）
+# Gemini AI対応設定（長時間処理対応）
 workers = 1  # 1ワーカーのみ（メモリ節約）
-# timeout = 30  # タイムアウト設定を削除（Render側に任せる）
+timeout = 1800  # 30分タイムアウト（Gemini AI処理対応）
 keepalive = 2
-max_requests = 100  # リクエスト数を制限してメモリリーク防止
-max_requests_jitter = 10
+max_requests = 50  # リクエスト数をさらに制限してメモリリーク防止
+max_requests_jitter = 5
 preload_app = False
 worker_tmp_dir = "/dev/shm"  # メモリ上の一時ディレクトリを使用
 
-# メモリ制限
-worker_memory_limit = 512 * 1024 * 1024  # 512MB制限
+# メモリ制限緩和（Gemini AI処理対応）
+worker_memory_limit = 1024 * 1024 * 1024  # 1GB制限に拡張
