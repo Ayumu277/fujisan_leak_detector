@@ -519,7 +519,7 @@ def validate_url_availability(url: str) -> bool:
     200番台のステータスコードの場合のみTrueを返す
     """
     try:
-        with httpx.Client(timeout=5.0, follow_redirects=True) as client:
+        with httpx.Client(follow_redirects=True) as client:
             response = client.head(url, headers={
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
             })
@@ -1399,7 +1399,7 @@ def get_x_tweet_content(tweet_url: str) -> dict | None:
             'Content-Type': 'application/json'
         }
 
-        with httpx.Client(timeout=10.0) as client:
+        with httpx.Client() as client:
             response = client.get(
                 f"https://api.twitter.com/2/tweets/{tweet_id}",
                 headers=headers,
@@ -1599,7 +1599,7 @@ def validate_url_availability_fast(url: str) -> bool:
             logger.info(f"🐦 Twitter画像URL検出 - 特別処理のため通過: {url}")
             return True
 
-        with httpx.Client(timeout=5.0, follow_redirects=True) as client:
+        with httpx.Client(follow_redirects=True) as client:
             # 1. HEADリクエストでステータス確認
             try:
                 head_response = client.head(url, headers={
@@ -1666,8 +1666,8 @@ def validate_url_availability_fast(url: str) -> bool:
             logger.info(f"✅ 有効なコンテンツを確認: {url}")
             return True
 
-    except httpx.TimeoutException:
-        logger.info(f"❌ タイムアウト: {url}")
+    except httpx.RequestError as e:
+        logger.info(f"❌ リクエストエラー: {url} - {str(e)}")
         return False
     except httpx.RequestError as e:
         logger.info(f"❌ リクエストエラー: {url} - {e}")
@@ -1805,7 +1805,7 @@ def get_x_tweet_url_and_content_by_image(image_url: str) -> dict | None:
 
                 # 画像をダウンロード
                 import httpx
-                with httpx.Client(timeout=10.0) as client:
+                with httpx.Client() as client:
                     response = client.get(image_url)
                     if response.status_code == 200:
                         image_content = response.content
@@ -1904,7 +1904,7 @@ def get_x_tweet_url_and_content_by_image(image_url: str) -> dict | None:
 
                 # 画像をダウンロード
                 import httpx
-                with httpx.Client(timeout=10.0) as client:
+                with httpx.Client() as client:
                     response = client.get(image_url)
                     if response.status_code == 200:
                         image_content = response.content
@@ -3885,7 +3885,7 @@ def analyze_urls_parallel(url_list: list, batch_id: str = None, file_index: int 
 
             for future in concurrent.futures.as_completed(future_to_index):
                 try:
-                    j, result = future.result(timeout=30)  # 30秒タイムアウト
+                    j, result = future.result()  # タイムアウトなし
                     if result:
                         results_dict[j] = result
 
@@ -3903,8 +3903,7 @@ def analyze_urls_parallel(url_list: list, batch_id: str = None, file_index: int 
 
                     logger.debug(f"  ✅ 完了 {completed}/{len(url_list)}")
 
-                except concurrent.futures.TimeoutError:
-                    logger.warning(f"⚠️ URL分析タイムアウト")
+                # TimeoutErrorは削除（タイムアウトなしのため）
                 except Exception as e:
                     logger.warning(f"⚠️ 並列処理エラー: {str(e)}")
 
@@ -4273,7 +4272,7 @@ def check_url_accessibility(url: str) -> dict:
     """
     try:
         import httpx
-        with httpx.Client(timeout=10.0, follow_redirects=True) as client:
+        with httpx.Client(follow_redirects=True) as client:
             response = client.head(url, headers={
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
             })
@@ -4298,7 +4297,7 @@ def check_url_accessibility(url: str) -> dict:
                     "error": None
                 }
 
-    except httpx.TimeoutException:
+    except httpx.RequestError as e:
         return {
             "accessible": False,
             "status_code": 408,
@@ -4461,7 +4460,7 @@ def scrape_page_content(url: str) -> str | None:
 
     logger.info(f"🌐 スクレイピング開始: {url}")
     try:
-        with httpx.Client(timeout=10.0, follow_redirects=True) as client:
+        with httpx.Client(follow_redirects=True) as client:
             # Content-Typeを事前確認
             try:
                 head_response = client.head(url, headers={'User-Agent': 'Mozilla/5.0'})
@@ -4497,7 +4496,7 @@ def extract_instagram_content(url: str) -> str:
     try:
         logger.info(f"📸 Instagram専用解析: {url}")
 
-        with httpx.Client(timeout=10.0, follow_redirects=True) as client:
+        with httpx.Client(follow_redirects=True) as client:
             response = client.get(url, headers={
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
             })
@@ -4531,7 +4530,7 @@ def extract_threads_content(url: str) -> str:
     try:
         logger.info(f"🧵 Threads専用解析: {url}")
 
-        with httpx.Client(timeout=10.0, follow_redirects=True) as client:
+        with httpx.Client(follow_redirects=True) as client:
             response = client.get(url, headers={
                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
             })

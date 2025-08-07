@@ -10,7 +10,7 @@ worker_class = "uvicorn.workers.UvicornWorker"
 
 # 軽量化設定（メモリ不足対策）
 workers = 1  # 1ワーカーのみ（メモリ節約）
-timeout = 30  # 30秒制限（Renderの制限に合わせる）
+# timeout = 30  # タイムアウト設定を削除（Render側に任せる）
 keepalive = 2
 max_requests = 100  # リクエスト数を制限してメモリリーク防止
 max_requests_jitter = 10
