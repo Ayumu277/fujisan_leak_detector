@@ -915,11 +915,23 @@ def google_lens_exact_search(input_image_bytes: bytes) -> List[Dict]:
             logger.error(f"❌ 一時ファイル作成失敗: {temp_file_path}")
             return []
 
-        # 4. API パラメータ設定（環境に応じて分岐）
+                # 4. API パラメータ設定（環境に応じて分岐）
+        # Render環境の自動検出
         render_url = os.getenv("RENDER_EXTERNAL_URL")
-        if render_url:
+        is_render = os.getenv("RENDER") == "true" or os.getenv("RENDER_SERVICE_ID") is not None
+
+        if render_url or is_render:
             # 本番環境（Render）: urlパラメータを使用
-            base_url = render_url.rstrip('/')
+            if render_url:
+                base_url = render_url.rstrip('/')
+            else:
+                # RENDER_EXTERNAL_URLが未設定の場合の警告
+                logger.warning("⚠️ RENDER_EXTERNAL_URL環境変数が未設定です")
+                logger.warning("   Renderダッシュボードで以下を設定してください:")
+                logger.warning("   RENDER_EXTERNAL_URL=https://fujisan-leak-detector.onrender.com")
+                logger.info("   📊 Google Vision APIの結果のみ使用します")
+                return []
+
             image_url = f"{base_url}/uploads/{temp_filename}"
             search_params = {
                 "engine": "google_lens",
@@ -955,9 +967,12 @@ def google_lens_exact_search(input_image_bytes: bytes) -> List[Dict]:
             logger.info("   📊 Google Vision APIの結果のみ使用します")
             return []
 
-        # 6. エラーチェック
+                # 6. エラーチェック・詳細デバッグ
+        logger.info(f"🔍 SerpAPI レスポンス全体デバッグ: {json.dumps(results, indent=2, ensure_ascii=False)}")
+
         if "error" in results:
             error_msg = results["error"]
+            logger.error(f"❌ SerpAPI エラー詳細: {error_msg}")
 
             # 特定のエラーの場合は詳細情報を提供
             if "hasn't returned any results" in error_msg:
@@ -965,23 +980,57 @@ def google_lens_exact_search(input_image_bytes: bytes) -> List[Dict]:
                 return []
             elif "quota" in error_msg.lower() or "limit" in error_msg.lower():
                 logger.warning("⚠️ SerpAPI クォータ制限に達しました")
+                logger.info(f"   📊 クォータ詳細: {error_msg}")
                 return []
             elif "invalid" in error_msg.lower() or "parameter" in error_msg.lower():
                 logger.error(f"❌ SerpAPI パラメータエラー: {error_msg}")
+                logger.error(f"   📋 送信パラメータ: {search_params}")
                 return []
             elif "couldn't get valid results" in error_msg.lower():
-                logger.warning("⚠️ SerpAPI 画像処理失敗（一時的な問題の可能性）")
+                logger.warning("⚠️ SerpAPI 画像処理失敗（詳細調査中）")
+                logger.warning(f"   📊 完全エラーメッセージ: {error_msg}")
+                logger.warning(f"   📋 使用パラメータ: {search_params}")
+
+                # 画像URLアクセシビリティテスト
+                if "url" in search_params:
+                    test_url = search_params["url"]
+                    logger.info(f"🧪 画像URLアクセシビリティテスト開始: {test_url}")
+                    try:
+                        import httpx
+                        with httpx.Client(timeout=10.0) as client:
+                            response = client.head(test_url)
+                            logger.info(f"   ✅ HTTPステータス: {response.status_code}")
+                            logger.info(f"   📋 Content-Type: {response.headers.get('content-type', '不明')}")
+                            logger.info(f"   📐 Content-Length: {response.headers.get('content-length', '不明')}")
+                    except Exception as url_test_error:
+                        logger.error(f"   ❌ 画像URLアクセス失敗: {url_test_error}")
+
                 return []
             else:
-                logger.error(f"❌ SerpAPI エラー: {error_msg}")
+                logger.error(f"❌ SerpAPI 不明エラー: {error_msg}")
+                logger.error(f"   📋 レスポンス全体: {results}")
                 return []
 
         # 7. exact_matchesを取得・処理
         exact_matches = results.get("exact_matches", [])
         logger.info(f"🎯 Google Lens Exact Matchesから {len(exact_matches)} 件取得")
 
+        # レスポンス構造の詳細分析
+        logger.info(f"📊 SerpAPI レスポンス構造分析:")
+        logger.info(f"   🔑 利用可能キー: {list(results.keys())}")
+        for key, value in results.items():
+            if key != "api_key":  # API_KEYは出力しない
+                logger.info(f"   📋 {key}: {type(value)} - {len(value) if isinstance(value, (list, dict, str)) else value}")
+
         if not exact_matches:
             logger.info("💡 Google Lensで完全一致する画像が見つかりませんでした")
+
+            # exact_matches以外にデータがあるかチェック
+            alternative_keys = ["visual_matches", "images_results", "related_content", "products_results"]
+            for alt_key in alternative_keys:
+                if alt_key in results and results[alt_key]:
+                    logger.info(f"   💡 代替データ発見: {alt_key} に {len(results[alt_key])} 件")
+
             return []
 
         processed_results = []
